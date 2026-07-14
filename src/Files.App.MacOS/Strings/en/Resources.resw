@@ -377,6 +377,9 @@
   </data>
   <data name="ContextOpenItem.Text" xml:space="preserve"><value>Open</value></data>
   <data name="ContextOpenWithItem.Text" xml:space="preserve"><value>Open with…</value></data>
+  <data name="ContextOpenInNewTabItem.Text" xml:space="preserve"><value>Open in new tab</value></data>
+  <data name="ContextDuplicateItem.Text" xml:space="preserve"><value>Duplicate</value></data>
+  <data name="DuplicateNameFormat" xml:space="preserve"><value>{0} - Copy</value></data>
   <data name="OpenWithDialogTitle" xml:space="preserve"><value>Open with</value></data>
   <data name="OpenWithDescriptionFormat" xml:space="preserve"><value>Choose an application to open “{0}”.</value></data>
   <data name="DefaultApplicationLabel" xml:space="preserve"><value>Default</value></data>

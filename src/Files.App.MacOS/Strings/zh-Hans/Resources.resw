@@ -377,6 +377,9 @@
   </data>
   <data name="ContextOpenItem.Text" xml:space="preserve"><value>打开</value></data>
   <data name="ContextOpenWithItem.Text" xml:space="preserve"><value>打开方式…</value></data>
+  <data name="ContextOpenInNewTabItem.Text" xml:space="preserve"><value>在新标签页中打开</value></data>
+  <data name="ContextDuplicateItem.Text" xml:space="preserve"><value>制作副本</value></data>
+  <data name="DuplicateNameFormat" xml:space="preserve"><value>{0} - 副本</value></data>
   <data name="OpenWithDialogTitle" xml:space="preserve"><value>打开方式</value></data>
   <data name="OpenWithDescriptionFormat" xml:space="preserve"><value>选择用于打开“{0}”的应用程序。</value></data>
   <data name="DefaultApplicationLabel" xml:space="preserve"><value>默认</value></data>

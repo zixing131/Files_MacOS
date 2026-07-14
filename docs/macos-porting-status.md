@@ -69,7 +69,8 @@ Started on 2026-07-14.
 | Sidebar navigation fidelity | Passed runtime round trips | The longest matching sidebar path follows the active pane (for example Downloads takes precedence over Home), section headers expose portable disclosure glyphs, Favorites/Recent/Libraries/Network/Drives collapse independently, and section state persists through schema v9 |
 | Open With integration | Passed native/runtime enumeration checks | Launch Services supplies the compatible application list with the default first; item context and native File menus open a localized chooser, an AppKit panel can select another `.app`, and both native entry points are architecture-matched |
 | Recent locations | Passed isolated persistence/runtime checks | Successful navigation records up to eight non-built-in folders, the collapsible sidebar group avoids duplicates with libraries and mounted volumes, a visible footer action clears history, and schema v9 normalizes invalid section state and duplicate paths |
-| Native macOS menus and shortcuts | Passed native/runtime checks | Localized application, File, Edit, View, Go and Window menus route through the existing command layer with live validation snapshots; native callback round trips passed, and 11 conventional Command/Command-Shift accelerators coexist with the portable Control bindings |
+| Native macOS menus and shortcuts | Passed native/runtime checks | Localized application, File, Edit, View, Go and Window menus route through the existing command layer with live validation snapshots; native callback round trips passed, and 13 conventional Command/Command-Shift accelerators coexist with the portable Control bindings |
+| Duplicate and open-in-new-tab workflows | Passed isolated/runtime round trips | Command-D and context/native menus create localized, uniquely numbered copies through the transactional transfer engine with Finder metadata and Undo/Redo preserved; Command-Return opens one selected folder in an independent active tab and tab disposal passed lifecycle checks |
 
 ### Current vertical slice
 
@@ -80,6 +81,7 @@ Started on 2026-07-14.
 - Asynchronous, cancellable local directory enumeration.
 - Directory-first, culture-aware sorting.
 - Independent tabs with their own navigation state.
+- Folder context menus and Command-Return open a selected directory in a new active tab without disturbing the original tab's navigation state.
 - Optional per-tab dual-pane browsing with independent paths, histories, searches, sort modes and grid/details layouts.
 - Active-pane routing for navigation, selection, file commands, drag/drop, keyboard shortcuts and the shared address/status controls.
 - Localized native macOS application, File, Edit, View, Go and Window menus with enabled-state validation and conventional Command shortcuts routed to the active pane.
@@ -102,6 +104,7 @@ Started on 2026-07-14.
 - Launch Services-backed Open With selection from item and native File menus, including the default/compatible applications and an AppKit picker for another application.
 - Strongly confirmed permanent deletion through Shift+Delete, Option-Command-Delete and item context menus, with parent/child normalization, link-safe behavior and partial-batch error reporting.
 - Multi-selection copy, cut and paste with an app-local clipboard.
+- Command-D and item context menus make transactional, metadata-preserving duplicates with localized names, conflict numbering and Undo/Redo.
 - Two-phase copy/move staging, recursive progress reporting, cancellation and cleanup of incomplete staging items.
 - Root-level `NSFileCoordinator` transactions for copy, move and replacement so iCloud/File Provider presenters can coordinate access before staging and commit.
 - Per-operation conflict handling: keep both with an automatic suffix, replace or skip.

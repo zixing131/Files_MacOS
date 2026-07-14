@@ -201,7 +201,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool nativeMenuRouting = menuFirstInvoke && menuSecondInvoke && menuChangedSidebar && isSidebarOpen == menuInitialSidebarState;
 		int commandAccelerators = KeyboardAccelerators.Count(accelerator =>
 			accelerator.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Windows));
-		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip) = await RunFileMutationDiagnosticsAsync();
+		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip, bool duplicateRoundtrip, bool newTabRoundtrip) = await RunFileMutationDiagnosticsAsync();
 
 		using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
 		Console.WriteLine(
@@ -210,7 +210,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -224,7 +224,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"inverted_count={selectedItems.Count} elapsed_ms={selectionTimer.Elapsed.TotalMilliseconds:F1}");
 	}
 
-	private async Task<(bool PermanentDelete, bool MetadataEdit, bool OpenWith, bool RecentLocations)> RunFileMutationDiagnosticsAsync()
+	private async Task<(bool PermanentDelete, bool MetadataEdit, bool OpenWith, bool RecentLocations, bool Duplicate, bool NewTab)> RunFileMutationDiagnosticsAsync()
 	{
 		string root = Path.Combine(Path.GetTempPath(), $"files-macos-diagnostics-{Guid.NewGuid():N}");
 		try
@@ -287,11 +287,49 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				RecentPaths: [var restoredRecentPath],
 				CollapsedSidebarSections: ["Recent"],
 			} && restoredRecentPath == root;
-			return (permanentDelete, metadataEdit, openWith, recentLocations);
+
+			string requestedDuplicatePath = Path.Combine(root, "metadata - Copy.txt");
+			await File.WriteAllTextAsync(requestedDuplicatePath, "existing");
+			FileTransferResult duplicateResult = await FileTransferService.TransferAsync(new(
+				[metadataPath],
+				root,
+				FileTransferMode.Copy,
+				FileConflictResolution.KeepBoth,
+				new Dictionary<string, string>(StringComparer.Ordinal) { [metadataPath] = Path.GetFileName(requestedDuplicatePath) }));
+			string expectedDuplicatePath = Path.Combine(root, "metadata - Copy (2).txt");
+			bool duplicate = duplicateResult.CompletedRoots is [FileTransferRootResult duplicateRoot] &&
+				duplicateRoot.DestinationPath == expectedDuplicatePath && File.ReadAllText(expectedDuplicatePath) == "diagnostic" &&
+				MacOSFinderTagService.GetTags(expectedDuplicatePath).Contains("Files Diagnostic", StringComparer.Ordinal);
+			var duplicateHistory = new FileTransferHistoryEntry(FileTransferMode.Copy, duplicateResult.CompletedRoots);
+			var diagnosticHistoryService = new FileTransferHistoryService(
+				FileTransferService,
+				FileRenameService,
+				Path.Combine(root, "undo-artifacts.json"));
+			await diagnosticHistoryService.ReplayAsync(duplicateHistory, isUndo: true);
+			duplicate &= !File.Exists(expectedDuplicatePath);
+			await diagnosticHistoryService.ReplayAsync(duplicateHistory, isUndo: false);
+			duplicate &= File.Exists(expectedDuplicatePath) && File.ReadAllText(expectedDuplicatePath) == "diagnostic";
+
+			var tabViewModel = new MainPageViewModel();
+			await tabViewModel.InitializeAsync();
+			int initialTabCount = tabViewModel.Tabs.Count;
+			await tabViewModel.NewTabAsync(root);
+			bool newTab = tabViewModel.Tabs.Count == initialTabCount + 1 &&
+				tabViewModel.ActiveTab?.Browser.CurrentPath == root;
+			if (tabViewModel.ActiveTab is BrowserTabViewModel diagnosticTab)
+			{
+				tabViewModel.CloseTab(diagnosticTab);
+			}
+			newTab &= tabViewModel.Tabs.Count == initialTabCount;
+			foreach (BrowserTabViewModel tab in tabViewModel.Tabs.ToArray())
+			{
+				tab.Dispose();
+			}
+			return (permanentDelete, metadataEdit, openWith, recentLocations, duplicate, newTab);
 		}
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 		{
-			return (false, false, false, false);
+			return (false, false, false, false, false, false);
 		}
 		finally
 		{
@@ -431,6 +469,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			MacOSMenuCommand.Properties or MacOSMenuCommand.MoveToTrash or MacOSMenuCommand.DeletePermanently or MacOSMenuCommand.Rename or
 				MacOSMenuCommand.Cut or MacOSMenuCommand.Copy or MacOSMenuCommand.CopyPath => isIdle && selectedItems.Count > 0,
 			MacOSMenuCommand.OpenWith => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: false }],
+			MacOSMenuCommand.OpenInNewTab => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: true }],
+			MacOSMenuCommand.Duplicate => isIdle && CanDuplicateSelection(),
 			MacOSMenuCommand.Paste => PasteButton.IsEnabled,
 			MacOSMenuCommand.Undo => isIdle && undoHistory.Count > 0,
 			MacOSMenuCommand.Redo => isIdle && redoHistory.Count > 0,
@@ -469,6 +509,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				break;
 			case MacOSMenuCommand.OpenWith:
 				await ShowOpenWithDialogAsync();
+				break;
+			case MacOSMenuCommand.OpenInNewTab:
+				await OpenInNewTabAsync();
+				break;
+			case MacOSMenuCommand.Duplicate:
+				await DuplicateSelectedItemsAsync();
 				break;
 			case MacOSMenuCommand.Rename:
 				RenameButton_Click(RenameButton, args);
@@ -968,6 +1014,76 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
+	private async Task OpenInNewTabAsync()
+	{
+		if (selectedItems is [LocalFileSystemItem { IsDirectory: true } item] && fileTransferCancellation is null)
+		{
+			await ViewModel.NewTabAsync(item.Path);
+		}
+	}
+
+	private async void OpenInNewTabAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && selectedItems is [LocalFileSystemItem { IsDirectory: true }] && fileTransferCancellation is null)
+		{
+			args.Handled = true;
+			await OpenInNewTabAsync();
+		}
+	}
+
+	private async void DuplicateAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && CanDuplicateSelection() && fileTransferCancellation is null)
+		{
+			args.Handled = true;
+			await DuplicateSelectedItemsAsync();
+		}
+	}
+
+	private bool CanDuplicateSelection()
+	{
+		if (Browser is not DirectoryBrowserViewModel browser || selectedItems.Count is 0)
+		{
+			return false;
+		}
+
+		return selectedItems.All(item => string.Equals(
+			Path.GetDirectoryName(item.Path),
+			browser.CurrentPath,
+			StringComparison.Ordinal));
+	}
+
+	private async Task DuplicateSelectedItemsAsync()
+	{
+		if (Browser is not DirectoryBrowserViewModel browser || !CanDuplicateSelection() || fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		LocalFileSystemItem[] items = selectedItems.ToArray();
+		var destinationNames = items.ToDictionary(
+			static item => item.Path,
+			item => GetDuplicateName(item),
+			StringComparer.Ordinal);
+		await TransferItemsAsync(
+			new FileClipboardContent(items.Select(static item => item.Path).ToArray(), FileTransferMode.Copy, 0),
+			clearClipboardAfterMove: false,
+			forcedConflictResolution: FileConflictResolution.KeepBoth,
+			destinationNames: destinationNames);
+
+		string GetDuplicateName(LocalFileSystemItem item)
+		{
+			if (item.IsDirectory)
+			{
+				return string.Format(GetResource("DuplicateNameFormat"), item.Name);
+			}
+
+			string name = Path.GetFileNameWithoutExtension(item.Name);
+			string extension = Path.GetExtension(item.Name);
+			return string.Format(GetResource("DuplicateNameFormat"), name) + extension;
+		}
+	}
+
 	private void Items_SelectionChanged(object sender, SelectionChangedEventArgs e)
 	{
 		if (isUpdatingSelection)
@@ -1217,7 +1333,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		await TransferItemsAsync(clipboard, clearClipboardAfterMove: true);
 	}
 
-	private async Task TransferItemsAsync(FileClipboardContent clipboard, bool clearClipboardAfterMove)
+	private async Task TransferItemsAsync(
+		FileClipboardContent clipboard,
+		bool clearClipboardAfterMove,
+		FileConflictResolution? forcedConflictResolution = null,
+		IReadOnlyDictionary<string, string>? destinationNames = null)
 	{
 		if (Browser is null || fileTransferCancellation is not null || clipboard.Paths.Count is 0)
 		{
@@ -1225,8 +1345,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		DirectoryBrowserViewModel targetBrowser = Browser;
-		FileConflictResolution conflictResolution = FileConflictResolution.KeepBoth;
-		if (HasDestinationConflicts(clipboard.Paths, targetBrowser.CurrentPath, clipboard.Mode))
+		FileConflictResolution conflictResolution = forcedConflictResolution ?? FileConflictResolution.KeepBoth;
+		if (forcedConflictResolution is null && HasDestinationConflicts(clipboard.Paths, targetBrowser.CurrentPath, clipboard.Mode))
 		{
 			FileConflictResolution? selectedResolution = await ShowConflictResolutionAsync();
 			if (selectedResolution is null)
@@ -1266,6 +1386,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 					targetBrowser.CurrentPath,
 					clipboard.Mode,
 					conflictResolution,
+					DestinationNames: destinationNames,
 					PreserveReplacedItems: preserveReplacedItems),
 				progress,
 				cancellation.Token);
@@ -1707,6 +1828,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				case "OpenWith":
 					await ShowOpenWithDialogAsync();
 					break;
+				case "OpenInNewTab":
+					await OpenInNewTabAsync();
+					break;
 				case "Preview" when selectedItems is [LocalFileSystemItem item]:
 					await WorkspaceService.PreviewAsync(item.Path);
 					break;
@@ -1721,6 +1845,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 					break;
 				case "Copy":
 					await SetFileClipboardAsync(FileTransferMode.Copy);
+					break;
+				case "Duplicate":
+					await DuplicateSelectedItemsAsync();
 					break;
 				case "CopyPath":
 					CopySelectedPaths();
@@ -1771,7 +1898,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				"Open" or "Preview" or "Reveal" => isIdle && selectedItems.Count is 1,
 				"OpenWith" => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: false }],
+				"OpenInNewTab" => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: true }],
 				"Terminal" => isIdle && selectedItems.Count > 0,
+				"Duplicate" => isIdle && CanDuplicateSelection(),
 				"Cut" or "Copy" or "CopyPath" or "Rename" or "Share" or "Delete" or
 					"PermanentDelete" or "Properties" or "Compress" => isIdle && selectedItems.Count > 0,
 				"Extract" => isIdle && selectedItems is [LocalFileSystemItem archive] && IsZipArchive(archive),

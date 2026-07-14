@@ -22,6 +22,7 @@
 		<KeyboardAccelerator Key="Z" Modifiers="Control,Shift" Invoked="RedoAccelerator_Invoked" />
 		<KeyboardAccelerator Key="D" Modifiers="Control,Shift" Invoked="SplitViewAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Delete" Modifiers="Shift" Invoked="PermanentDeleteAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Enter" Modifiers="Control" Invoked="OpenInNewTabAccelerator_Invoked" />
 		<!--  Uno maps the macOS Command key to the WinUI Windows modifier.  -->
 		<KeyboardAccelerator Key="C" Modifiers="Windows" Invoked="CopyAccelerator_Invoked" />
 		<KeyboardAccelerator Key="X" Modifiers="Windows" Invoked="CutAccelerator_Invoked" />
@@ -34,6 +35,8 @@
 		<KeyboardAccelerator Key="Z" Modifiers="Windows" Invoked="UndoAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Z" Modifiers="Windows,Shift" Invoked="RedoAccelerator_Invoked" />
 		<KeyboardAccelerator Key="D" Modifiers="Windows,Shift" Invoked="SplitViewAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Enter" Modifiers="Windows" Invoked="OpenInNewTabAccelerator_Invoked" />
+		<KeyboardAccelerator Key="D" Modifiers="Windows" Invoked="DuplicateAccelerator_Invoked" />
 	</Page.KeyboardAccelerators>
 
 	<Grid RowDefinitions="44,48,*">
@@ -395,12 +398,14 @@
 											<MenuFlyout Opening="ItemContextFlyout_Opening">
 												<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
 												<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
+												<MenuFlyoutItem x:Uid="ContextOpenInNewTabItem" Click="ContextAction_Click" Tag="OpenInNewTab" />
 												<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 												<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 												<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />
 												<MenuFlyoutSeparator />
 												<MenuFlyoutItem x:Uid="ContextCutItem" Click="ContextAction_Click" Tag="Cut" />
 											<MenuFlyoutItem x:Uid="ContextCopyItem" Click="ContextAction_Click" Tag="Copy" />
+											<MenuFlyoutItem x:Uid="ContextDuplicateItem" Click="ContextAction_Click" Tag="Duplicate" />
 											<MenuFlyoutItem x:Uid="ContextCopyPathItem" Click="ContextAction_Click" Tag="CopyPath" />
 												<MenuFlyoutItem x:Uid="ContextRenameItem" Click="ContextAction_Click" Tag="Rename" />
 												<MenuFlyoutItem x:Uid="ContextShareItem" Click="ContextAction_Click" Tag="Share" />
@@ -478,12 +483,14 @@
 											<MenuFlyout Opening="ItemContextFlyout_Opening">
 													<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
 													<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
+													<MenuFlyoutItem x:Uid="ContextOpenInNewTabItem" Click="ContextAction_Click" Tag="OpenInNewTab" />
 													<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 													<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 													<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />
 													<MenuFlyoutSeparator />
 													<MenuFlyoutItem x:Uid="ContextCutItem" Click="ContextAction_Click" Tag="Cut" />
 												<MenuFlyoutItem x:Uid="ContextCopyItem" Click="ContextAction_Click" Tag="Copy" />
+												<MenuFlyoutItem x:Uid="ContextDuplicateItem" Click="ContextAction_Click" Tag="Duplicate" />
 												<MenuFlyoutItem x:Uid="ContextCopyPathItem" Click="ContextAction_Click" Tag="CopyPath" />
 													<MenuFlyoutItem x:Uid="ContextRenameItem" Click="ContextAction_Click" Tag="Rename" />
 													<MenuFlyoutItem x:Uid="ContextShareItem" Click="ContextAction_Click" Tag="Share" />
@@ -601,12 +608,14 @@
 												<MenuFlyout Opening="ItemContextFlyout_Opening">
 													<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
 													<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
+													<MenuFlyoutItem x:Uid="ContextOpenInNewTabItem" Click="ContextAction_Click" Tag="OpenInNewTab" />
 													<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 													<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 													<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />
 													<MenuFlyoutSeparator />
 													<MenuFlyoutItem x:Uid="ContextCutItem" Click="ContextAction_Click" Tag="Cut" />
 													<MenuFlyoutItem x:Uid="ContextCopyItem" Click="ContextAction_Click" Tag="Copy" />
+													<MenuFlyoutItem x:Uid="ContextDuplicateItem" Click="ContextAction_Click" Tag="Duplicate" />
 													<MenuFlyoutItem x:Uid="ContextCopyPathItem" Click="ContextAction_Click" Tag="CopyPath" />
 													<MenuFlyoutItem x:Uid="ContextRenameItem" Click="ContextAction_Click" Tag="Rename" />
 													<MenuFlyoutItem x:Uid="ContextShareItem" Click="ContextAction_Click" Tag="Share" />
@@ -676,12 +685,14 @@
 												<MenuFlyout Opening="ItemContextFlyout_Opening">
 													<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
 														<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
+														<MenuFlyoutItem x:Uid="ContextOpenInNewTabItem" Click="ContextAction_Click" Tag="OpenInNewTab" />
 														<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 														<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 														<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />
 														<MenuFlyoutSeparator />
 														<MenuFlyoutItem x:Uid="ContextCutItem" Click="ContextAction_Click" Tag="Cut" />
 														<MenuFlyoutItem x:Uid="ContextCopyItem" Click="ContextAction_Click" Tag="Copy" />
+														<MenuFlyoutItem x:Uid="ContextDuplicateItem" Click="ContextAction_Click" Tag="Duplicate" />
 														<MenuFlyoutItem x:Uid="ContextCopyPathItem" Click="ContextAction_Click" Tag="CopyPath" />
 														<MenuFlyoutItem x:Uid="ContextRenameItem" Click="ContextAction_Click" Tag="Rename" />
 														<MenuFlyoutItem x:Uid="ContextShareItem" Click="ContextAction_Click" Tag="Share" />

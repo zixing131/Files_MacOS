@@ -35,6 +35,8 @@ internal enum MacOSMenuCommand
 	OpenTerminal,
 	DeletePermanently,
 	OpenWith,
+	OpenInNewTab,
+	Duplicate,
 }
 
 internal interface IMacOSMenuCommandTarget

@@ -231,6 +231,7 @@ __attribute__((visibility("default"))) void files_macos_install_main_menu(
 
 			NSMenu *fileMenu = files_add_main_submenu(mainMenu, zh ? @"文件" : @"File");
 			files_add_menu_command(fileMenu, zh ? @"新建标签页" : @"New Tab", @"t", NSEventModifierFlagCommand, 2);
+			files_add_menu_command(fileMenu, zh ? @"在新标签页中打开" : @"Open in New Tab", @"\r", NSEventModifierFlagCommand, 30);
 			files_add_menu_command(fileMenu, zh ? @"新建文件夹" : @"New Folder", @"n", NSEventModifierFlagCommand | NSEventModifierFlagShift, 3);
 			files_add_menu_command(fileMenu, zh ? @"打开文件夹…" : @"Open Folder…", @"o", NSEventModifierFlagCommand, 25);
 			files_add_menu_command(fileMenu, zh ? @"关闭标签页" : @"Close Tab", @"w", NSEventModifierFlagCommand, 4);
@@ -238,6 +239,7 @@ __attribute__((visibility("default"))) void files_macos_install_main_menu(
 			files_add_menu_command(fileMenu, zh ? @"显示简介" : @"Get Info", @"i", NSEventModifierFlagCommand, 5);
 			files_add_menu_command(fileMenu, zh ? @"打开方式…" : @"Open With…", @"", 0, 29);
 			files_add_menu_command(fileMenu, zh ? @"重命名" : @"Rename", @"", 0, 7);
+			files_add_menu_command(fileMenu, zh ? @"制作副本" : @"Duplicate", @"d", NSEventModifierFlagCommand, 31);
 			files_add_menu_command(fileMenu, zh ? @"移到废纸篓" : @"Move to Trash", @"\x7F", NSEventModifierFlagCommand, 6);
 			files_add_menu_command(fileMenu, zh ? @"立即删除…" : @"Delete Immediately…", @"\x7F", NSEventModifierFlagCommand | NSEventModifierFlagOption, 28);
 
