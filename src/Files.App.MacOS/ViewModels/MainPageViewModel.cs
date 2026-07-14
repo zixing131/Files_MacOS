@@ -97,6 +97,36 @@ public sealed class MainPageViewModel : ObservableObject
 		OnWorkspaceChanged();
 	}
 
+	public async Task DuplicateTabAsync(BrowserTabViewModel tab)
+	{
+		int index = Tabs.IndexOf(tab);
+		if (index < 0)
+		{
+			return;
+		}
+
+		BrowserTabViewModel duplicate = await RestoreTabAsync(CaptureTabState(tab), index + 1);
+		ActiveTab = duplicate;
+		OnWorkspaceChanged();
+	}
+
+	public void MoveTab(BrowserTabViewModel tab, int targetIndex)
+	{
+		int currentIndex = Tabs.IndexOf(tab);
+		if (currentIndex < 0 || Tabs.Count is 0)
+		{
+			return;
+		}
+
+		targetIndex = Math.Clamp(targetIndex, 0, Tabs.Count - 1);
+		if (currentIndex != targetIndex)
+		{
+			Tabs.Move(currentIndex, targetIndex);
+		}
+
+		OnWorkspaceChanged();
+	}
+
 	public async Task ToggleSplitViewAsync()
 	{
 		if (ActiveTab is not BrowserTabViewModel tab)
@@ -186,6 +216,38 @@ public sealed class MainPageViewModel : ObservableObject
 		IEnumerable<BrowserTabViewModel> reopenOrder = tabsToClose
 			.Where(candidate => Tabs.IndexOf(candidate) > retainedIndex)
 			.Concat(tabsToClose.Where(candidate => Tabs.IndexOf(candidate) < retainedIndex).Reverse());
+		CloseTabs(tab, tabsToClose, reopenOrder);
+	}
+
+	public void CloseTabsToLeft(BrowserTabViewModel tab)
+	{
+		int retainedIndex = Tabs.IndexOf(tab);
+		if (retainedIndex <= 0)
+		{
+			return;
+		}
+
+		BrowserTabViewModel[] tabsToClose = Tabs.Take(retainedIndex).ToArray();
+		CloseTabs(tab, tabsToClose, tabsToClose.Reverse());
+	}
+
+	public void CloseTabsToRight(BrowserTabViewModel tab)
+	{
+		int retainedIndex = Tabs.IndexOf(tab);
+		if (retainedIndex < 0 || retainedIndex >= Tabs.Count - 1)
+		{
+			return;
+		}
+
+		BrowserTabViewModel[] tabsToClose = Tabs.Skip(retainedIndex + 1).ToArray();
+		CloseTabs(tab, tabsToClose, tabsToClose);
+	}
+
+	private void CloseTabs(
+		BrowserTabViewModel retainedTab,
+		IReadOnlyCollection<BrowserTabViewModel> tabsToClose,
+		IEnumerable<BrowserTabViewModel> reopenOrder)
+	{
 		foreach (BrowserTabViewModel closedTab in reopenOrder.Reverse())
 		{
 			RememberClosedTab(CaptureTabState(closedTab));
@@ -198,7 +260,7 @@ public sealed class MainPageViewModel : ObservableObject
 			closedTab.Dispose();
 		}
 
-		ActiveTab = tab;
+		ActiveTab = retainedTab;
 		OnWorkspaceChanged();
 	}
 
@@ -216,8 +278,7 @@ public sealed class MainPageViewModel : ObservableObject
 		OnPropertyChanged(nameof(CanReopenClosedTab));
 		try
 		{
-			await RestoreTabAsync(state);
-			ActiveTab = Tabs[^1];
+			ActiveTab = await RestoreTabAsync(state);
 			OnWorkspaceChanged();
 		}
 		catch
@@ -262,28 +323,46 @@ public sealed class MainPageViewModel : ObservableObject
 		OnPropertyChanged(nameof(CanReopenClosedTab));
 	}
 
-	private async Task RestoreTabAsync(BrowserTabState state)
+	private async Task<BrowserTabViewModel> RestoreTabAsync(BrowserTabState state, int? insertIndex = null)
 	{
 		DirectoryBrowserViewModel primary = CreateBrowser();
 		ApplyPaneState(primary, state.Primary);
 		var tab = new BrowserTabViewModel(primary, GetResource("HomeTabHeader"));
 		tab.StateChanged += Tab_StateChanged;
-		Tabs.Add(tab);
-		await primary.NavigateAsync(GetRestorablePath(state.Primary.Path));
-
-		if (state.Secondary is BrowserPaneState secondaryState)
+		if (insertIndex is int index)
 		{
-			DirectoryBrowserViewModel secondary = CreateBrowser();
-			ApplyPaneState(secondary, secondaryState);
-			tab.EnableSplitView(secondary);
-			await secondary.NavigateAsync(GetRestorablePath(secondaryState.Path, primary.CurrentPath));
-			if (!state.IsSecondaryActive)
-			{
-				tab.ActivateBrowser(primary);
-			}
+			Tabs.Insert(Math.Clamp(index, 0, Tabs.Count), tab);
 		}
+		else
+		{
+			Tabs.Add(tab);
+		}
+		try
+		{
+			await primary.NavigateAsync(GetRestorablePath(state.Primary.Path));
 
-		tab.SplitRatio = state.SplitRatio;
+			if (state.Secondary is BrowserPaneState secondaryState)
+			{
+				DirectoryBrowserViewModel secondary = CreateBrowser();
+				ApplyPaneState(secondary, secondaryState);
+				tab.EnableSplitView(secondary);
+				await secondary.NavigateAsync(GetRestorablePath(secondaryState.Path, primary.CurrentPath));
+				if (!state.IsSecondaryActive)
+				{
+					tab.ActivateBrowser(primary);
+				}
+			}
+
+			tab.SplitRatio = state.SplitRatio;
+			return tab;
+		}
+		catch
+		{
+			Tabs.Remove(tab);
+			tab.StateChanged -= Tab_StateChanged;
+			tab.Dispose();
+			throw;
+		}
 	}
 
 	private static BrowserPaneState CapturePane(DirectoryBrowserViewModel browser)

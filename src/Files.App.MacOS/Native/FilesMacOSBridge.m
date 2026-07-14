@@ -426,10 +426,13 @@ __attribute__((visibility("default"))) void files_macos_install_main_menu(
 			NSMenu *fileMenu = files_add_main_submenu(mainMenu, zh ? @"文件" : @"File");
 			files_add_menu_command(fileMenu, zh ? @"新建窗口" : @"New Window", @"n", NSEventModifierFlagCommand, 33);
 			files_add_menu_command(fileMenu, zh ? @"新建标签页" : @"New Tab", @"t", NSEventModifierFlagCommand, 2);
+			files_add_menu_command(fileMenu, zh ? @"复制标签页" : @"Duplicate Tab", @"k", NSEventModifierFlagCommand | NSEventModifierFlagShift, 37);
 			files_add_menu_command(fileMenu, zh ? @"在新标签页中打开" : @"Open in New Tab", @"\r", NSEventModifierFlagCommand, 30);
 			files_add_menu_command(fileMenu, zh ? @"新建文件夹" : @"New Folder", @"n", NSEventModifierFlagCommand | NSEventModifierFlagShift, 3);
 			files_add_menu_command(fileMenu, zh ? @"打开文件夹…" : @"Open Folder…", @"o", NSEventModifierFlagCommand, 25);
 			files_add_menu_command(fileMenu, zh ? @"关闭标签页" : @"Close Tab", @"w", NSEventModifierFlagCommand, 4);
+			files_add_menu_command(fileMenu, zh ? @"关闭左侧标签页" : @"Close Tabs to the Left", @"", 0, 38);
+			files_add_menu_command(fileMenu, zh ? @"关闭右侧标签页" : @"Close Tabs to the Right", @"", 0, 39);
 			files_add_menu_command(fileMenu, zh ? @"重新打开关闭的标签页" : @"Reopen Closed Tab", @"t", NSEventModifierFlagCommand | NSEventModifierFlagShift, 35);
 			files_add_menu_command(fileMenu, zh ? @"关闭其他标签页" : @"Close Other Tabs", @"", 0, 36);
 			[fileMenu addItem:[NSMenuItem separatorItem]];

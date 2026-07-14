@@ -493,4 +493,8 @@
   <data name="ReopenClosedTabMenuItem.Text" xml:space="preserve"><value>Reopen closed tab</value></data>
   <data name="CloseTabMenuItem.Text" xml:space="preserve"><value>Close tab</value></data>
   <data name="CloseOtherTabsMenuItem.Text" xml:space="preserve"><value>Close other tabs</value></data>
+  <data name="NewTabMenuItem.Text" xml:space="preserve"><value>New tab</value></data>
+  <data name="DuplicateTabMenuItem.Text" xml:space="preserve"><value>Duplicate tab</value></data>
+  <data name="CloseTabsToLeftMenuItem.Text" xml:space="preserve"><value>Close tabs to the left</value></data>
+  <data name="CloseTabsToRightMenuItem.Text" xml:space="preserve"><value>Close tabs to the right</value></data>
 </root>

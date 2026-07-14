@@ -27,6 +27,7 @@
 		<KeyboardAccelerator Key="Delete" Modifiers="Shift" Invoked="PermanentDeleteAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Enter" Modifiers="Control" Invoked="OpenInNewTabAccelerator_Invoked" />
 		<KeyboardAccelerator Key="T" Modifiers="Control,Shift" Invoked="ReopenClosedTabAccelerator_Invoked" />
+		<KeyboardAccelerator Key="K" Modifiers="Control,Shift" Invoked="DuplicateTabAccelerator_Invoked" />
 		<!--  Uno maps the macOS Command key to the WinUI Windows modifier.  -->
 		<KeyboardAccelerator Key="C" Modifiers="Windows" Invoked="CopyAccelerator_Invoked" />
 		<KeyboardAccelerator Key="X" Modifiers="Windows" Invoked="CutAccelerator_Invoked" />
@@ -45,6 +46,7 @@
 		<KeyboardAccelerator Key="N" Modifiers="Windows" Invoked="NewWindowAccelerator_Invoked" />
 		<KeyboardAccelerator Key="W" Modifiers="Windows,Shift" Invoked="CloseWindowAccelerator_Invoked" />
 		<KeyboardAccelerator Key="T" Modifiers="Windows,Shift" Invoked="ReopenClosedTabAccelerator_Invoked" />
+		<KeyboardAccelerator Key="K" Modifiers="Windows,Shift" Invoked="DuplicateTabAccelerator_Invoked" />
 	</Page.KeyboardAccelerators>
 
 	<Grid RowDefinitions="44,48,*">
@@ -55,20 +57,28 @@
 			Grid.Row="0"
 			Margin="76,4,4,0"
 			AddTabButtonClick="Tabs_AddTabButtonClick"
+			CanDragTabs="True"
+			CanReorderTabs="True"
 			IsAddTabButtonVisible="False"
 			SelectedItem="{Binding ActiveTab, Mode=TwoWay}"
 			SelectionChanged="Tabs_SelectionChanged"
 			TabCloseRequested="Tabs_TabCloseRequested"
+			TabDragCompleted="Tabs_TabDragCompleted"
 			TabItemsSource="{Binding Tabs}">
 			<TabView.TabItemTemplate>
 				<DataTemplate x:DataType="viewmodels:BrowserTabViewModel">
 					<TabViewItem IsClosable="False">
 						<TabViewItem.ContextFlyout>
 							<MenuFlyout Opening="TabContextFlyout_Opening">
-								<MenuFlyoutItem x:Uid="ReopenClosedTabMenuItem" Click="ReopenClosedTabMenuItem_Click" />
+								<MenuFlyoutItem x:Uid="NewTabMenuItem" Click="NewTabMenuItem_Click" KeyboardAcceleratorTextOverride="⌘T" />
+								<MenuFlyoutItem x:Uid="DuplicateTabMenuItem" Click="DuplicateTabMenuItem_Click" KeyboardAcceleratorTextOverride="⌘⇧K" Tag="{Binding}" />
 								<MenuFlyoutSeparator />
-								<MenuFlyoutItem x:Uid="CloseTabMenuItem" Click="CloseTabMenuItem_Click" Tag="{Binding}" />
+								<MenuFlyoutItem x:Uid="CloseTabMenuItem" Click="CloseTabMenuItem_Click" KeyboardAcceleratorTextOverride="⌘W" Tag="{Binding}" />
+								<MenuFlyoutItem x:Uid="CloseTabsToLeftMenuItem" Click="CloseTabsToLeftMenuItem_Click" Tag="{Binding}" />
+								<MenuFlyoutItem x:Uid="CloseTabsToRightMenuItem" Click="CloseTabsToRightMenuItem_Click" Tag="{Binding}" />
 								<MenuFlyoutItem x:Uid="CloseOtherTabsMenuItem" Click="CloseOtherTabsMenuItem_Click" Tag="{Binding}" />
+								<MenuFlyoutSeparator />
+								<MenuFlyoutItem x:Uid="ReopenClosedTabMenuItem" Click="ReopenClosedTabMenuItem_Click" KeyboardAcceleratorTextOverride="⌘⇧T" />
 							</MenuFlyout>
 						</TabViewItem.ContextFlyout>
 						<TabViewItem.Header>
