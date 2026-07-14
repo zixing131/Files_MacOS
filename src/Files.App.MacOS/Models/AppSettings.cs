@@ -30,7 +30,9 @@ public sealed record AppSettings(
 	double SidebarWidth = 228,
 	AppLanguagePreference Language = AppLanguagePreference.System,
 	string[]? CollapsedSidebarSections = null,
-	int SchemaVersion = 9);
+	WorkspaceState[]? AdditionalWindowWorkspaces = null,
+	int ActiveWindowIndex = 0,
+	int SchemaVersion = 10);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 

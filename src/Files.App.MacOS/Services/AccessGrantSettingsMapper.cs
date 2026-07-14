@@ -46,12 +46,24 @@ internal static class AccessGrantSettingsMapper
 				}).ToArray(),
 			}
 			: settings.Workspace;
+		WorkspaceState[]? additionalWindowWorkspaces = settings.AdditionalWindowWorkspaces?.Select(windowWorkspace =>
+			windowWorkspace.Tabs is { } windowTabs
+				? windowWorkspace with
+				{
+					Tabs = windowTabs.Select(tab => tab with
+					{
+						Primary = RemapPane(tab.Primary),
+						Secondary = tab.Secondary is null ? null : RemapPane(tab.Secondary),
+					}).ToArray(),
+				}
+				: windowWorkspace).ToArray();
 		return settings with
 		{
 			AccessGrants = activeGrants,
 			FavoritePaths = settings.FavoritePaths?.Select(RemapPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
 			SavedSearches = settings.SavedSearches?.Select(search => search with { RootPath = RemapPath(search.RootPath) }).ToArray(),
 			Workspace = workspace,
+			AdditionalWindowWorkspaces = additionalWindowWorkspaces,
 		};
 	}
 

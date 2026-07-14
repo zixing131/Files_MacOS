@@ -5,12 +5,14 @@ namespace Files.App.MacOS.Services;
 
 public sealed class JsonAppSettingsService : IAppSettingsService
 {
-	internal static string DefaultSettingsPath { get; } = Path.Combine(
-		Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-		"Library",
-		"Application Support",
-		"io.filescommunity.files.macos",
-		"settings.json");
+	internal static string DefaultSettingsPath => Environment.GetEnvironmentVariable("FILES_MACOS_SETTINGS_PATH") is { Length: > 0 } diagnosticPath
+		? diagnosticPath
+		: Path.Combine(
+			Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+			"Library",
+			"Application Support",
+			"io.filescommunity.files.macos",
+			"settings.json");
 
 	private static readonly JsonSerializerOptions JsonOptions = new()
 	{
@@ -101,6 +103,12 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			.Take(100)
 			.ToArray();
 		WorkspaceState? workspace = NormalizeWorkspace(settings.Workspace);
+		WorkspaceState[] additionalWindowWorkspaces = (settings.AdditionalWindowWorkspaces ?? [])
+			.Select(NormalizeWorkspace)
+			.OfType<WorkspaceState>()
+			.Take(7)
+			.ToArray();
+		int windowCount = additionalWindowWorkspaces.Length + 1;
 		return settings with
 		{
 			Theme = theme,
@@ -112,10 +120,12 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			CollapsedSidebarSections = collapsedSidebarSections,
 			SavedSearches = savedSearches,
 			Workspace = workspace,
+			AdditionalWindowWorkspaces = additionalWindowWorkspaces,
+			ActiveWindowIndex = Math.Clamp(settings.ActiveWindowIndex, 0, windowCount - 1),
 			AccessGrants = accessGrants,
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
-			SchemaVersion = 9,
+			SchemaVersion = 10,
 		};
 	}
 

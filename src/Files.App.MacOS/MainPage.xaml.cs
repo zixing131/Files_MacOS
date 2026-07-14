@@ -39,6 +39,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private readonly Stack<FileOperationHistoryEntry> undoHistory = new();
 	private readonly Stack<FileOperationHistoryEntry> redoHistory = new();
 	private AppSettings currentSettings = new();
+	private AppSettings persistedSettingsBaseline = new();
 	private bool isResizingSplit;
 	private bool isResizingSidebar;
 	private bool isConnectingServer;
@@ -50,6 +51,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private double sidebarWidth = 228;
 	private bool isPreviewPaneOpen;
 	private readonly bool restoresWorkspace;
+	private readonly WorkspaceState? initialWorkspace;
+	private readonly TaskCompletionSource initializationCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private string? lastRecordedRecentPath;
 
 	public MainPage()
@@ -57,9 +60,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 	}
 
-	internal MainPage(bool restoresWorkspace)
+	internal MainPage(bool restoresWorkspace, WorkspaceState? initialWorkspace = null)
 	{
 		this.restoresWorkspace = restoresWorkspace;
+		this.initialWorkspace = initialWorkspace;
 		FileTransferHistoryService = new(FileTransferService, FileRenameService);
 		FileTrashHistoryService = new(WorkspaceService, FileTransferHistoryService);
 		InitializeComponent();
@@ -104,10 +108,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		IReadOnlyList<RestoredFolderAccessGrant> restoredGrants = await AccessGrantService.RestoreAsync(
 			currentSettings.AccessGrants ?? []);
 		currentSettings = AccessGrantSettingsMapper.Apply(currentSettings, restoredGrants);
+		persistedSettingsBaseline = currentSettings;
 		isSidebarOpen = currentSettings.IsSidebarOpen;
 		sidebarWidth = currentSettings.SidebarWidth;
 		isPreviewPaneOpen = currentSettings.IsPreviewPaneOpen;
-		ViewModel.ApplySettings(restoresWorkspace ? currentSettings : currentSettings with { Workspace = null });
+		ViewModel.ApplySettings(currentSettings with
+		{
+			Workspace = restoresWorkspace ? currentSettings.Workspace : initialWorkspace,
+		});
 		ApplyTheme(currentSettings.Theme);
 		await ViewModel.InitializeAsync();
 		ViewModel.WorkspaceChanged += ViewModel_WorkspaceChanged;
@@ -117,8 +125,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		UpdateSidebarSelection();
 		UpdatePreviewPaneVisuals();
 		UpdateCommandStates();
-		((App)Application.Current).UpdateMainMenu(this);
+		App app = (App)Application.Current;
+		app.UpdateMainMenu(this);
 		if (restoresWorkspace)
+		{
+			await app.RestoreWindowSessionAsync(currentSettings);
+		}
+		initializationCompletion.TrySetResult();
+		if (restoresWorkspace || initialWorkspace is null)
 		{
 			ScheduleWorkspaceSave();
 		}
@@ -127,6 +141,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			_ = ReportPerformanceDiagnosticsAsync();
 		}
 	}
+
+	internal Task InitializationTask => initializationCompletion.Task;
+
+	internal bool IsInitialized => initializationCompletion.Task.IsCompleted;
+
+	internal WorkspaceState CaptureWorkspaceState() => ViewModel.CaptureWorkspaceState();
+
+	internal void ScheduleSessionSave() => ScheduleWorkspaceSave();
 
 	private async Task ReportPerformanceDiagnosticsAsync()
 	{
@@ -260,24 +282,31 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Libraries" }).IsExpanded == initialLibrariesExpanded;
 		UpdateSidebarSelection();
 		await Task.Delay(750);
-		bool sidebarLabels = ViewModel.Locations.Count > 0 && ViewModel.Locations.All(static location => !string.IsNullOrWhiteSpace(location.Name));
-		var sidebarLabelNames = ViewModel.Locations.Select(static location => location.Name).ToHashSet(StringComparer.CurrentCulture);
-		int renderedSidebarLabels = CountRenderedTextBlocks(SidebarList, sidebarLabelNames);
-		int renderedSidebarIcons = CountRenderedPathIcons(SidebarList);
+		App app = (App)Application.Current;
+		MainPage renderedSidebarPage = app.ActivePage ?? this;
+		bool sidebarLabels = renderedSidebarPage.ViewModel.Locations.Count > 0 &&
+			renderedSidebarPage.ViewModel.Locations.All(static location => !string.IsNullOrWhiteSpace(location.Name));
+		var sidebarLabelNames = renderedSidebarPage.ViewModel.Locations.Select(static location => location.Name).ToHashSet(StringComparer.CurrentCulture);
+		int renderedSidebarLabels = CountRenderedTextBlocks(renderedSidebarPage.SidebarList, sidebarLabelNames);
+		int renderedSidebarIcons = CountRenderedPathIcons(renderedSidebarPage.SidebarList);
 		bool sidebarIcons = renderedSidebarIcons == renderedSidebarLabels && renderedSidebarIcons > 0;
 		using System.Text.Json.JsonDocument menuDescription = System.Text.Json.JsonDocument.Parse(MainMenuService.Describe());
 		bool nativeMenuInstalled = menuDescription.RootElement.GetProperty("installed").GetBoolean() &&
 			menuDescription.RootElement.GetProperty("rootCount").GetInt32() >= 6 &&
 			menuDescription.RootElement.GetProperty("commandCount").GetInt32() >= 20;
-		bool menuInitialSidebarState = isSidebarOpen;
+		MainPage menuTargetPage = app.ActivePage ?? this;
+		bool menuInitialSidebarState = menuTargetPage.isSidebarOpen;
 		bool menuFirstInvoke = MainMenuService.InvokeForDiagnostics(MacOSMenuCommand.ToggleSidebar);
 		await Task.Delay(100);
-		bool menuChangedSidebar = isSidebarOpen != menuInitialSidebarState;
+		bool menuChangedSidebar = menuTargetPage.isSidebarOpen != menuInitialSidebarState;
 		bool menuSecondInvoke = MainMenuService.InvokeForDiagnostics(MacOSMenuCommand.ToggleSidebar);
 		await Task.Delay(100);
-		bool nativeMenuRouting = menuFirstInvoke && menuSecondInvoke && menuChangedSidebar && isSidebarOpen == menuInitialSidebarState;
-		App app = (App)Application.Current;
+		bool nativeMenuRouting = menuFirstInvoke && menuSecondInvoke && menuChangedSidebar && menuTargetPage.isSidebarOpen == menuInitialSidebarState;
 		int initialWindowCount = app.WindowCount;
+		WindowSessionState initialWindowSession = app.CaptureWindowSession(this);
+		int expectedRestoredWindowCount = 1 + (currentSettings.AdditionalWindowWorkspaces?.Length ?? 0);
+		bool windowSessionRestore = initialWindowCount == expectedRestoredWindowCount &&
+			initialWindowSession.ActiveWindowIndex == Math.Clamp(currentSettings.ActiveWindowIndex, 0, expectedRestoredWindowCount - 1);
 		bool newWindowInvoked = MainMenuService.InvokeForDiagnostics(MacOSMenuCommand.NewWindow);
 		await Task.Delay(500);
 		MainPage? secondaryPage = app.ActivePage;
@@ -287,15 +316,23 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool secondaryMenuInvoked = secondaryCreated && MainMenuService.InvokeForDiagnostics(MacOSMenuCommand.ToggleSidebar);
 		await Task.Delay(100);
 		bool activeWindowMenuRouting = secondaryMenuInvoked && secondaryPage is not null &&
-			secondaryPage.isSidebarOpen != secondarySidebarState && isSidebarOpen == menuInitialSidebarState;
+			secondaryPage.isSidebarOpen != secondarySidebarState && menuTargetPage.isSidebarOpen == menuInitialSidebarState;
 		if (secondaryPage is not null && !ReferenceEquals(secondaryPage, this))
 		{
 			app.CloseWindow(secondaryPage);
 			await Task.Delay(250);
 		}
-		bool multiWindowRoundtrip = secondaryCreated && activeWindowMenuRouting && app.WindowCount == initialWindowCount;
+		bool multiWindowRoundtrip = secondaryCreated && activeWindowMenuRouting && app.WindowCount == initialWindowCount &&
+			ReferenceEquals(app.ActivePage, menuTargetPage);
 		int commandAccelerators = KeyboardAccelerators.Count(accelerator =>
 			accelerator.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Windows));
+		var mergeBaseline = new AppSettings(FavoritePaths: ["baseline-favorite"], RecentPaths: ["baseline-recent"]);
+		AppSettings mergedConcurrentSettings = MergeChangedSettings(
+			mergeBaseline with { FavoritePaths = ["newer-favorite"] },
+			mergeBaseline,
+			mergeBaseline with { RecentPaths = ["requested-recent"] });
+		bool multiWindowSettingsMerge = mergedConcurrentSettings.FavoritePaths is ["newer-favorite"] &&
+			mergedConcurrentSettings.RecentPaths is ["requested-recent"];
 		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool securityPropertiesRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip, bool duplicateRoundtrip, bool newTabRoundtrip, bool symbolicLinkRoundtrip) = await RunFileMutationDiagnosticsAsync();
 
 		using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
@@ -305,7 +342,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} multi_window={multiWindowRoundtrip} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -440,14 +477,32 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			await diagnosticSettingsService.SaveAsync(new AppSettings(
 				RecentPaths: [root, root],
 				CollapsedSidebarSections: ["Recent", "Invalid"],
-				SchemaVersion: 8));
+				Workspace: new([new(new(root))]),
+				AdditionalWindowWorkspaces:
+				[
+					new([new(new(root), SplitRatio: 0.9)]),
+					new([]),
+				],
+				ActiveWindowIndex: 99,
+				SchemaVersion: 9));
 			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
 			recentLocations &= restoredSettings is
 			{
-				SchemaVersion: 9,
+				SchemaVersion: 10,
 				RecentPaths: [var restoredRecentPath],
 				CollapsedSidebarSections: ["Recent"],
+				AdditionalWindowWorkspaces: [{ Tabs: [{ SplitRatio: 0.8 }] }],
+				ActiveWindowIndex: 1,
 			} && restoredRecentPath == root;
+			string originalGrantPath = Path.Combine(root, "old-grant");
+			string restoredGrantPath = Path.Combine(root, "restored-grant");
+			AppSettings remappedWindowSettings = AccessGrantSettingsMapper.Apply(
+				new AppSettings(
+					Workspace: new([new(new(Path.Combine(originalGrantPath, "primary")))]),
+					AdditionalWindowWorkspaces: [new([new(new(Path.Combine(originalGrantPath, "secondary")))])]),
+				[new RestoredFolderAccessGrant(originalGrantPath, new(restoredGrantPath, "bookmark"))]);
+			recentLocations &= remappedWindowSettings.Workspace?.Tabs?[0].Primary.Path == Path.Combine(restoredGrantPath, "primary") &&
+				remappedWindowSettings.AdditionalWindowWorkspaces?[0].Tabs?[0].Primary.Path == Path.Combine(restoredGrantPath, "secondary");
 
 			string requestedDuplicatePath = Path.Combine(root, "metadata - Copy.txt");
 			await File.WriteAllTextAsync(requestedDuplicatePath, "existing");
@@ -4219,27 +4274,52 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		await SettingsSaveLock.WaitAsync(cancellationToken);
 		try
 		{
-			AppSettings settingsToSave = settings;
-			if (!restoresWorkspace)
+			AppSettings latestSettings = await SettingsService.LoadAsync(cancellationToken);
+			AppSettings mergedSettings = MergeChangedSettings(latestSettings, persistedSettingsBaseline, settings);
+			WindowSessionState windowSession = ((App)Application.Current).CaptureWindowSession(this);
+			AppSettings updatedSettings = mergedSettings with
 			{
-				AppSettings persistedSettings = await SettingsService.LoadAsync(cancellationToken);
-				settingsToSave = settingsToSave with { Workspace = persistedSettings.Workspace };
-			}
-
-			AppSettings updatedSettings = settingsToSave with
-			{
-				Workspace = restoresWorkspace ? ViewModel.CaptureWorkspaceState() : settingsToSave.Workspace,
-				SidebarWidth = sidebarWidth,
-				SchemaVersion = 9,
+				Workspace = windowSession.PrimaryWorkspace,
+				AdditionalWindowWorkspaces = windowSession.AdditionalWindowWorkspaces,
+				ActiveWindowIndex = windowSession.ActiveWindowIndex,
+				SidebarWidth = mergedSettings.SidebarWidth,
+				SchemaVersion = 10,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;
+			persistedSettingsBaseline = updatedSettings;
 			return updatedSettings;
 		}
 		finally
 		{
 			SettingsSaveLock.Release();
 		}
+	}
+
+	private static AppSettings MergeChangedSettings(AppSettings latest, AppSettings baseline, AppSettings requested)
+	{
+		return latest with
+		{
+			Theme = requested.Theme != baseline.Theme ? requested.Theme : latest.Theme,
+			ShowHiddenFiles = requested.ShowHiddenFiles != baseline.ShowHiddenFiles ? requested.ShowHiddenFiles : latest.ShowHiddenFiles,
+			UseGridViewForNewTabs = requested.UseGridViewForNewTabs != baseline.UseGridViewForNewTabs ? requested.UseGridViewForNewTabs : latest.UseGridViewForNewTabs,
+			FavoritePaths = HasSequenceChanged(requested.FavoritePaths, baseline.FavoritePaths, StringComparer.OrdinalIgnoreCase) ? requested.FavoritePaths : latest.FavoritePaths,
+			RecentPaths = HasSequenceChanged(requested.RecentPaths, baseline.RecentPaths, StringComparer.Ordinal) ? requested.RecentPaths : latest.RecentPaths,
+			RecentServers = HasSequenceChanged(requested.RecentServers, baseline.RecentServers, StringComparer.OrdinalIgnoreCase) ? requested.RecentServers : latest.RecentServers,
+			SearchHistory = HasSequenceChanged(requested.SearchHistory, baseline.SearchHistory, StringComparer.CurrentCultureIgnoreCase) ? requested.SearchHistory : latest.SearchHistory,
+			SavedSearches = HasSequenceChanged(requested.SavedSearches, baseline.SavedSearches) ? requested.SavedSearches : latest.SavedSearches,
+			AccessGrants = HasSequenceChanged(requested.AccessGrants, baseline.AccessGrants) ? requested.AccessGrants : latest.AccessGrants,
+			IsSidebarOpen = requested.IsSidebarOpen != baseline.IsSidebarOpen ? requested.IsSidebarOpen : latest.IsSidebarOpen,
+			IsPreviewPaneOpen = requested.IsPreviewPaneOpen != baseline.IsPreviewPaneOpen ? requested.IsPreviewPaneOpen : latest.IsPreviewPaneOpen,
+			SidebarWidth = !requested.SidebarWidth.Equals(baseline.SidebarWidth) ? requested.SidebarWidth : latest.SidebarWidth,
+			Language = requested.Language != baseline.Language ? requested.Language : latest.Language,
+			CollapsedSidebarSections = HasSequenceChanged(requested.CollapsedSidebarSections, baseline.CollapsedSidebarSections, StringComparer.Ordinal) ? requested.CollapsedSidebarSections : latest.CollapsedSidebarSections,
+		};
+	}
+
+	private static bool HasSequenceChanged<T>(T[]? requested, T[]? baseline, IEqualityComparer<T>? comparer = null)
+	{
+		return !(requested ?? []).SequenceEqual(baseline ?? [], comparer ?? EqualityComparer<T>.Default);
 	}
 
 	private async Task ShowErrorAsync(string message)
