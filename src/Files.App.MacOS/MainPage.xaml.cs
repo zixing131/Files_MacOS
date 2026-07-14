@@ -52,6 +52,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private bool isPreviewPaneOpen;
 	private readonly bool restoresWorkspace;
 	private readonly WorkspaceState? initialWorkspace;
+	private readonly WindowPlacementState? initialPlacement;
 	private readonly TaskCompletionSource initializationCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private string? lastRecordedRecentPath;
 
@@ -60,10 +61,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 	}
 
-	internal MainPage(bool restoresWorkspace, WorkspaceState? initialWorkspace = null)
+	internal MainPage(
+		bool restoresWorkspace,
+		WorkspaceState? initialWorkspace = null,
+		WindowPlacementState? initialPlacement = null)
 	{
 		this.restoresWorkspace = restoresWorkspace;
 		this.initialWorkspace = initialWorkspace;
+		this.initialPlacement = initialPlacement;
 		FileTransferHistoryService = new(FileTransferService, FileRenameService);
 		FileTrashHistoryService = new(WorkspaceService, FileTransferHistoryService);
 		InitializeComponent();
@@ -112,6 +117,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		isSidebarOpen = currentSettings.IsSidebarOpen;
 		sidebarWidth = currentSettings.SidebarWidth;
 		isPreviewPaneOpen = currentSettings.IsPreviewPaneOpen;
+		((App)Application.Current).ApplyWindowPlacement(
+			this,
+			restoresWorkspace ? currentSettings.WindowPlacement : initialPlacement);
 		ViewModel.ApplySettings(currentSettings with
 		{
 			Workspace = restoresWorkspace ? currentSettings.Workspace : initialWorkspace,
@@ -138,7 +146,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		if (restoresWorkspace && string.Equals(Environment.GetEnvironmentVariable("FILES_MACOS_PERF_DIAGNOSTICS"), "1", StringComparison.Ordinal))
 		{
-			_ = ReportPerformanceDiagnosticsAsync();
+			_ = ReportPerformanceDiagnosticsWithErrorReportingAsync();
 		}
 	}
 
@@ -149,6 +157,18 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	internal WorkspaceState CaptureWorkspaceState() => ViewModel.CaptureWorkspaceState();
 
 	internal void ScheduleSessionSave() => ScheduleWorkspaceSave();
+
+	private async Task ReportPerformanceDiagnosticsWithErrorReportingAsync()
+	{
+		try
+		{
+			await ReportPerformanceDiagnosticsAsync();
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"FILES_MACOS_PERF_ERROR type={ex.GetType().Name} message={ex.Message}");
+		}
+	}
 
 	private async Task ReportPerformanceDiagnosticsAsync()
 	{
@@ -307,6 +327,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		int expectedRestoredWindowCount = 1 + (currentSettings.AdditionalWindowWorkspaces?.Length ?? 0);
 		bool windowSessionRestore = initialWindowCount == expectedRestoredWindowCount &&
 			initialWindowSession.ActiveWindowIndex == Math.Clamp(currentSettings.ActiveWindowIndex, 0, expectedRestoredWindowCount - 1);
+		bool windowPlacementRestore = initialWindowSession.PrimaryWindowPlacement is { Width: >= 640, Height: >= 480 } &&
+			initialWindowSession.AdditionalWindowPlacements.Length == initialWindowCount - 1 &&
+			initialWindowSession.AdditionalWindowPlacements.All(static placement => placement is { Width: >= 640, Height: >= 480 }) &&
+			PlacementMatchesOrWasConstrained(currentSettings.WindowPlacement, initialWindowSession.PrimaryWindowPlacement) &&
+			initialWindowSession.AdditionalWindowPlacements.Select((placement, index) =>
+				PlacementMatchesOrWasConstrained(
+					currentSettings.AdditionalWindowPlacements is { } savedPlacements && index < savedPlacements.Length ? savedPlacements[index] : null,
+					placement)).All(static matches => matches);
 		bool newWindowInvoked = MainMenuService.InvokeForDiagnostics(MacOSMenuCommand.NewWindow);
 		await Task.Delay(500);
 		MainPage? secondaryPage = app.ActivePage;
@@ -342,7 +370,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -484,15 +512,19 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 					new([]),
 				],
 				ActiveWindowIndex: 99,
-				SchemaVersion: 9));
+				WindowPlacement: new(200_000, 0, 1, 1),
+				AdditionalWindowPlacements: [new(20, 30, 800, 600), new(0, 0, 0, 0)],
+				SchemaVersion: 10));
 			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
 			recentLocations &= restoredSettings is
 			{
-				SchemaVersion: 10,
+				SchemaVersion: 11,
 				RecentPaths: [var restoredRecentPath],
 				CollapsedSidebarSections: ["Recent"],
 				AdditionalWindowWorkspaces: [{ Tabs: [{ SplitRatio: 0.8 }] }],
 				ActiveWindowIndex: 1,
+				WindowPlacement: null,
+				AdditionalWindowPlacements: [{ Width: 800, Height: 600 }],
 			} && restoredRecentPath == root;
 			string originalGrantPath = Path.Combine(root, "old-grant");
 			string restoredGrantPath = Path.Combine(root, "restored-grant");
@@ -662,6 +694,28 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			count += CountRenderedPathIcons(VisualTreeHelper.GetChild(root, index));
 		}
 		return count;
+	}
+
+	private static bool PlacementMatchesOrWasConstrained(WindowPlacementState? requested, WindowPlacementState? actual)
+	{
+		if (actual is not { Width: >= 640, Height: >= 480 })
+		{
+			return false;
+		}
+		if (requested is null)
+		{
+			return true;
+		}
+
+		bool matches = Math.Abs(requested.X - actual.X) < 2 &&
+			Math.Abs(requested.Y - actual.Y) < 2 &&
+			Math.Abs(requested.Width - actual.Width) < 2 &&
+			Math.Abs(requested.Height - actual.Height) < 2 &&
+			requested.IsMaximized == actual.IsMaximized;
+		bool wasConstrained = actual.Width <= requested.Width && actual.Height <= requested.Height &&
+			(Math.Abs(requested.X - actual.X) >= 2 || Math.Abs(requested.Y - actual.Y) >= 2 ||
+				Math.Abs(requested.Width - actual.Width) >= 2 || Math.Abs(requested.Height - actual.Height) >= 2);
+		return matches || wasConstrained;
 	}
 
 	private static int CountRealizedContainers(FrameworkElement control, int itemCount)
@@ -4282,8 +4336,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				Workspace = windowSession.PrimaryWorkspace,
 				AdditionalWindowWorkspaces = windowSession.AdditionalWindowWorkspaces,
 				ActiveWindowIndex = windowSession.ActiveWindowIndex,
+				WindowPlacement = windowSession.PrimaryWindowPlacement,
+				AdditionalWindowPlacements = windowSession.AdditionalWindowPlacements,
 				SidebarWidth = mergedSettings.SidebarWidth,
-				SchemaVersion = 10,
+				SchemaVersion = 11,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;

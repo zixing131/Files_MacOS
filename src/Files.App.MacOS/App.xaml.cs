@@ -10,9 +10,14 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	private readonly Dictionary<Window, MainPage> windows = [];
 	private readonly List<Window> windowOrder = [];
 	private readonly List<Window> activationOrder = [];
+	private readonly Dictionary<Window, string> nativeWindowIdentifiers = [];
+	private readonly Dictionary<Window, nint> nativeWindowHandles = [];
+	private readonly Dictionary<Window, WindowPlacementState?> pendingWindowPlacements = [];
+	private readonly Dictionary<Window, WindowPlacementState?> lastKnownWindowPlacements = [];
 	private readonly MacOSMainMenuService mainMenuService = new();
 	private MainPage? activePage;
 	private WorkspaceState? lastClosedWorkspace;
+	private WindowPlacementState? lastClosedWindowPlacement;
 	private bool isMainMenuInstalled;
 	private bool hasRestoredWindowSession;
 	private bool isRestoringWindowSession;
@@ -36,13 +41,20 @@ public partial class App : Application, IMacOSMenuCommandTarget
 
 	internal MainPage? ActivePage => activePage;
 
-	internal Window CreateWindow(bool restoreWorkspace = false, WorkspaceState? initialWorkspace = null)
+	internal Window CreateWindow(
+		bool restoreWorkspace = false,
+		WorkspaceState? initialWorkspace = null,
+		WindowPlacementState? initialPlacement = null)
 	{
-		var page = new MainPage(restoreWorkspace, initialWorkspace);
+		var page = new MainPage(restoreWorkspace, initialWorkspace, initialPlacement);
 		var window = new Window { Content = page };
 		windows.Add(window, page);
 		windowOrder.Add(window);
 		lastClosedWorkspace = null;
+		lastClosedWindowPlacement = null;
+		nativeWindowIdentifiers.Add(window, $"files-window-{Guid.NewGuid():N}");
+		pendingWindowPlacements.Add(window, initialPlacement);
+		lastKnownWindowPlacements.Add(window, initialPlacement);
 		window.Activated += Window_Activated;
 		window.Closed += Window_Closed;
 		window.SetWindowIcon();
@@ -58,6 +70,8 @@ public partial class App : Application, IMacOSMenuCommandTarget
 
 		activePage = page;
 		window.Activate();
+		nativeWindowHandles[window] = MacOSWindowPlacementService.GetNativeWindowHandle(window);
+		ConfigureNativeWindow(window);
 		UpdateMainMenu(page);
 		return window;
 	}
@@ -72,9 +86,13 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		isRestoringWindowSession = true;
 		try
 		{
-			foreach (WorkspaceState workspace in (settings.AdditionalWindowWorkspaces ?? []).Take(7))
+			WorkspaceState[] additionalWorkspaces = (settings.AdditionalWindowWorkspaces ?? []).Take(7).ToArray();
+			for (int index = 0; index < additionalWorkspaces.Length; index++)
 			{
-				Window window = CreateWindow(initialWorkspace: workspace);
+				WindowPlacementState? placement = settings.AdditionalWindowPlacements is { } placements && index < placements.Length
+					? placements[index]
+					: null;
+				Window window = CreateWindow(initialWorkspace: additionalWorkspaces[index], initialPlacement: placement);
 				if (windows.TryGetValue(window, out MainPage? page))
 				{
 					await page.InitializationTask;
@@ -92,15 +110,31 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		}
 	}
 
+	internal void ApplyWindowPlacement(MainPage page, WindowPlacementState? placement)
+	{
+		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
+		if (window is null)
+		{
+			return;
+		}
+
+		pendingWindowPlacements[window] = placement;
+		lastKnownWindowPlacements[window] = placement;
+		ConfigureNativeWindow(window);
+	}
+
 	internal WindowSessionState CaptureWindowSession(MainPage fallbackPage)
 	{
-		WorkspaceState[] workspaces = windowOrder
+		(Window Window, MainPage Page)[] windowPages = windowOrder
 			.Where(windows.ContainsKey)
-			.Select(window => windows[window].CaptureWorkspaceState())
+			.Select(window => (window, windows[window]))
 			.ToArray();
+		WorkspaceState[] workspaces = windowPages.Select(static item => item.Page.CaptureWorkspaceState()).ToArray();
+		WindowPlacementState?[] placements = windowPages.Select(item => GetWindowPlacement(item.Window)).ToArray();
 		if (workspaces.Length is 0)
 		{
 			workspaces = [lastClosedWorkspace ?? fallbackPage.CaptureWorkspaceState()];
+			placements = [lastClosedWindowPlacement];
 		}
 
 		int activeWindowIndex = 0;
@@ -110,7 +144,12 @@ public partial class App : Application, IMacOSMenuCommandTarget
 			activeWindowIndex = Math.Clamp(pageIndex, 0, workspaces.Length - 1);
 		}
 
-		return new(workspaces[0], workspaces.Skip(1).ToArray(), activeWindowIndex);
+		return new(
+			workspaces[0],
+			workspaces.Skip(1).ToArray(),
+			activeWindowIndex,
+			placements[0],
+			placements.Skip(1).ToArray());
 	}
 
 	internal void CloseWindow(MainPage page)
@@ -135,6 +174,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		}
 
 		activePage = page;
+		ConfigureNativeWindow(window);
 		activationOrder.Remove(window);
 		activationOrder.Add(window);
 		mainMenuService.UpdateValidationSnapshot(this);
@@ -154,8 +194,13 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		window.Activated -= Window_Activated;
 		window.Closed -= Window_Closed;
 		lastClosedWorkspace = page.CaptureWorkspaceState();
+		lastClosedWindowPlacement = GetWindowPlacement(window);
 		windowOrder.Remove(window);
 		activationOrder.Remove(window);
+		nativeWindowIdentifiers.Remove(window);
+		nativeWindowHandles.Remove(window);
+		pendingWindowPlacements.Remove(window);
+		lastKnownWindowPlacements.Remove(window);
 		if (ReferenceEquals(activePage, page))
 		{
 			activePage = activationOrder.LastOrDefault() is Window previousWindow && windows.TryGetValue(previousWindow, out MainPage? previousPage)
@@ -176,6 +221,35 @@ public partial class App : Application, IMacOSMenuCommandTarget
 			mainMenuService.Dispose();
 			isMainMenuInstalled = false;
 		}
+	}
+
+	private void ConfigureNativeWindow(Window window)
+	{
+		if (!nativeWindowIdentifiers.TryGetValue(window, out string? identifier) ||
+			!nativeWindowHandles.TryGetValue(window, out nint windowHandle) ||
+			!MacOSWindowPlacementService.RegisterWindow(windowHandle, identifier))
+		{
+			return;
+		}
+
+		if (pendingWindowPlacements.Remove(window, out WindowPlacementState? placement) && placement is not null)
+		{
+			MacOSWindowPlacementService.ApplyPlacement(identifier, placement);
+		}
+	}
+
+	private WindowPlacementState? GetWindowPlacement(Window window)
+	{
+		if (!nativeWindowIdentifiers.TryGetValue(window, out string? identifier))
+		{
+			return null;
+		}
+
+		WindowPlacementState? placement = MacOSWindowPlacementService.GetPlacement(identifier) ??
+			pendingWindowPlacements.GetValueOrDefault(window) ??
+			lastKnownWindowPlacements.GetValueOrDefault(window);
+		lastKnownWindowPlacements[window] = placement;
+		return placement;
 	}
 
 	void IMacOSMenuCommandTarget.ExecuteMenuCommand(MacOSMenuCommand command)
@@ -224,4 +298,6 @@ public partial class App : Application, IMacOSMenuCommandTarget
 internal sealed record WindowSessionState(
 	WorkspaceState PrimaryWorkspace,
 	WorkspaceState[] AdditionalWindowWorkspaces,
-	int ActiveWindowIndex);
+	int ActiveWindowIndex,
+	WindowPlacementState? PrimaryWindowPlacement,
+	WindowPlacementState?[] AdditionalWindowPlacements);

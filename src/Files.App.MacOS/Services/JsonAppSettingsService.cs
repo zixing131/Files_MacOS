@@ -109,6 +109,12 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			.Take(7)
 			.ToArray();
 		int windowCount = additionalWindowWorkspaces.Length + 1;
+		WindowPlacementState? windowPlacement = NormalizeWindowPlacement(settings.WindowPlacement);
+		WindowPlacementState?[] additionalWindowPlacements = Enumerable.Range(0, additionalWindowWorkspaces.Length)
+			.Select(index => settings.AdditionalWindowPlacements is { } placements && index < placements.Length
+				? NormalizeWindowPlacement(placements[index])
+				: null)
+			.ToArray();
 		return settings with
 		{
 			Theme = theme,
@@ -122,10 +128,32 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			Workspace = workspace,
 			AdditionalWindowWorkspaces = additionalWindowWorkspaces,
 			ActiveWindowIndex = Math.Clamp(settings.ActiveWindowIndex, 0, windowCount - 1),
+			WindowPlacement = windowPlacement,
+			AdditionalWindowPlacements = additionalWindowPlacements,
 			AccessGrants = accessGrants,
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
-			SchemaVersion = 10,
+			SchemaVersion = 11,
+		};
+	}
+
+	private static WindowPlacementState? NormalizeWindowPlacement(WindowPlacementState? placement)
+	{
+		if (placement is null ||
+			!double.IsFinite(placement.X) ||
+			!double.IsFinite(placement.Y) ||
+			!double.IsFinite(placement.Width) ||
+			!double.IsFinite(placement.Height) ||
+			Math.Abs(placement.X) > 100_000 ||
+			Math.Abs(placement.Y) > 100_000)
+		{
+			return null;
+		}
+
+		return placement with
+		{
+			Width = Math.Clamp(placement.Width, 640, 20_000),
+			Height = Math.Clamp(placement.Height, 480, 20_000),
 		};
 	}
 

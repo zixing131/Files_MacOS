@@ -10,6 +10,7 @@
 #import <errno.h>
 #import <grp.h>
 #import <limits.h>
+#import <math.h>
 #import <pwd.h>
 #import <stdatomic.h>
 #import <stdlib.h>
@@ -175,6 +176,189 @@ static char *files_copy_json(id value)
 
 	NSString *json = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 	return files_copy_utf8_string(json);
+}
+
+static NSMutableDictionary<NSString *, NSDictionary *> *windowPlacementCache;
+
+static void files_update_window_placement_cache(NSWindow *window)
+{
+	NSString *identifier = window.identifier;
+	if (identifier.length == 0)
+	{
+		return;
+	}
+
+	NSRect frame = window.frame;
+	NSDictionary *placement = @{
+		@"X": @(frame.origin.x),
+		@"Y": @(frame.origin.y),
+		@"Width": @(frame.size.width),
+		@"Height": @(frame.size.height),
+		@"IsMaximized": @(window.isZoomed),
+	};
+	@synchronized([NSWindow class])
+	{
+		windowPlacementCache = windowPlacementCache ?: [NSMutableDictionary dictionary];
+		windowPlacementCache[identifier] = placement;
+	}
+}
+
+@interface FilesWindowObserver : NSObject
+- (void)windowFrameDidChange:(NSNotification *)notification;
+- (void)windowWillClose:(NSNotification *)notification;
+@end
+
+@implementation FilesWindowObserver
+
+- (void)windowFrameDidChange:(NSNotification *)notification
+{
+	files_update_window_placement_cache(notification.object);
+}
+
+- (void)windowWillClose:(NSNotification *)notification
+{
+	NSWindow *window = notification.object;
+	NSString *identifier = window.identifier;
+	if (identifier.length == 0)
+	{
+		return;
+	}
+	files_update_window_placement_cache(window);
+}
+
+@end
+
+static FilesWindowObserver *windowObserver;
+
+static void files_run_on_main_async(dispatch_block_t block)
+{
+	if ([NSThread isMainThread])
+	{
+		block();
+	}
+	else
+	{
+		dispatch_async(dispatch_get_main_queue(), block);
+	}
+}
+
+static NSWindow *files_window_with_identifier(NSString *identifier)
+{
+	for (NSWindow *window in NSApp.windows)
+	{
+		if ([window.identifier isEqualToString:identifier])
+		{
+			return window;
+		}
+	}
+	return nil;
+}
+
+__attribute__((visibility("default"))) int files_macos_register_window(void *windowHandle, const char *identifier)
+{
+	if (windowHandle == NULL || identifier == NULL)
+	{
+		return 0;
+	}
+
+	NSString *value = [NSString stringWithUTF8String:identifier];
+	if (value.length == 0)
+	{
+		return 0;
+	}
+
+	NSWindow *targetWindow = (__bridge NSWindow *)windowHandle;
+	files_run_on_main_async(^{
+		NSWindow *window = targetWindow;
+		if ([window isKindOfClass:NSWindow.class])
+		{
+			window.identifier = value;
+			if (windowObserver == nil)
+			{
+				windowObserver = [FilesWindowObserver new];
+				NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+				[center addObserver:windowObserver selector:@selector(windowFrameDidChange:) name:NSWindowDidMoveNotification object:nil];
+				[center addObserver:windowObserver selector:@selector(windowFrameDidChange:) name:NSWindowDidResizeNotification object:nil];
+				[center addObserver:windowObserver selector:@selector(windowFrameDidChange:) name:NSWindowDidEndLiveResizeNotification object:nil];
+				[center addObserver:windowObserver selector:@selector(windowFrameDidChange:) name:NSWindowDidExitFullScreenNotification object:nil];
+				[center addObserver:windowObserver selector:@selector(windowFrameDidChange:) name:NSWindowDidEnterFullScreenNotification object:nil];
+				[center addObserver:windowObserver selector:@selector(windowWillClose:) name:NSWindowWillCloseNotification object:nil];
+			}
+			files_update_window_placement_cache(window);
+		}
+	});
+	return 1;
+}
+
+__attribute__((visibility("default"))) char *files_macos_get_window_placement(const char *identifier)
+{
+	if (identifier == NULL)
+	{
+		return NULL;
+	}
+
+	NSString *value = [NSString stringWithUTF8String:identifier];
+	NSDictionary *placement = nil;
+	@synchronized([NSWindow class])
+	{
+		placement = windowPlacementCache[value];
+	}
+	return placement == nil ? NULL : files_copy_json(placement);
+}
+
+__attribute__((visibility("default"))) int files_macos_set_window_placement(
+	const char *identifier,
+	double x,
+	double y,
+	double width,
+	double height,
+	int isMaximized)
+{
+	if (identifier == NULL || !isfinite(x) || !isfinite(y) || !isfinite(width) || !isfinite(height))
+	{
+		return 0;
+	}
+
+	NSString *value = [NSString stringWithUTF8String:identifier];
+	files_run_on_main_async(^{
+		NSWindow *window = files_window_with_identifier(value);
+		if (window == nil)
+		{
+			return;
+		}
+
+		NSRect requestedFrame = NSMakeRect(x, y, MAX(width, 640), MAX(height, 480));
+		NSScreen *targetScreen = nil;
+		double largestIntersection = 0;
+		for (NSScreen *screen in NSScreen.screens)
+		{
+			NSRect intersection = NSIntersectionRect(requestedFrame, screen.visibleFrame);
+			double area = intersection.size.width * intersection.size.height;
+			if (area > largestIntersection)
+			{
+				largestIntersection = area;
+				targetScreen = screen;
+			}
+		}
+		targetScreen = targetScreen ?: NSScreen.mainScreen;
+		if (targetScreen == nil)
+		{
+			return;
+		}
+
+		NSRect visibleFrame = targetScreen.visibleFrame;
+		requestedFrame.size.width = MIN(requestedFrame.size.width, visibleFrame.size.width);
+		requestedFrame.size.height = MIN(requestedFrame.size.height, visibleFrame.size.height);
+		requestedFrame.origin.x = MIN(MAX(requestedFrame.origin.x, NSMinX(visibleFrame)), NSMaxX(visibleFrame) - requestedFrame.size.width);
+		requestedFrame.origin.y = MIN(MAX(requestedFrame.origin.y, NSMinY(visibleFrame)), NSMaxY(visibleFrame) - requestedFrame.size.height);
+		[window setFrame:requestedFrame display:YES];
+		if (isMaximized != 0 && !window.isZoomed)
+		{
+			[window zoom:nil];
+		}
+		files_update_window_placement_cache(window);
+	});
+	return 1;
 }
 
 static NSMenuItem *files_add_menu_command(NSMenu *menu, NSString *title, NSString *key, NSEventModifierFlags modifiers, NSInteger command)

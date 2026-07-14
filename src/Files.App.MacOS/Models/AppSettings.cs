@@ -32,7 +32,9 @@ public sealed record AppSettings(
 	string[]? CollapsedSidebarSections = null,
 	WorkspaceState[]? AdditionalWindowWorkspaces = null,
 	int ActiveWindowIndex = 0,
-	int SchemaVersion = 10);
+	WindowPlacementState? WindowPlacement = null,
+	WindowPlacementState?[]? AdditionalWindowPlacements = null,
+	int SchemaVersion = 11);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 
@@ -51,3 +53,10 @@ public sealed record BrowserTabState(
 	bool IsSecondaryActive = false);
 
 public sealed record WorkspaceState(BrowserTabState[]? Tabs = null, int ActiveTabIndex = 0);
+
+public sealed record WindowPlacementState(
+	double X,
+	double Y,
+	double Width,
+	double Height,
+	bool IsMaximized = false);
