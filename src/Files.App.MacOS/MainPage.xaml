@@ -214,6 +214,14 @@
 							HorizontalContentAlignment="Left"
 							Style="{StaticResource ToolbarButtonStyle}" />
 						<Button
+							x:Name="ClearRecentButton"
+							x:Uid="ClearRecentButton"
+							Click="ClearRecentButton_Click"
+							HorizontalAlignment="Stretch"
+							HorizontalContentAlignment="Left"
+							Style="{StaticResource ToolbarButtonStyle}"
+							Visibility="{Binding HasRecentLocations, Converter={StaticResource BooleanToVisibilityConverter}}" />
+						<Button
 							x:Name="SettingsButton"
 							x:Uid="SettingsButton"
 							Click="SettingsButton_Click"
@@ -384,8 +392,9 @@
 									<ItemContainer Width="116" Height="108">
 									<Grid CanDrag="True" DragStarting="GridItem_DragStarting" RowDefinitions="72,*" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 										<Grid.ContextFlyout>
-											<MenuFlyout>
+											<MenuFlyout Opening="ItemContextFlyout_Opening">
 												<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
+												<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
 												<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 												<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 												<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />
@@ -466,8 +475,9 @@
 									<DataTemplate>
 										<Grid MinHeight="36" Padding="8,4" ColumnDefinitions="28,*,180,100" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 											<Grid.ContextFlyout>
-												<MenuFlyout>
+											<MenuFlyout Opening="ItemContextFlyout_Opening">
 													<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
+													<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
 													<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 													<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 													<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />
@@ -588,8 +598,9 @@
 										<ItemContainer Width="116" Height="108">
 										<Grid CanDrag="True" DragStarting="GridItem_DragStarting" RowDefinitions="72,*" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 											<Grid.ContextFlyout>
-												<MenuFlyout>
+												<MenuFlyout Opening="ItemContextFlyout_Opening">
 													<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
+													<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
 													<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 													<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 													<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />
@@ -662,8 +673,9 @@
 										<DataTemplate>
 											<Grid MinHeight="36" Padding="8,4" ColumnDefinitions="28,*,140,90" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 												<Grid.ContextFlyout>
-													<MenuFlyout>
-														<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
+												<MenuFlyout Opening="ItemContextFlyout_Opening">
+													<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
+														<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
 														<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 														<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 														<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />

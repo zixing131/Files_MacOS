@@ -9,6 +9,15 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_open_path", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int OpenPath(string path);
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_get_open_with_applications", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial nint GetOpenWithApplications(string path);
+
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_open_path_with_application", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial nint OpenPathWithApplication(string path, string applicationPath);
+
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_pick_application")]
+	internal static partial nint PickApplication();
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_install_main_menu", StringMarshalling = StringMarshalling.Utf8)]
 	internal static unsafe partial void InstallMainMenu(
 		string language,

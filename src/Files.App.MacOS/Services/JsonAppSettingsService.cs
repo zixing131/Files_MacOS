@@ -78,10 +78,11 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 		AppThemePreference theme = Enum.IsDefined(settings.Theme) ? settings.Theme : AppThemePreference.System;
 		AppLanguagePreference language = Enum.IsDefined(settings.Language) ? settings.Language : AppLanguagePreference.System;
 		string[] favoritePaths = NormalizeStrings(settings.FavoritePaths, 100, StringComparer.OrdinalIgnoreCase);
+		string[] recentPaths = NormalizeStrings(settings.RecentPaths, 8, StringComparer.Ordinal);
 		string[] recentServers = NormalizeStrings(settings.RecentServers, 20, StringComparer.OrdinalIgnoreCase);
 		string[] searchHistory = NormalizeStrings(settings.SearchHistory, 20, StringComparer.CurrentCultureIgnoreCase);
-		string[] collapsedSidebarSections = NormalizeStrings(settings.CollapsedSidebarSections, 4, StringComparer.Ordinal)
-			.Where(static section => section is "Favorites" or "Libraries" or "Network" or "Drives")
+		string[] collapsedSidebarSections = NormalizeStrings(settings.CollapsedSidebarSections, 5, StringComparer.Ordinal)
+			.Where(static section => section is "Favorites" or "Recent" or "Libraries" or "Network" or "Drives")
 			.ToArray();
 		SavedSearch[] savedSearches = (settings.SavedSearches ?? [])
 			.Where(static search => search is not null &&
@@ -105,6 +106,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			Theme = theme,
 			Language = language,
 			FavoritePaths = favoritePaths,
+			RecentPaths = recentPaths,
 			RecentServers = recentServers,
 			SearchHistory = searchHistory,
 			CollapsedSidebarSections = collapsedSidebarSections,
@@ -113,7 +115,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			AccessGrants = accessGrants,
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
-			SchemaVersion = 8,
+			SchemaVersion = 9,
 		};
 	}
 

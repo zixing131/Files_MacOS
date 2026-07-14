@@ -12,6 +12,79 @@ public sealed class MacOSWorkspaceService : IMacOSWorkspaceService
 		return InvokeAsync(path, MacOSNativeMethods.OpenPath, cancellationToken);
 	}
 
+	public Task<IReadOnlyList<OpenWithApplication>> GetOpenWithApplicationsAsync(
+		string path,
+		CancellationToken cancellationToken = default)
+	{
+		return Task.Run<IReadOnlyList<OpenWithApplication>>(() =>
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			nint resultPointer = MacOSNativeMethods.GetOpenWithApplications(path);
+			if (resultPointer is 0)
+			{
+				return [];
+			}
+
+			try
+			{
+				string json = Marshal.PtrToStringUTF8(resultPointer) ?? "[]";
+				return JsonSerializer.Deserialize<OpenWithApplication[]>(json) ?? [];
+			}
+			catch (JsonException)
+			{
+				return [];
+			}
+			finally
+			{
+				MacOSNativeMethods.Free(resultPointer);
+			}
+		}, cancellationToken);
+	}
+
+	public Task OpenWithAsync(string path, string applicationPath, CancellationToken cancellationToken = default)
+	{
+		return Task.Run(() =>
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			nint errorPointer = MacOSNativeMethods.OpenPathWithApplication(path, applicationPath);
+			if (errorPointer is 0)
+			{
+				return;
+			}
+			try
+			{
+				throw new IOException(Marshal.PtrToStringUTF8(errorPointer));
+			}
+			finally
+			{
+				MacOSNativeMethods.Free(errorPointer);
+			}
+		}, cancellationToken);
+	}
+
+	public Task<string?> PickApplicationAsync(CancellationToken cancellationToken = default)
+	{
+		return Task.Run(() =>
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			nint resultPointer = MacOSNativeMethods.PickApplication();
+			if (resultPointer is 0)
+			{
+				throw new IOException("The application picker didn't return a result.");
+			}
+			try
+			{
+				string json = Marshal.PtrToStringUTF8(resultPointer) ?? string.Empty;
+				NativeApplicationPickerResult? result = JsonSerializer.Deserialize<NativeApplicationPickerResult>(json);
+				return result?.Canceled is true || string.IsNullOrWhiteSpace(result?.Path) ? null : result.Path;
+			}
+			finally
+			{
+				MacOSNativeMethods.Free(resultPointer);
+			}
+		}, cancellationToken);
+	}
+
 	public Task RevealAsync(string path, CancellationToken cancellationToken = default)
 	{
 		return InvokeAsync(path, MacOSNativeMethods.RevealPath, cancellationToken);
@@ -176,4 +249,8 @@ public sealed class MacOSWorkspaceService : IMacOSWorkspaceService
 		[property: System.Text.Json.Serialization.JsonPropertyName("originalPath")] string? OriginalPath,
 		[property: System.Text.Json.Serialization.JsonPropertyName("trashPath")] string? TrashPath,
 		[property: System.Text.Json.Serialization.JsonPropertyName("error")] string? Error);
+
+	private sealed record NativeApplicationPickerResult(
+		[property: System.Text.Json.Serialization.JsonPropertyName("canceled")] bool Canceled,
+		[property: System.Text.Json.Serialization.JsonPropertyName("path")] string? Path);
 }

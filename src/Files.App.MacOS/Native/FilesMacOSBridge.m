@@ -4,6 +4,7 @@
 #import <QuickLook/QuickLook.h>
 #import <QuickLookUI/QuickLookUI.h>
 #import <QuickLookThumbnailing/QuickLookThumbnailing.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <dispatch/dispatch.h>
 #import <copyfile.h>
 #import <errno.h>
@@ -235,6 +236,7 @@ __attribute__((visibility("default"))) void files_macos_install_main_menu(
 			files_add_menu_command(fileMenu, zh ? @"关闭标签页" : @"Close Tab", @"w", NSEventModifierFlagCommand, 4);
 			[fileMenu addItem:[NSMenuItem separatorItem]];
 			files_add_menu_command(fileMenu, zh ? @"显示简介" : @"Get Info", @"i", NSEventModifierFlagCommand, 5);
+			files_add_menu_command(fileMenu, zh ? @"打开方式…" : @"Open With…", @"", 0, 29);
 			files_add_menu_command(fileMenu, zh ? @"重命名" : @"Rename", @"", 0, 7);
 			files_add_menu_command(fileMenu, zh ? @"移到废纸篓" : @"Move to Trash", @"\x7F", NSEventModifierFlagCommand, 6);
 			files_add_menu_command(fileMenu, zh ? @"立即删除…" : @"Delete Immediately…", @"\x7F", NSEventModifierFlagCommand | NSEventModifierFlagOption, 28);
@@ -618,6 +620,127 @@ __attribute__((visibility("default"))) int files_macos_open_path(const char *pat
 		NSURL *url = files_url_from_path(path);
 		return url != nil && [[NSWorkspace sharedWorkspace] openURL:url] ? 1 : 0;
 	}
+}
+
+__attribute__((visibility("default"))) char *files_macos_get_open_with_applications(const char *path)
+{
+	@autoreleasepool
+	{
+		NSURL *fileURL = files_url_from_path(path);
+		if (fileURL == nil)
+		{
+			return files_copy_json(@[]);
+		}
+
+		NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+		NSURL *defaultURL = [workspace URLForApplicationToOpenURL:fileURL];
+		NSArray<NSURL *> *applicationURLs = [workspace URLsForApplicationsToOpenURL:fileURL];
+		NSMutableArray *applications = [NSMutableArray arrayWithCapacity:applicationURLs.count];
+		NSMutableSet<NSString *> *knownPaths = [NSMutableSet set];
+		for (NSURL *applicationURL in applicationURLs)
+		{
+			NSString *applicationPath = applicationURL.path;
+			if (applicationPath.length == 0 || [knownPaths containsObject:applicationPath])
+			{
+				continue;
+			}
+			[knownPaths addObject:applicationPath];
+
+			NSString *localizedName = nil;
+			[applicationURL getResourceValue:&localizedName forKey:NSURLLocalizedNameKey error:nil];
+			if (localizedName.length == 0)
+			{
+				localizedName = applicationURL.lastPathComponent.stringByDeletingPathExtension;
+			}
+			NSBundle *bundle = [NSBundle bundleWithURL:applicationURL];
+			BOOL isDefault = defaultURL != nil && [defaultURL.path isEqualToString:applicationPath];
+			[applications addObject:@{
+				@"name": localizedName ?: applicationPath,
+				@"applicationPath": applicationPath,
+				@"bundleIdentifier": bundle.bundleIdentifier ?: @"",
+				@"isDefault": @(isDefault)
+			}];
+		}
+
+		[applications sortUsingComparator:^NSComparisonResult(NSDictionary *left, NSDictionary *right) {
+			BOOL leftDefault = [left[@"isDefault"] boolValue];
+			BOOL rightDefault = [right[@"isDefault"] boolValue];
+			if (leftDefault != rightDefault)
+			{
+				return leftDefault ? NSOrderedAscending : NSOrderedDescending;
+			}
+			return [left[@"name"] localizedStandardCompare:right[@"name"]];
+		}];
+		return files_copy_json(applications);
+	}
+}
+
+__attribute__((visibility("default"))) char *files_macos_open_path_with_application(
+	const char *path,
+	const char *applicationPath)
+{
+	@autoreleasepool
+	{
+		NSURL *fileURL = files_url_from_path(path);
+		NSURL *applicationURL = files_url_from_path(applicationPath);
+		if (fileURL == nil || applicationURL == nil ||
+			![[NSFileManager defaultManager] fileExistsAtPath:fileURL.path] ||
+			![[NSFileManager defaultManager] fileExistsAtPath:applicationURL.path])
+		{
+			return strdup("The file or application is no longer available.");
+		}
+
+		dispatch_semaphore_t completion = dispatch_semaphore_create(0);
+		__block NSError *openError = nil;
+		dispatch_async(dispatch_get_main_queue(), ^{
+			NSWorkspaceOpenConfiguration *configuration = [NSWorkspaceOpenConfiguration configuration];
+			[[NSWorkspace sharedWorkspace] openURLs:@[ fileURL ]
+				withApplicationAtURL:applicationURL
+				configuration:configuration
+				completionHandler:^(NSRunningApplication *application, NSError *error) {
+					openError = error;
+					dispatch_semaphore_signal(completion);
+				}];
+		});
+		if (dispatch_semaphore_wait(completion, dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC)) != 0)
+		{
+			return strdup("The application didn't respond while opening the file.");
+		}
+		return files_copy_error(openError);
+	}
+}
+
+__attribute__((visibility("default"))) char *files_macos_pick_application(void)
+{
+	__block char *result = NULL;
+	void (^pickerBlock)(void) = ^{
+		@autoreleasepool
+		{
+			NSOpenPanel *panel = [NSOpenPanel openPanel];
+			panel.canChooseFiles = YES;
+			panel.canChooseDirectories = NO;
+			panel.allowsMultipleSelection = NO;
+			panel.treatsFilePackagesAsDirectories = NO;
+			panel.allowedContentTypes = @[ UTTypeApplicationBundle ];
+			panel.directoryURL = [NSURL fileURLWithPath:@"/Applications" isDirectory:YES];
+			if ([panel runModal] != NSModalResponseOK || panel.URL == nil)
+			{
+				result = files_copy_json(@{ @"canceled": @YES, @"path": @"" });
+				return;
+			}
+			result = files_copy_json(@{ @"canceled": @NO, @"path": panel.URL.path ?: @"" });
+		}
+	};
+
+	if ([NSThread isMainThread])
+	{
+		pickerBlock();
+	}
+	else
+	{
+		dispatch_sync(dispatch_get_main_queue(), pickerBlock);
+	}
+	return result;
 }
 
 __attribute__((visibility("default"))) int files_macos_reveal_path(const char *path)

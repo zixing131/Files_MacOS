@@ -35,6 +35,7 @@
   </data>
   <data name="ToggleSidebarButton.Content" xml:space="preserve"><value>☰</value></data>
   <data name="SidebarFavoritesHeading" xml:space="preserve"><value>Favorites</value></data>
+  <data name="SidebarRecentHeading" xml:space="preserve"><value>Recent</value></data>
   <data name="SidebarLibrariesHeading" xml:space="preserve"><value>Libraries</value></data>
   <data name="SidebarNetworkHeading" xml:space="preserve"><value>Network</value></data>
   <data name="SidebarDrivesHeading" xml:space="preserve"><value>Drives</value></data>
@@ -375,6 +376,13 @@
     <value>Settings couldn't be saved.</value>
   </data>
   <data name="ContextOpenItem.Text" xml:space="preserve"><value>Open</value></data>
+  <data name="ContextOpenWithItem.Text" xml:space="preserve"><value>Open with…</value></data>
+  <data name="OpenWithDialogTitle" xml:space="preserve"><value>Open with</value></data>
+  <data name="OpenWithDescriptionFormat" xml:space="preserve"><value>Choose an application to open “{0}”.</value></data>
+  <data name="DefaultApplicationLabel" xml:space="preserve"><value>Default</value></data>
+  <data name="OpenButtonText" xml:space="preserve"><value>Open</value></data>
+  <data name="ChooseApplicationButtonText" xml:space="preserve"><value>Choose application…</value></data>
+  <data name="OpenWithErrorMessage" xml:space="preserve"><value>The item couldn't be opened with that application.</value></data>
   <data name="ContextPreviewItem.Text" xml:space="preserve"><value>Quick Look</value></data>
   <data name="ContextRevealItem.Text" xml:space="preserve"><value>Show in Finder</value></data>
   <data name="ContextCutItem.Text" xml:space="preserve"><value>Cut</value></data>
@@ -451,6 +459,7 @@
   <data name="FileTransferCanceledWithCompletedFormat" xml:space="preserve"><value>File operation canceled after completing {0} root item(s). The completed items can be undone.</value></data>
   <data name="FileTransferFailedWithCompletedFormat" xml:space="preserve"><value>The operation stopped after completing {0} root item(s). The completed items can be undone.</value></data>
   <data name="OpenFolderButton.Content" xml:space="preserve"><value>Open folder…</value></data>
+  <data name="ClearRecentButton.Content" xml:space="preserve"><value>⌫  Clear recent locations</value></data>
   <data name="OpenFolderErrorMessage" xml:space="preserve"><value>The folder couldn't be opened.</value></data>
   <data name="FolderAccessSettingLabel" xml:space="preserve"><value>Folder access</value></data>
   <data name="FolderAccessSettingDescription" xml:space="preserve"><value>Clear a folder to forget its saved macOS access permission. Open tabs using that folder may stop working in sandboxed builds.</value></data>

@@ -19,6 +19,7 @@ public sealed record AppSettings(
 	bool ShowHiddenFiles = false,
 	bool UseGridViewForNewTabs = true,
 	string[]? FavoritePaths = null,
+	string[]? RecentPaths = null,
 	string[]? RecentServers = null,
 	string[]? SearchHistory = null,
 	SavedSearch[]? SavedSearches = null,
@@ -29,7 +30,7 @@ public sealed record AppSettings(
 	double SidebarWidth = 228,
 	AppLanguagePreference Language = AppLanguagePreference.System,
 	string[]? CollapsedSidebarSections = null,
-	int SchemaVersion = 8);
+	int SchemaVersion = 9);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 

@@ -6,6 +6,12 @@ public interface IMacOSWorkspaceService
 {
 	Task OpenAsync(string path, CancellationToken cancellationToken = default);
 
+	Task<IReadOnlyList<OpenWithApplication>> GetOpenWithApplicationsAsync(string path, CancellationToken cancellationToken = default);
+
+	Task OpenWithAsync(string path, string applicationPath, CancellationToken cancellationToken = default);
+
+	Task<string?> PickApplicationAsync(CancellationToken cancellationToken = default);
+
 	Task RevealAsync(string path, CancellationToken cancellationToken = default);
 
 	Task OpenTerminalAsync(string path, CancellationToken cancellationToken = default);
@@ -22,6 +28,12 @@ public interface IMacOSWorkspaceService
 }
 
 public sealed record TrashedItemResult(string OriginalPath, string TrashPath);
+
+public sealed record OpenWithApplication(
+	[property: System.Text.Json.Serialization.JsonPropertyName("name")] string Name,
+	[property: System.Text.Json.Serialization.JsonPropertyName("applicationPath")] string ApplicationPath,
+	[property: System.Text.Json.Serialization.JsonPropertyName("bundleIdentifier")] string BundleIdentifier,
+	[property: System.Text.Json.Serialization.JsonPropertyName("isDefault")] bool IsDefault);
 
 public sealed class TrashOperationPartialException(
 	string message,

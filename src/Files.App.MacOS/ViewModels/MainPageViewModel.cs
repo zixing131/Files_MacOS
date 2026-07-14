@@ -12,6 +12,7 @@ public sealed class MainPageViewModel : ObservableObject
 	private BrowserTabViewModel? activeTab;
 	private AppSettings settings = new();
 	private bool isRestoringWorkspace;
+	private bool hasRecentLocations;
 
 	public MainPageViewModel()
 	{
@@ -21,6 +22,8 @@ public sealed class MainPageViewModel : ObservableObject
 	public ObservableCollection<BrowserTabViewModel> Tabs { get; } = [];
 
 	public ObservableCollection<SidebarLocation> Locations { get; } = [];
+
+	public bool HasRecentLocations => hasRecentLocations;
 
 	public event EventHandler? WorkspaceChanged;
 
@@ -319,9 +322,31 @@ public sealed class MainPageViewModel : ObservableObject
 			}
 		}
 
+		var recentLocations = new List<SidebarLocation>();
+		foreach (string configuredPath in settings.RecentPaths ?? [])
+		{
+			string recentPath;
+			try
+			{
+				recentPath = Path.GetFullPath(configuredPath);
+			}
+			catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+			{
+				continue;
+			}
+			if (!Directory.Exists(recentPath) || !knownPaths.Add(recentPath))
+			{
+				continue;
+			}
+			string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(recentPath));
+			recentLocations.Add(new(string.IsNullOrEmpty(name) ? recentPath : name, recentPath, "◷"));
+		}
+
 		var collapsedSections = (settings.CollapsedSidebarSections ?? []).ToHashSet(StringComparer.Ordinal);
+		hasRecentLocations = recentLocations.Count > 0;
 		var locations = new List<SidebarLocation>();
 		AppendSection(locations, "Favorites", GetResource("SidebarFavoritesHeading"), pinnedLocations, collapsedSections);
+		AppendSection(locations, "Recent", GetResource("SidebarRecentHeading"), recentLocations, collapsedSections);
 		AppendSection(locations, "Libraries", GetResource("SidebarLibrariesHeading"), libraryLocations, collapsedSections);
 		AppendSection(locations, "Network", GetResource("SidebarNetworkHeading"), networkLocations, collapsedSections);
 		AppendSection(locations, "Drives", GetResource("SidebarDrivesHeading"), driveLocations, collapsedSections);
@@ -331,11 +356,12 @@ public sealed class MainPageViewModel : ObservableObject
 		{
 			Locations.Add(location);
 		}
+		OnPropertyChanged(nameof(HasRecentLocations));
 	}
 
 	public string[] ToggleSidebarSection(string sectionId)
 	{
-		if (sectionId is not ("Favorites" or "Libraries" or "Network" or "Drives"))
+		if (sectionId is not ("Favorites" or "Recent" or "Libraries" or "Network" or "Drives"))
 		{
 			return settings.CollapsedSidebarSections ?? [];
 		}
@@ -367,7 +393,7 @@ public sealed class MainPageViewModel : ObservableObject
 		target.Add(SidebarLocation.Header(title, sectionId, isExpanded));
 		if (isExpanded)
 		{
-			target.AddRange(items);
+			target.AddRange(items.Select(item => item with { SectionId = sectionId }));
 		}
 	}
 

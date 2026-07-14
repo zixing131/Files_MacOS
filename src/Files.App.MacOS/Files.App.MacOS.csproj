@@ -48,7 +48,7 @@
     Outputs="$(MacOSBridgeOutput)">
     <Error Condition="'$(MacOSBridgeArch)' == ''" Text="Unsupported macOS runtime identifier: $(RuntimeIdentifier)" />
     <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(MacOSBridgeOutput)'))" />
-    <Exec Command="xcrun clang -arch $(MacOSBridgeArch) -mmacosx-version-min=13.0 -dynamiclib -fobjc-arc -fblocks -framework AppKit -framework CoreServices -framework Foundation -framework NetFS -framework QuickLook -framework QuickLookUI -framework QuickLookThumbnailing &quot;$(MacOSBridgeSource)&quot; -o &quot;$(MacOSBridgeOutput)&quot;" />
+    <Exec Command="xcrun clang -arch $(MacOSBridgeArch) -mmacosx-version-min=13.0 -dynamiclib -fobjc-arc -fblocks -framework AppKit -framework CoreServices -framework Foundation -framework NetFS -framework QuickLook -framework QuickLookUI -framework QuickLookThumbnailing -framework UniformTypeIdentifiers &quot;$(MacOSBridgeSource)&quot; -o &quot;$(MacOSBridgeOutput)&quot;" />
   </Target>
 
   <Target

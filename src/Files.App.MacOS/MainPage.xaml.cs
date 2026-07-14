@@ -48,6 +48,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private bool isSidebarOpen = true;
 	private double sidebarWidth = 228;
 	private bool isPreviewPaneOpen;
+	private string? lastRecordedRecentPath;
 
 	public MainPage()
 	{
@@ -88,6 +89,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ApplyTheme(currentSettings.Theme);
 		await ViewModel.InitializeAsync();
 		ViewModel.WorkspaceChanged += ViewModel_WorkspaceChanged;
+		RecordRecentLocation();
 		UpdatePaneVisuals();
 		UpdateSidebarVisuals();
 		UpdateSidebarSelection();
@@ -199,7 +201,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool nativeMenuRouting = menuFirstInvoke && menuSecondInvoke && menuChangedSidebar && isSidebarOpen == menuInitialSidebarState;
 		int commandAccelerators = KeyboardAccelerators.Count(accelerator =>
 			accelerator.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Windows));
-		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip) = await RunFileMutationDiagnosticsAsync();
+		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip) = await RunFileMutationDiagnosticsAsync();
 
 		using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
 		Console.WriteLine(
@@ -208,7 +210,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -222,7 +224,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"inverted_count={selectedItems.Count} elapsed_ms={selectionTimer.Elapsed.TotalMilliseconds:F1}");
 	}
 
-	private async Task<(bool PermanentDelete, bool MetadataEdit)> RunFileMutationDiagnosticsAsync()
+	private async Task<(bool PermanentDelete, bool MetadataEdit, bool OpenWith, bool RecentLocations)> RunFileMutationDiagnosticsAsync()
 	{
 		string root = Path.Combine(Path.GetTempPath(), $"files-macos-diagnostics-{Guid.NewGuid():N}");
 		try
@@ -261,11 +263,35 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			FilePropertiesSummary summary = await FilePropertiesService.GetSummaryAsync([metadataPath]);
 			bool metadataEdit = summary.UnixMode == expectedMode && summary.FinderTags is not null &&
 				expectedTags.All(tag => summary.FinderTags.Contains(tag, StringComparer.Ordinal));
-			return (permanentDelete, metadataEdit);
+			IReadOnlyList<OpenWithApplication> applications = await WorkspaceService.GetOpenWithApplicationsAsync(metadataPath);
+			bool openWith = applications.Count > 0 && applications.Any(static application => application.IsDefault) &&
+				applications.All(static application => !string.IsNullOrWhiteSpace(application.Name) && Directory.Exists(application.ApplicationPath));
+			var recentViewModel = new MainPageViewModel();
+			recentViewModel.ApplySettings(new AppSettings(RecentPaths: [root]));
+			int expandedCount = recentViewModel.Locations.Count;
+			bool recentLocations = recentViewModel.HasRecentLocations && recentViewModel.Locations.Any(location =>
+				location is { IsHeader: false, SectionId: "Recent" } && string.Equals(location.Path, root, StringComparison.Ordinal));
+			recentViewModel.ToggleSidebarSection("Recent");
+			recentLocations &= recentViewModel.HasRecentLocations && recentViewModel.Locations.Count < expandedCount &&
+				!recentViewModel.Locations.Any(static location => location is { IsHeader: false, SectionId: "Recent" }) &&
+				recentViewModel.Locations.Any(static location => location is { IsHeader: true, SectionId: "Recent", IsExpanded: false });
+			var diagnosticSettingsService = new JsonAppSettingsService(Path.Combine(root, "settings.json"));
+			await diagnosticSettingsService.SaveAsync(new AppSettings(
+				RecentPaths: [root, root],
+				CollapsedSidebarSections: ["Recent", "Invalid"],
+				SchemaVersion: 8));
+			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
+			recentLocations &= restoredSettings is
+			{
+				SchemaVersion: 9,
+				RecentPaths: [var restoredRecentPath],
+				CollapsedSidebarSections: ["Recent"],
+			} && restoredRecentPath == root;
+			return (permanentDelete, metadataEdit, openWith, recentLocations);
 		}
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 		{
-			return (false, false);
+			return (false, false, false, false);
 		}
 		finally
 		{
@@ -404,6 +430,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			MacOSMenuCommand.CloseTab => isIdle && ViewModel.Tabs.Count > 1,
 			MacOSMenuCommand.Properties or MacOSMenuCommand.MoveToTrash or MacOSMenuCommand.DeletePermanently or MacOSMenuCommand.Rename or
 				MacOSMenuCommand.Cut or MacOSMenuCommand.Copy or MacOSMenuCommand.CopyPath => isIdle && selectedItems.Count > 0,
+			MacOSMenuCommand.OpenWith => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: false }],
 			MacOSMenuCommand.Paste => PasteButton.IsEnabled,
 			MacOSMenuCommand.Undo => isIdle && undoHistory.Count > 0,
 			MacOSMenuCommand.Redo => isIdle && redoHistory.Count > 0,
@@ -439,6 +466,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				break;
 			case MacOSMenuCommand.DeletePermanently:
 				await DeletePermanentlyAsync();
+				break;
+			case MacOSMenuCommand.OpenWith:
+				await ShowOpenWithDialogAsync();
 				break;
 			case MacOSMenuCommand.Rename:
 				RenameButton_Click(RenameButton, args);
@@ -858,6 +888,83 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		catch (IOException ex)
 		{
 			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("OpenItemErrorMessage") : ex.Message);
+		}
+	}
+
+	private void ClearRecentButton_Click(object sender, RoutedEventArgs e)
+	{
+		currentSettings = currentSettings with { RecentPaths = [] };
+		ViewModel.ApplySettings(currentSettings);
+		UpdateSidebarSelection();
+		ScheduleWorkspaceSave();
+	}
+
+	private async Task ShowOpenWithDialogAsync()
+	{
+		if (selectedItems is not [LocalFileSystemItem { IsDirectory: false } item] || fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		try
+		{
+			IReadOnlyList<OpenWithApplication> applications = await WorkspaceService.GetOpenWithApplicationsAsync(item.Path);
+			var choices = new ComboBox
+			{
+				HorizontalAlignment = HorizontalAlignment.Stretch,
+				MinWidth = 360,
+			};
+			foreach (OpenWithApplication application in applications)
+			{
+				choices.Items.Add(new ComboBoxItem
+				{
+					Content = application.IsDefault
+						? $"{application.Name} — {GetResource("DefaultApplicationLabel")}"
+						: application.Name,
+					Tag = application,
+				});
+			}
+			if (choices.Items.Count > 0)
+			{
+				choices.SelectedIndex = 0;
+			}
+
+			var content = new StackPanel { Spacing = 12, MinWidth = 400 };
+			content.Children.Add(new TextBlock
+			{
+				Text = string.Format(GetResource("OpenWithDescriptionFormat"), item.Name),
+				TextWrapping = TextWrapping.Wrap,
+			});
+			content.Children.Add(choices);
+			var dialog = new ContentDialog
+			{
+				Title = GetResource("OpenWithDialogTitle"),
+				Content = content,
+				PrimaryButtonText = GetResource("OpenButtonText"),
+				SecondaryButtonText = GetResource("ChooseApplicationButtonText"),
+				CloseButtonText = GetResource("CancelButtonText"),
+				DefaultButton = choices.Items.Count > 0 ? ContentDialogButton.Primary : ContentDialogButton.Secondary,
+				IsPrimaryButtonEnabled = choices.Items.Count > 0,
+				XamlRoot = XamlRoot,
+			};
+
+			ContentDialogResult result = await dialog.ShowAsync();
+			if (result is ContentDialogResult.Primary && choices.SelectedItem is ComboBoxItem { Tag: OpenWithApplication selectedApplication })
+			{
+				await WorkspaceService.OpenWithAsync(item.Path, selectedApplication.ApplicationPath);
+			}
+			else if (result is ContentDialogResult.Secondary)
+			{
+				string? applicationPath = await WorkspaceService.PickApplicationAsync();
+				if (applicationPath is not null)
+				{
+					await WorkspaceService.OpenWithAsync(item.Path, applicationPath);
+				}
+			}
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			await ShowErrorAsync(string.IsNullOrWhiteSpace(ex.Message) ? GetResource("OpenWithErrorMessage") : ex.Message);
 		}
 	}
 
@@ -1305,6 +1412,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		FavoriteButton.IsEnabled = isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: true }];
 		SettingsButton.IsEnabled = isIdle;
 		ConnectServerButton.IsEnabled = isIdle;
+		ClearRecentButton.IsEnabled = isIdle;
 		SplitViewButton.IsEnabled = isIdle;
 		PreviewPaneButton.IsEnabled = isIdle;
 		TerminalButton.IsEnabled = isIdle;
@@ -1596,6 +1704,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 						await WorkspaceService.OpenAsync(item.Path);
 					}
 					break;
+				case "OpenWith":
+					await ShowOpenWithDialogAsync();
+					break;
 				case "Preview" when selectedItems is [LocalFileSystemItem item]:
 					await WorkspaceService.PreviewAsync(item.Path);
 					break;
@@ -1643,6 +1754,30 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		catch (IOException ex)
 		{
 			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("OpenItemErrorMessage") : ex.Message);
+		}
+	}
+
+	private void ItemContextFlyout_Opening(object sender, object e)
+	{
+		if (sender is not MenuFlyout flyout)
+		{
+			return;
+		}
+
+		bool isIdle = fileTransferCancellation is null && !isHistoryOperationRunning && !isConnectingServer;
+		foreach (MenuFlyoutItem item in flyout.Items.OfType<MenuFlyoutItem>())
+		{
+			item.IsEnabled = item.Tag switch
+			{
+				"Open" or "Preview" or "Reveal" => isIdle && selectedItems.Count is 1,
+				"OpenWith" => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: false }],
+				"Terminal" => isIdle && selectedItems.Count > 0,
+				"Cut" or "Copy" or "CopyPath" or "Rename" or "Share" or "Delete" or
+					"PermanentDelete" or "Properties" or "Compress" => isIdle && selectedItems.Count > 0,
+				"Extract" => isIdle && selectedItems is [LocalFileSystemItem archive] && IsZipArchive(archive),
+				"Favorite" => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: true }],
+				_ => item.IsEnabled,
+			};
 		}
 	}
 
@@ -3396,11 +3531,56 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void ViewModel_WorkspaceChanged(object? sender, EventArgs e)
 	{
+		RecordRecentLocation();
 		UpdateAddressBar();
 		UpdateSidebarSelection();
 		UpdateSortHeaderVisuals();
 		UpdateViewModeVisuals();
 		ScheduleWorkspaceSave();
+	}
+
+	private void RecordRecentLocation()
+	{
+		string? path = ViewModel.ActiveBrowser?.CurrentPath;
+		if (string.IsNullOrWhiteSpace(path) || string.Equals(lastRecordedRecentPath, path, StringComparison.Ordinal))
+		{
+			return;
+		}
+		lastRecordedRecentPath = path;
+		if (!Directory.Exists(path) || IsBuiltInSidebarPath(path))
+		{
+			return;
+		}
+
+		string[] recentPaths = (currentSettings.RecentPaths ?? [])
+			.Where(existing => !string.Equals(existing, path, StringComparison.Ordinal))
+			.Prepend(path)
+			.Take(8)
+			.ToArray();
+		if ((currentSettings.RecentPaths ?? []).SequenceEqual(recentPaths, StringComparer.Ordinal))
+		{
+			return;
+		}
+
+		currentSettings = currentSettings with { RecentPaths = recentPaths };
+		ViewModel.ApplySettings(currentSettings);
+		UpdateSidebarSelection();
+	}
+
+	private static bool IsBuiltInSidebarPath(string path)
+	{
+		string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		string[] builtInPaths =
+		[
+			home,
+			Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+			Path.Combine(home, "Downloads"),
+			Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+			Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+			Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
+			Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),
+		];
+		return builtInPaths.Any(candidate => string.Equals(candidate, path, StringComparison.Ordinal));
 	}
 
 	private void ScheduleWorkspaceSave()
@@ -3444,7 +3624,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				Workspace = ViewModel.CaptureWorkspaceState(),
 				SidebarWidth = sidebarWidth,
-				SchemaVersion = 8,
+				SchemaVersion = 9,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;
