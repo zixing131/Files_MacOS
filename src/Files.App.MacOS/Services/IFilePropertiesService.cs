@@ -24,7 +24,10 @@ public sealed record FilePropertyUpdate(
 	UnixFileMode UnixMode,
 	IReadOnlyList<string> FinderTags,
 	bool IsHidden,
-	bool IsLocked);
+	bool IsLocked,
+	string Owner,
+	string Group,
+	string AccessControlList);
 
 public interface IFilePropertiesService
 {

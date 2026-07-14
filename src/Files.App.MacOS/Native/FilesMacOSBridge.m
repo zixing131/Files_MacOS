@@ -9,6 +9,7 @@
 #import <copyfile.h>
 #import <errno.h>
 #import <grp.h>
+#import <limits.h>
 #import <pwd.h>
 #import <stdatomic.h>
 #import <stdlib.h>
@@ -1202,6 +1203,107 @@ __attribute__((visibility("default"))) char *files_macos_set_file_flags(
 		{
 			return strdup(strerror(errno));
 		}
+		return NULL;
+	}
+}
+
+static int files_macos_resolve_user(const char *value, uid_t *userId)
+{
+	if (value == NULL || value[0] == '\0')
+	{
+		return EINVAL;
+	}
+	char *end = NULL;
+	errno = 0;
+	unsigned long numericId = strtoul(value, &end, 10);
+	if (errno == 0 && end != value && *end == '\0' && numericId <= UINT_MAX)
+	{
+		*userId = (uid_t)numericId;
+		return 0;
+	}
+	struct passwd *user = getpwnam(value);
+	if (user == NULL)
+	{
+		return ENOENT;
+	}
+	*userId = user->pw_uid;
+	return 0;
+}
+
+static int files_macos_resolve_group(const char *value, gid_t *groupId)
+{
+	if (value == NULL || value[0] == '\0')
+	{
+		return EINVAL;
+	}
+	char *end = NULL;
+	errno = 0;
+	unsigned long numericId = strtoul(value, &end, 10);
+	if (errno == 0 && end != value && *end == '\0' && numericId <= UINT_MAX)
+	{
+		*groupId = (gid_t)numericId;
+		return 0;
+	}
+	struct group *group = getgrnam(value);
+	if (group == NULL)
+	{
+		return ENOENT;
+	}
+	*groupId = group->gr_gid;
+	return 0;
+}
+
+__attribute__((visibility("default"))) char *files_macos_set_file_security(
+	const char *path,
+	const char *owner,
+	const char *group,
+	const char *aclText)
+{
+	@autoreleasepool
+	{
+		if (path == NULL || aclText == NULL)
+		{
+			return strdup("The file security request is invalid.");
+		}
+
+		uid_t userId = 0;
+		gid_t groupId = 0;
+		if (files_macos_resolve_user(owner, &userId) != 0)
+		{
+			return strdup("The owner name or ID couldn't be resolved.");
+		}
+		if (files_macos_resolve_group(group, &groupId) != 0)
+		{
+			return strdup("The group name or ID couldn't be resolved.");
+		}
+
+		acl_t acl = aclText[0] == '\0' ? acl_init(0) : acl_from_text(aclText);
+		if (acl == NULL || acl_valid(acl) != 0)
+		{
+			if (acl != NULL)
+			{
+				acl_free(acl);
+			}
+			return strdup("The access control list format is invalid.");
+		}
+
+		struct stat status;
+		if (stat(path, &status) != 0)
+		{
+			acl_free(acl);
+			return strdup(strerror(errno));
+		}
+		if ((status.st_uid != userId || status.st_gid != groupId) && chown(path, userId, groupId) != 0)
+		{
+			acl_free(acl);
+			return strdup(strerror(errno));
+		}
+		if (acl_set_file(path, ACL_TYPE_EXTENDED, acl) != 0)
+		{
+			acl_free(acl);
+			return strdup(strerror(errno));
+		}
+		acl_free(acl);
 		return NULL;
 	}
 }

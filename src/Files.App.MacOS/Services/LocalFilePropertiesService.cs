@@ -28,6 +28,7 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 				{
 					MacOSFileSecurityService.SetFlags(fullPath, previousSecurity.IsHidden, isLocked: false);
 				}
+				MacOSFileSecurityService.SetSecurity(fullPath, update.Owner, update.Group, update.AccessControlList);
 				File.SetUnixFileMode(fullPath, update.UnixMode);
 				MacOSFinderTagService.SetTags(fullPath, update.FinderTags);
 				MacOSFileSecurityService.SetFlags(fullPath, update.IsHidden, update.IsLocked);
@@ -36,6 +37,7 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 			{
 				var rollbackErrors = new List<Exception>();
 				TryRollback(() => MacOSFileSecurityService.SetFlags(fullPath, previousSecurity.IsHidden, isLocked: false));
+				TryRollback(() => MacOSFileSecurityService.SetSecurity(fullPath, previousSecurity.Owner, previousSecurity.Group, previousSecurity.Acl));
 				TryRollback(() => File.SetUnixFileMode(fullPath, previousMode));
 				TryRollback(() => MacOSFinderTagService.SetTags(fullPath, previousTags));
 				TryRollback(() => MacOSFileSecurityService.SetFlags(fullPath, previousSecurity.IsHidden, previousSecurity.IsLocked));

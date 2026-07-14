@@ -98,6 +98,9 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_set_file_flags", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial nint SetFileFlags(string path, int isHidden, int isLocked);
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_set_file_security", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial nint SetFileSecurity(string path, string owner, string group, string accessControlList);
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_coordinate_file_operation", StringMarshalling = StringMarshalling.Utf8)]
 	internal static unsafe partial nint CoordinateFileOperation(
 		string sourcePath,

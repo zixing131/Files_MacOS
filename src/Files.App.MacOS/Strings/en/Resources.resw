@@ -296,6 +296,10 @@
   <data name="PropertyOwnerLabel" xml:space="preserve"><value>Owner</value></data>
   <data name="PropertyGroupLabel" xml:space="preserve"><value>Group</value></data>
   <data name="PropertyAclLabel" xml:space="preserve"><value>Access control</value></data>
+  <data name="PropertyOwnerWithIdFormat" xml:space="preserve"><value>Owner (UID {0})</value></data>
+  <data name="PropertyGroupWithIdFormat" xml:space="preserve"><value>Group (GID {0})</value></data>
+  <data name="PropertyAclPlaceholder" xml:space="preserve"><value>macOS ACL text; leave empty for no extended entries</value></data>
+  <data name="PropertySecurityHelpText" xml:space="preserve"><value>Owner or group changes may require additional permission. ACL entries use the macOS acl_to_text format; an empty value removes extended entries.</value></data>
   <data name="NoAccessControlEntriesText" xml:space="preserve"><value>No extended access entries</value></data>
   <data name="YesText" xml:space="preserve"><value>Yes</value></data>
   <data name="NoText" xml:space="preserve"><value>No</value></data>

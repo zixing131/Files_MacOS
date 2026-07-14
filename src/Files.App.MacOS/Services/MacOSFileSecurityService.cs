@@ -53,4 +53,21 @@ internal static class MacOSFileSecurityService
 			MacOSNativeMethods.Free(errorPointer);
 		}
 	}
+
+	public static void SetSecurity(string path, string owner, string group, string accessControlList)
+	{
+		nint errorPointer = MacOSNativeMethods.SetFileSecurity(path, owner, group, accessControlList);
+		if (errorPointer is 0)
+		{
+			return;
+		}
+		try
+		{
+			throw new IOException(Marshal.PtrToStringUTF8(errorPointer) ?? "The macOS file security settings couldn't be saved.");
+		}
+		finally
+		{
+			MacOSNativeMethods.Free(errorPointer);
+		}
+	}
 }

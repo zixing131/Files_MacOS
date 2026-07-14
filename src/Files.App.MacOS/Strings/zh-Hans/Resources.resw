@@ -296,6 +296,10 @@
   <data name="PropertyOwnerLabel" xml:space="preserve"><value>所有者</value></data>
   <data name="PropertyGroupLabel" xml:space="preserve"><value>用户组</value></data>
   <data name="PropertyAclLabel" xml:space="preserve"><value>访问控制</value></data>
+  <data name="PropertyOwnerWithIdFormat" xml:space="preserve"><value>所有者（UID {0}）</value></data>
+  <data name="PropertyGroupWithIdFormat" xml:space="preserve"><value>用户组（GID {0}）</value></data>
+  <data name="PropertyAclPlaceholder" xml:space="preserve"><value>macOS ACL 文本；留空表示没有扩展访问控制项</value></data>
+  <data name="PropertySecurityHelpText" xml:space="preserve"><value>修改所有者或用户组可能需要额外权限。ACL 使用 macOS acl_to_text 格式；留空可移除扩展访问控制项。</value></data>
   <data name="NoAccessControlEntriesText" xml:space="preserve"><value>没有扩展访问控制项</value></data>
   <data name="YesText" xml:space="preserve"><value>是</value></data>
   <data name="NoText" xml:space="preserve"><value>否</value></data>
