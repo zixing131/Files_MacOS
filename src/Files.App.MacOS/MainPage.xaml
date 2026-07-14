@@ -9,6 +9,7 @@
 
 	<Page.Resources>
 		<converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+		<converters:FileSystemItemToIconConverter x:Key="FileSystemItemToIconConverter" />
 		<converters:SidebarGlyphToIconConverter x:Key="SidebarGlyphToIconConverter" />
 	</Page.Resources>
 	<Page.KeyboardAccelerators>
@@ -61,14 +62,18 @@
 							<StackPanel Orientation="Horizontal" Spacing="7">
 								<PathIcon Width="16" Height="16" Data="M2,4 H8 L10,6 H18 V17 H2 Z M4,8 V15 H16 V8 Z" />
 								<TextBlock MaxWidth="180" Text="{x:Bind Header, Mode=OneWay}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-								<Button Width="22" Height="22" Padding="0" Click="TabHeaderCloseButton_Click" Content="×" Style="{StaticResource NavigationButtonStyle}" Tag="{Binding}" />
+								<Button Width="22" Height="22" Padding="0" Click="TabHeaderCloseButton_Click" Loaded="TabHeaderCloseButton_Loaded" Style="{StaticResource NavigationButtonStyle}" Tag="{Binding}">
+									<PathIcon Width="10" Height="10" Data="M3,2 L10,9 L17,2 L18,3 L11,10 L18,17 L17,18 L10,11 L3,18 L2,17 L9,10 L2,3 Z" />
+								</Button>
 							</StackPanel>
 						</TabViewItem.Header>
 					</TabViewItem>
 				</DataTemplate>
 			</TabView.TabItemTemplate>
 			<TabView.TabStripFooter>
-				<Button x:Name="NewTabButton" Width="32" Click="NewTabButton_Click" Content="＋" Style="{StaticResource NavigationButtonStyle}" />
+				<Button x:Name="NewTabButton" Width="32" Click="NewTabButton_Click" Style="{StaticResource NavigationButtonStyle}">
+					<PathIcon Width="14" Height="14" Data="M9,2 H11 V9 H18 V11 H11 V18 H9 V11 H2 V9 H9 Z" />
+				</Button>
 			</TabView.TabStripFooter>
 		</TabView>
 
@@ -81,32 +86,41 @@
 			ColumnSpacing="4">
 			<Button
 				x:Name="ToggleSidebarButton"
-				x:Uid="ToggleSidebarButton"
 				Grid.Column="0"
 				Click="ToggleSidebarButton_Click"
-				Style="{StaticResource NavigationButtonStyle}" />
+				Style="{StaticResource NavigationButtonStyle}">
+				<PathIcon Width="16" Height="16" Data="M2,3 H18 V17 H2 Z M4,5 V15 H8 V5 Z M10,6 H16 V8 H10 Z M10,10 H16 V12 H10 Z" />
+			</Button>
 			<Button
-				x:Uid="BackButton"
+				x:Name="BackButton"
 				Grid.Column="1"
 				Click="BackButton_Click"
 				IsEnabled="{Binding ActiveBrowser.CanGoBack}"
-				Style="{StaticResource NavigationButtonStyle}" />
+				Style="{StaticResource NavigationButtonStyle}">
+				<PathIcon Width="16" Height="16" Data="M8,2 L1,10 L8,18 L10,16 L6,12 H18 V8 H6 L10,4 Z" />
+			</Button>
 			<Button
-				x:Uid="ForwardButton"
+				x:Name="ForwardButton"
 				Grid.Column="2"
 				Click="ForwardButton_Click"
 				IsEnabled="{Binding ActiveBrowser.CanGoForward}"
-				Style="{StaticResource NavigationButtonStyle}" />
+				Style="{StaticResource NavigationButtonStyle}">
+				<PathIcon Width="16" Height="16" Data="M12,2 L19,10 L12,18 L10,16 L14,12 H2 V8 H14 L10,4 Z" />
+			</Button>
 			<Button
-				x:Uid="UpButton"
+				x:Name="UpButton"
 				Grid.Column="3"
 				Click="UpButton_Click"
-				Style="{StaticResource NavigationButtonStyle}" />
+				Style="{StaticResource NavigationButtonStyle}">
+				<PathIcon Width="16" Height="16" Data="M10,2 L18,10 L16,12 L12,8 V18 H8 V8 L4,12 L2,10 Z" />
+			</Button>
 			<Button
-				x:Uid="RefreshButton"
+				x:Name="RefreshButton"
 				Grid.Column="4"
 				Click="RefreshButton_Click"
-				Style="{StaticResource NavigationButtonStyle}" />
+				Style="{StaticResource NavigationButtonStyle}">
+				<PathIcon Width="16" Height="16" Data="M10,2 A8,8 0 0 1 17,6 V2 H19 V9 H12 V7 H15 A6,6 0 1 0 16,13 L18,14 A8,8 0 1 1 10,2 Z" />
+			</Button>
 
 			<Border
 				x:Name="AddressBarBorder"
@@ -152,8 +166,9 @@
 					HorizontalAlignment="Right"
 					Background="Transparent"
 					BorderThickness="0"
-					Click="SearchOptionsButton_Click"
-					Content="⌄" />
+					Click="SearchOptionsButton_Click">
+					<PathIcon Width="12" Height="12" Data="M2,4 L7,9 L12,4 L14,6 L7,13 L0,6 Z" />
+				</Button>
 			</Grid>
 		</Grid>
 
@@ -207,33 +222,37 @@
 						<Border Height="1" Margin="4,2" Background="{ThemeResource FilesCardBorderBrush}" />
 						<Button
 							x:Name="OpenFolderButton"
-							x:Uid="OpenFolderButton"
 							Click="OpenFolderButton_Click"
 							HorizontalAlignment="Stretch"
 							HorizontalContentAlignment="Left"
-							Style="{StaticResource ToolbarButtonStyle}" />
+							Style="{StaticResource ToolbarButtonStyle}">
+							<controls:CommandLabel x:Uid="OpenFolderButton" IconData="M2,4 H8 L10,6 H18 V17 H2 Z M4,8 V15 H16 V8 Z M9,9 H11 V11 H13 V13 H11 V15 H9 V13 H7 V11 H9 Z" />
+						</Button>
 						<Button
 							x:Name="ConnectServerButton"
-							x:Uid="ConnectServerButton"
 							Click="ConnectServerButton_Click"
 							HorizontalAlignment="Stretch"
 							HorizontalContentAlignment="Left"
-							Style="{StaticResource ToolbarButtonStyle}" />
+							Style="{StaticResource ToolbarButtonStyle}">
+							<controls:CommandLabel x:Uid="ConnectServerButton" IconData="M3,3 H17 V10 H3 Z M5,5 V8 H15 V5 Z M4,12 H9 V18 H4 Z M11,12 H16 V18 H11 Z M6,14 V16 H7 V14 Z M13,14 V16 H14 V14 Z" />
+						</Button>
 						<Button
 							x:Name="ClearRecentButton"
-							x:Uid="ClearRecentButton"
 							Click="ClearRecentButton_Click"
 							HorizontalAlignment="Stretch"
 							HorizontalContentAlignment="Left"
 							Style="{StaticResource ToolbarButtonStyle}"
-							Visibility="{Binding HasRecentLocations, Converter={StaticResource BooleanToVisibilityConverter}}" />
+							Visibility="{Binding HasRecentLocations, Converter={StaticResource BooleanToVisibilityConverter}}">
+							<controls:CommandLabel x:Uid="ClearRecentButton" IconData="M10,2 A8,8 0 0 1 17,6 V2 H19 V9 H12 V7 H15 A6,6 0 1 0 16,13 L18,14 A8,8 0 1 1 10,2 Z M6,8 L8,6 L10,8 L12,6 L14,8 L12,10 L14,12 L12,14 L10,12 L8,14 L6,12 L8,10 Z" />
+						</Button>
 						<Button
 							x:Name="SettingsButton"
-							x:Uid="SettingsButton"
 							Click="SettingsButton_Click"
 							HorizontalAlignment="Stretch"
 							HorizontalContentAlignment="Left"
-							Style="{StaticResource ToolbarButtonStyle}" />
+							Style="{StaticResource ToolbarButtonStyle}">
+							<controls:CommandLabel x:Uid="SettingsButton" IconData="M8,2 H12 L13,5 L16,4 L18,8 L15,10 L18,12 L16,16 L13,15 L12,18 H8 L7,15 L4,16 L2,12 L5,10 L2,8 L4,4 L7,5 Z M10,7 A3,3 0 1 0 10,13 A3,3 0 0 0 10,7 Z" />
+						</Button>
 					</StackPanel>
 				</Grid>
 			</Border>
@@ -458,7 +477,7 @@
 											</MenuFlyout>
 										</Grid.ContextFlyout>
 										<Grid Width="64" Height="64" HorizontalAlignment="Center">
-											<TextBlock FontSize="44" HorizontalAlignment="Center" Text="{Binding Glyph}" VerticalAlignment="Center" />
+											<PathIcon Width="44" Height="44" Data="{Binding IsDirectory, Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" />
 											<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 										</Grid>
 										<TextBlock
@@ -486,13 +505,13 @@
 								BorderThickness="0,0,0,1">
 								<Grid Padding="8,0" ColumnDefinitions="28,*,180,100">
 									<Button x:Name="PrimaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
-										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><TextBlock x:Name="PrimaryNameSortIndicator" /></StackPanel>
+										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="PrimaryNameSortIndicator" Width="10" Height="10" Visibility="Collapsed" /></StackPanel>
 									</Button>
 									<Button x:Name="PrimaryModifiedHeaderButton" Grid.Column="2" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Modified">
-										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="ModifiedColumn" /><TextBlock x:Name="PrimaryModifiedSortIndicator" /></StackPanel>
+										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="ModifiedColumn" /><PathIcon x:Name="PrimaryModifiedSortIndicator" Width="10" Height="10" Visibility="Collapsed" /></StackPanel>
 									</Button>
 									<Button x:Name="PrimarySizeHeaderButton" Grid.Column="3" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Size">
-										<StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SizeColumn" /><TextBlock x:Name="PrimarySizeSortIndicator" /></StackPanel>
+										<StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SizeColumn" /><PathIcon x:Name="PrimarySizeSortIndicator" Width="10" Height="10" Visibility="Collapsed" /></StackPanel>
 									</Button>
 								</Grid>
 							</Border>
@@ -544,7 +563,7 @@
 												</MenuFlyout>
 											</Grid.ContextFlyout>
 											<Grid Grid.Column="0" Width="24" Height="24">
-												<TextBlock Text="{Binding Glyph}" VerticalAlignment="Center" />
+												<PathIcon Width="20" Height="20" Data="{Binding IsDirectory, Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" />
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 											</Grid>
 											<StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -569,7 +588,7 @@
 							VerticalAlignment="Center"
 							Spacing="8"
 							Visibility="{Binding ActiveTab.Browser.IsEmptyFolder, Converter={StaticResource BooleanToVisibilityConverter}}">
-							<TextBlock FontSize="64" HorizontalAlignment="Center" Text="□" />
+							<PathIcon x:Name="PrimaryEmptyFolderIcon" Width="64" Height="64" Data="M2,12 H25 L31,18 H62 V54 H2 Z M7,22 V49 H57 V22 Z" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.32" />
 							<TextBlock x:Uid="EmptyFolderHeading" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
 							<TextBlock x:Uid="EmptyFolderDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextAlignment="Center" />
 						</StackPanel>
@@ -578,7 +597,7 @@
 							VerticalAlignment="Center"
 							Spacing="8"
 							Visibility="{Binding ActiveTab.Browser.HasNoSearchResults, Converter={StaticResource BooleanToVisibilityConverter}}">
-							<TextBlock FontSize="48" FontWeight="Light" HorizontalAlignment="Center" Text="..." />
+							<PathIcon x:Name="PrimaryNoResultsIcon" Width="56" Height="56" Data="M24,4 A20,20 0 1 0 24,44 A20,20 0 0 0 24,4 Z M24,10 A14,14 0 1 1 24,38 A14,14 0 0 1 24,10 Z M38,39 L44,34 L56,47 L51,52 Z M18,18 H30 V22 H18 Z M18,27 H27 V31 H18 Z" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.32" />
 							<TextBlock x:Uid="NoSearchResultsHeading" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
 							<TextBlock x:Uid="NoSearchResultsDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextAlignment="Center" />
 						</StackPanel>
@@ -670,7 +689,7 @@
 												</MenuFlyout>
 											</Grid.ContextFlyout>
 											<Grid Width="64" Height="64" HorizontalAlignment="Center">
-												<TextBlock FontSize="44" HorizontalAlignment="Center" Text="{Binding Glyph}" VerticalAlignment="Center" />
+												<PathIcon Width="44" Height="44" Data="{Binding IsDirectory, Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" />
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 											</Grid>
 											<TextBlock Grid.Row="1" HorizontalAlignment="Center" MaxLines="2" Text="{Binding Name}" TextAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" />
@@ -690,13 +709,13 @@
 									BorderThickness="0,0,0,1">
 									<Grid Padding="8,0" ColumnDefinitions="28,*,140,90">
 										<Button x:Name="SecondaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
-											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><TextBlock x:Name="SecondaryNameSortIndicator" /></StackPanel>
+											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="SecondaryNameSortIndicator" Width="10" Height="10" Visibility="Collapsed" /></StackPanel>
 										</Button>
 										<Button x:Name="SecondaryModifiedHeaderButton" Grid.Column="2" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Modified">
-											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="ModifiedColumn" /><TextBlock x:Name="SecondaryModifiedSortIndicator" /></StackPanel>
+											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="ModifiedColumn" /><PathIcon x:Name="SecondaryModifiedSortIndicator" Width="10" Height="10" Visibility="Collapsed" /></StackPanel>
 										</Button>
 										<Button x:Name="SecondarySizeHeaderButton" Grid.Column="3" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Size">
-											<StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SizeColumn" /><TextBlock x:Name="SecondarySizeSortIndicator" /></StackPanel>
+											<StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SizeColumn" /><PathIcon x:Name="SecondarySizeSortIndicator" Width="10" Height="10" Visibility="Collapsed" /></StackPanel>
 										</Button>
 									</Grid>
 								</Border>
@@ -748,7 +767,7 @@
 													</MenuFlyout>
 												</Grid.ContextFlyout>
 												<Grid Grid.Column="0" Width="24" Height="24">
-													<TextBlock Text="{Binding Glyph}" VerticalAlignment="Center" />
+													<PathIcon Width="20" Height="20" Data="{Binding IsDirectory, Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" />
 													<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 												</Grid>
 												<StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -773,7 +792,7 @@
 								VerticalAlignment="Center"
 								Spacing="8"
 								Visibility="{Binding ActiveTab.SecondaryBrowser.IsEmptyFolder, Converter={StaticResource BooleanToVisibilityConverter}}">
-								<TextBlock FontSize="64" HorizontalAlignment="Center" Text="□" />
+								<PathIcon x:Name="SecondaryEmptyFolderIcon" Width="64" Height="64" Data="M2,12 H25 L31,18 H62 V54 H2 Z M7,22 V49 H57 V22 Z" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.32" />
 								<TextBlock x:Uid="EmptyFolderHeading" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
 								<TextBlock x:Uid="EmptyFolderDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextAlignment="Center" />
 							</StackPanel>
@@ -782,7 +801,7 @@
 								VerticalAlignment="Center"
 								Spacing="8"
 								Visibility="{Binding ActiveTab.SecondaryBrowser.HasNoSearchResults, Converter={StaticResource BooleanToVisibilityConverter}}">
-								<TextBlock FontSize="48" FontWeight="Light" HorizontalAlignment="Center" Text="..." />
+								<PathIcon x:Name="SecondaryNoResultsIcon" Width="56" Height="56" Data="M24,4 A20,20 0 1 0 24,44 A20,20 0 0 0 24,4 Z M24,10 A14,14 0 1 1 24,38 A14,14 0 0 1 24,10 Z M38,39 L44,34 L56,47 L51,52 Z M18,18 H30 V22 H18 Z M18,27 H27 V31 H18 Z" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.32" />
 								<TextBlock x:Uid="NoSearchResultsHeading" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
 								<TextBlock x:Uid="NoSearchResultsDescription" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextAlignment="Center" />
 							</StackPanel>
@@ -812,10 +831,12 @@
 						<Grid ColumnDefinitions="*,Auto">
 							<TextBlock x:Uid="PreviewPaneHeading" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
 							<Button
-								x:Uid="ClosePreviewPaneButton"
+								x:Name="ClosePreviewPaneButton"
 								Grid.Column="1"
 								Click="ClosePreviewPaneButton_Click"
-								Style="{StaticResource NavigationButtonStyle}" />
+								Style="{StaticResource NavigationButtonStyle}">
+								<PathIcon Width="11" Height="11" Data="M3,2 L10,9 L17,2 L18,3 L11,10 L18,17 L17,18 L10,11 L3,18 L2,17 L9,10 L2,3 Z" />
+							</Button>
 						</Grid>
 						<ScrollViewer Grid.Row="1" Margin="0,16,0,8" VerticalScrollBarVisibility="Auto">
 							<Grid>
@@ -828,7 +849,7 @@
 									TextWrapping="Wrap" />
 								<StackPanel x:Name="PreviewPaneContent" Spacing="10" Visibility="Collapsed">
 									<Grid Width="160" Height="160" HorizontalAlignment="Center">
-										<TextBlock FontSize="88" HorizontalAlignment="Center" Text="{Binding Glyph}" VerticalAlignment="Center" />
+										<PathIcon Width="88" Height="88" Data="{Binding IsDirectory, Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.58" />
 										<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 									</Grid>
 									<TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding Name}" TextAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -878,8 +899,12 @@
 						Visibility="Collapsed" />
 					<Border Grid.Column="3" Padding="2" VerticalAlignment="Center" Background="{ThemeResource FilesSubtleBrush}" CornerRadius="5">
 						<StackPanel Orientation="Horizontal" Spacing="1">
-							<Button x:Name="GridViewStatusButton" Click="GridViewStatusButton_Click" Content="▦" Style="{StaticResource StatusViewButtonStyle}" />
-							<Button x:Name="DetailsViewStatusButton" Click="DetailsViewStatusButton_Click" Content="☷" Style="{StaticResource StatusViewButtonStyle}" />
+							<Button x:Name="GridViewStatusButton" Click="GridViewStatusButton_Click" Style="{StaticResource StatusViewButtonStyle}">
+								<PathIcon Width="14" Height="14" Data="M2,2 H8 V8 H2 Z M12,2 H18 V8 H12 Z M2,12 H8 V18 H2 Z M12,12 H18 V18 H12 Z" />
+							</Button>
+							<Button x:Name="DetailsViewStatusButton" Click="DetailsViewStatusButton_Click" Style="{StaticResource StatusViewButtonStyle}">
+								<PathIcon Width="14" Height="14" Data="M2,3 H5 V6 H2 Z M7,3 H18 V6 H7 Z M2,8 H5 V11 H2 Z M7,8 H18 V11 H7 Z M2,13 H5 V16 H2 Z M7,13 H18 V16 H7 Z" />
+							</Button>
 						</StackPanel>
 					</Border>
 				</Grid>

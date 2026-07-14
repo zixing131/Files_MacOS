@@ -9,31 +9,12 @@
   <data name="ApplicationName" xml:space="preserve">
     <value>文件</value>
   </data>
-  <data name="BackButton.Content" xml:space="preserve">
-    <value>←</value>
-  </data>
-  <data name="ForwardButton.Content" xml:space="preserve">
-    <value>→</value>
-  </data>
-  <data name="UpButton.Content" xml:space="preserve">
-    <value>↑</value>
-  </data>
-  <data name="HomeButton.Content" xml:space="preserve">
-    <value>个人目录</value>
-  </data>
-  <data name="RefreshButton.Content" xml:space="preserve">
-    <value>↻</value>
-  </data>
-  <data name="SearchButton.Content" xml:space="preserve">
-    <value>⌕</value>
-  </data>
   <data name="AddressBox.PlaceholderText" xml:space="preserve">
     <value>输入文件夹路径</value>
   </data>
   <data name="LocationsHeading.Text" xml:space="preserve">
     <value>位置</value>
   </data>
-  <data name="ToggleSidebarButton.Content" xml:space="preserve"><value>☰</value></data>
   <data name="SidebarFavoritesHeading" xml:space="preserve"><value>收藏夹</value></data>
   <data name="SidebarRecentHeading" xml:space="preserve"><value>最近使用</value></data>
   <data name="SidebarLibrariesHeading" xml:space="preserve"><value>库</value></data>
@@ -61,13 +42,13 @@
     <value>影片</value>
   </data>
   <data name="SettingsButton.Content" xml:space="preserve">
-    <value>⚙  设置</value>
+    <value>设置</value>
   </data>
   <data name="NewButton.Content" xml:space="preserve">
-    <value>＋ 新建</value>
+    <value>新建</value>
   </data>
   <data name="CutButton.Content" xml:space="preserve">
-    <value>✂ 剪切</value>
+    <value>剪切</value>
   </data>
   <data name="CopyButton.Content" xml:space="preserve">
     <value>复制</value>
@@ -480,13 +461,20 @@
   <data name="FileTransferCanceledWithCompletedFormat" xml:space="preserve"><value>文件操作在完成 {0} 个根项目后被取消，已完成的项目可以撤销。</value></data>
   <data name="FileTransferFailedWithCompletedFormat" xml:space="preserve"><value>操作在完成 {0} 个根项目后停止，已完成的项目可以撤销。</value></data>
   <data name="OpenFolderButton.Content" xml:space="preserve"><value>打开文件夹…</value></data>
-  <data name="ClearRecentButton.Content" xml:space="preserve"><value>⌫  清除最近位置</value></data>
+  <data name="ClearRecentButton.Content" xml:space="preserve"><value>清除最近位置</value></data>
   <data name="OpenFolderErrorMessage" xml:space="preserve"><value>无法打开该文件夹。</value></data>
   <data name="FolderAccessSettingLabel" xml:space="preserve"><value>文件夹访问权限</value></data>
   <data name="FolderAccessSettingDescription" xml:space="preserve"><value>取消勾选可忘记已保存的 macOS 文件夹访问权限。在沙盒版本中，使用该文件夹的标签页可能会停止工作。</value></data>
   <data name="PreviewPaneButton.Content" xml:space="preserve"><value>预览</value></data>
   <data name="PreviewPaneHeading.Text" xml:space="preserve"><value>预览</value></data>
-  <data name="ClosePreviewPaneButton.Content" xml:space="preserve"><value>×</value></data>
+  <data name="ToggleSidebarTooltip" xml:space="preserve"><value>显示或隐藏侧栏</value></data>
+  <data name="BackNavigationTooltip" xml:space="preserve"><value>后退</value></data>
+  <data name="ForwardNavigationTooltip" xml:space="preserve"><value>前进</value></data>
+  <data name="UpNavigationTooltip" xml:space="preserve"><value>返回上一级</value></data>
+  <data name="RefreshNavigationTooltip" xml:space="preserve"><value>刷新</value></data>
+  <data name="NewTabTooltip" xml:space="preserve"><value>新建标签页</value></data>
+  <data name="CloseTabTooltip" xml:space="preserve"><value>关闭标签页</value></data>
+  <data name="ClosePreviewPaneTooltip" xml:space="preserve"><value>关闭预览窗格</value></data>
   <data name="PreviewModifiedLabel.Text" xml:space="preserve"><value>修改时间</value></data>
   <data name="PreviewSizeLabel.Text" xml:space="preserve"><value>大小</value></data>
   <data name="PreviewPaneQuickLookButton.Content" xml:space="preserve"><value>打开快速查看</value></data>

@@ -9,31 +9,12 @@
   <data name="ApplicationName" xml:space="preserve">
     <value>Files</value>
   </data>
-  <data name="BackButton.Content" xml:space="preserve">
-    <value>←</value>
-  </data>
-  <data name="ForwardButton.Content" xml:space="preserve">
-    <value>→</value>
-  </data>
-  <data name="UpButton.Content" xml:space="preserve">
-    <value>↑</value>
-  </data>
-  <data name="HomeButton.Content" xml:space="preserve">
-    <value>Home</value>
-  </data>
-  <data name="RefreshButton.Content" xml:space="preserve">
-    <value>↻</value>
-  </data>
-  <data name="SearchButton.Content" xml:space="preserve">
-    <value>⌕</value>
-  </data>
   <data name="AddressBox.PlaceholderText" xml:space="preserve">
     <value>Enter a folder path</value>
   </data>
   <data name="LocationsHeading.Text" xml:space="preserve">
     <value>Locations</value>
   </data>
-  <data name="ToggleSidebarButton.Content" xml:space="preserve"><value>☰</value></data>
   <data name="SidebarFavoritesHeading" xml:space="preserve"><value>Favorites</value></data>
   <data name="SidebarRecentHeading" xml:space="preserve"><value>Recent</value></data>
   <data name="SidebarLibrariesHeading" xml:space="preserve"><value>Libraries</value></data>
@@ -61,13 +42,13 @@
     <value>Movies</value>
   </data>
   <data name="SettingsButton.Content" xml:space="preserve">
-    <value>⚙  Settings</value>
+    <value>Settings</value>
   </data>
   <data name="NewButton.Content" xml:space="preserve">
-    <value>＋ New</value>
+    <value>New</value>
   </data>
   <data name="CutButton.Content" xml:space="preserve">
-    <value>✂ Cut</value>
+    <value>Cut</value>
   </data>
   <data name="CopyButton.Content" xml:space="preserve">
     <value>Copy</value>
@@ -480,13 +461,20 @@
   <data name="FileTransferCanceledWithCompletedFormat" xml:space="preserve"><value>File operation canceled after completing {0} root item(s). The completed items can be undone.</value></data>
   <data name="FileTransferFailedWithCompletedFormat" xml:space="preserve"><value>The operation stopped after completing {0} root item(s). The completed items can be undone.</value></data>
   <data name="OpenFolderButton.Content" xml:space="preserve"><value>Open folder…</value></data>
-  <data name="ClearRecentButton.Content" xml:space="preserve"><value>⌫  Clear recent locations</value></data>
+  <data name="ClearRecentButton.Content" xml:space="preserve"><value>Clear recent locations</value></data>
   <data name="OpenFolderErrorMessage" xml:space="preserve"><value>The folder couldn't be opened.</value></data>
   <data name="FolderAccessSettingLabel" xml:space="preserve"><value>Folder access</value></data>
   <data name="FolderAccessSettingDescription" xml:space="preserve"><value>Clear a folder to forget its saved macOS access permission. Open tabs using that folder may stop working in sandboxed builds.</value></data>
   <data name="PreviewPaneButton.Content" xml:space="preserve"><value>Preview</value></data>
   <data name="PreviewPaneHeading.Text" xml:space="preserve"><value>Preview</value></data>
-  <data name="ClosePreviewPaneButton.Content" xml:space="preserve"><value>×</value></data>
+  <data name="ToggleSidebarTooltip" xml:space="preserve"><value>Show or hide sidebar</value></data>
+  <data name="BackNavigationTooltip" xml:space="preserve"><value>Back</value></data>
+  <data name="ForwardNavigationTooltip" xml:space="preserve"><value>Forward</value></data>
+  <data name="UpNavigationTooltip" xml:space="preserve"><value>Up one level</value></data>
+  <data name="RefreshNavigationTooltip" xml:space="preserve"><value>Refresh</value></data>
+  <data name="NewTabTooltip" xml:space="preserve"><value>New tab</value></data>
+  <data name="CloseTabTooltip" xml:space="preserve"><value>Close tab</value></data>
+  <data name="ClosePreviewPaneTooltip" xml:space="preserve"><value>Close preview pane</value></data>
   <data name="PreviewModifiedLabel.Text" xml:space="preserve"><value>Modified</value></data>
   <data name="PreviewSizeLabel.Text" xml:space="preserve"><value>Size</value></data>
   <data name="PreviewPaneQuickLookButton.Content" xml:space="preserve"><value>Open Quick Look</value></data>

@@ -33,8 +33,6 @@ public sealed partial class LocalFileSystemItem(
 
 	public bool IsSearchResult => !string.IsNullOrEmpty(SearchLocation);
 
-	public string Glyph => IsDirectory ? "📁" : "📄";
-
 	public string ModifiedText => Modified.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
 
 	public string SizeText => IsDirectory || Size is null ? string.Empty : FormatSize(Size.Value);

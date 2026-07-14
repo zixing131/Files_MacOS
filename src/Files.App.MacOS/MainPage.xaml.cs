@@ -59,12 +59,26 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		DataContext = ViewModel;
 		MoreSelectionSubItem.Text = GetResource("MoreSelectionSubItem/Text");
 		MoreArchiveSubItem.Text = GetResource("MoreArchiveSubItem/Text");
-		ToolTipService.SetToolTip(GridViewStatusButton, GetResource("GridViewTooltip"));
-		ToolTipService.SetToolTip(DetailsViewStatusButton, GetResource("DetailsViewTooltip"));
+		ConfigureIconButton(ToggleSidebarButton, "ToggleSidebarTooltip");
+		ConfigureIconButton(BackButton, "BackNavigationTooltip");
+		ConfigureIconButton(ForwardButton, "ForwardNavigationTooltip");
+		ConfigureIconButton(UpButton, "UpNavigationTooltip");
+		ConfigureIconButton(RefreshButton, "RefreshNavigationTooltip");
+		ConfigureIconButton(NewTabButton, "NewTabTooltip");
+		ConfigureIconButton(ClosePreviewPaneButton, "ClosePreviewPaneTooltip");
+		ConfigureIconButton(GridViewStatusButton, "GridViewTooltip");
+		ConfigureIconButton(DetailsViewStatusButton, "DetailsViewTooltip");
+		ConfigureIconButton(SearchOptionsButton, "SearchOptionsTooltip");
 		ToolTipService.SetToolTip(SearchBox, GetResource("SearchSyntaxHelp"));
-		ToolTipService.SetToolTip(SearchOptionsButton, GetResource("SearchOptionsTooltip"));
 		Loaded += MainPage_Loaded;
 		Unloaded += MainPage_Unloaded;
+	}
+
+	private void ConfigureIconButton(Button button, string resourceKey)
+	{
+		string label = GetResource(resourceKey);
+		ToolTipService.SetToolTip(button, label);
+		Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, label);
 	}
 
 	private DirectoryBrowserViewModel? Browser => ViewModel.ActiveBrowser;
@@ -182,19 +196,43 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Console.Error.WriteLine(
 				$"FILES_MACOS_TOOLBAR_ICON_ERROR buttons={string.Join(',', iconCommandButtons.Where(static button => button.Content is not CommandLabel { IconData: not null, Content.Length: > 0 }).Select(static button => button.Name))}");
 		}
+		Button[] navigationIconButtons =
+		[
+			ToggleSidebarButton,
+			BackButton,
+			ForwardButton,
+			UpButton,
+			RefreshButton,
+			NewTabButton,
+			SearchOptionsButton,
+			ClosePreviewPaneButton,
+			GridViewStatusButton,
+			DetailsViewStatusButton,
+		];
+		bool navigationIcons = navigationIconButtons.All(static button => button.Content is PathIcon { Data: not null }) &&
+			navigationIconButtons.All(static button => !string.IsNullOrWhiteSpace(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(button)));
+		Button[] sidebarFooterButtons = [OpenFolderButton, ConnectServerButton, ClearRecentButton, SettingsButton];
+		bool sidebarFooterIcons = sidebarFooterButtons.All(static button =>
+			button.Content is CommandLabel { IconData: not null, Content.Length: > 0 });
+		bool emptyStateIcons = PrimaryEmptyFolderIcon.Data is not null && PrimaryNoResultsIcon.Data is not null &&
+			SecondaryEmptyFolderIcon.Data is not null && SecondaryNoResultsIcon.Data is not null;
+		var itemIconConverter = new Converters.FileSystemItemToIconConverter();
+		bool itemFallbackIcons = itemIconConverter.Convert(true, typeof(Microsoft.UI.Xaml.Media.Geometry), null!, string.Empty) is Microsoft.UI.Xaml.Media.Geometry &&
+			itemIconConverter.Convert(false, typeof(Microsoft.UI.Xaml.Media.Geometry), null!, string.Empty) is Microsoft.UI.Xaml.Media.Geometry;
 		FileSortField initialSortField = browser.SortField;
 		FileSortDirection initialSortDirection = browser.SortDirection;
 		FileSortField diagnosticSortField = initialSortField is FileSortField.Modified ? FileSortField.Size : FileSortField.Modified;
 		ApplyDetailsSort(browser, diagnosticSortField);
 		bool diagnosticIsSecondary = ReferenceEquals(browser, ViewModel.ActiveTab?.SecondaryBrowser);
-		TextBlock diagnosticIndicator = (diagnosticIsSecondary, diagnosticSortField) switch
+		PathIcon diagnosticIndicator = (diagnosticIsSecondary, diagnosticSortField) switch
 		{
 			(true, FileSortField.Modified) => SecondaryModifiedSortIndicator,
 			(true, _) => SecondarySizeSortIndicator,
 			(false, FileSortField.Modified) => PrimaryModifiedSortIndicator,
 			_ => PrimarySizeSortIndicator,
 		};
-		bool sortHeaderRoundtrip = browser.SortField == diagnosticSortField && !string.IsNullOrEmpty(diagnosticIndicator.Text);
+		bool sortHeaderRoundtrip = browser.SortField == diagnosticSortField &&
+			diagnosticIndicator is { Data: not null, Visibility: Visibility.Visible };
 		browser.SetSort(initialSortField, initialSortDirection);
 		UpdateSortHeaderVisuals();
 		bool initialGridView = browser.IsGridView;
@@ -241,7 +279,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"items={browser.Items.Count} realized={realizedContainers} selection_roundtrip={selectionRoundtrip} " +
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
-			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
+			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
 			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
@@ -3626,6 +3664,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
+	private void TabHeaderCloseButton_Loaded(object sender, RoutedEventArgs e)
+	{
+		if (sender is Button button)
+		{
+			ConfigureIconButton(button, "CloseTabTooltip");
+		}
+	}
+
 	private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
 	{
 		selectedItems = [];
@@ -3963,25 +4009,31 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private static void SetSortIndicators(
 		DirectoryBrowserViewModel? browser,
-		TextBlock nameIndicator,
-		TextBlock modifiedIndicator,
-		TextBlock sizeIndicator)
+		PathIcon nameIndicator,
+		PathIcon modifiedIndicator,
+		PathIcon sizeIndicator)
 	{
-		nameIndicator.Text = string.Empty;
-		modifiedIndicator.Text = string.Empty;
-		sizeIndicator.Text = string.Empty;
+		foreach (PathIcon candidate in new[] { nameIndicator, modifiedIndicator, sizeIndicator })
+		{
+			candidate.Data = null;
+			candidate.Visibility = Visibility.Collapsed;
+		}
 		if (browser is null)
 		{
 			return;
 		}
 
-		TextBlock indicator = browser.SortField switch
+		PathIcon indicator = browser.SortField switch
 		{
 			FileSortField.Modified => modifiedIndicator,
 			FileSortField.Size => sizeIndicator,
 			_ => nameIndicator,
 		};
-		indicator.Text = browser.SortDirection is FileSortDirection.Ascending ? "↑" : "↓";
+		string path = browser.SortDirection is FileSortDirection.Ascending
+			? "M10,2 L18,10 L16,12 L12,8 V18 H8 V8 L4,12 L2,10 Z"
+			: "M8,2 H12 V12 L16,8 L18,10 L10,18 L2,10 L4,8 L8,12 Z";
+		indicator.Data = (Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Geometry), path);
+		indicator.Visibility = Visibility.Visible;
 	}
 
 	private void UpdateViewModeVisuals()
