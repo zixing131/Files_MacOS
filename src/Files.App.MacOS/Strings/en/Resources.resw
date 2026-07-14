@@ -262,6 +262,8 @@
   <data name="CalculatingPropertiesMessage" xml:space="preserve">
     <value>Calculating properties…</value>
   </data>
+  <data name="GeneralPropertiesSection" xml:space="preserve"><value>General</value></data>
+  <data name="PermissionsPropertiesSection" xml:space="preserve"><value>Sharing &amp; Permissions</value></data>
   <data name="PropertyNameLabel" xml:space="preserve">
     <value>Name</value>
   </data>
@@ -289,6 +291,14 @@
   <data name="PropertyPermissionsPlaceholder" xml:space="preserve"><value>Octal mode, for example 755</value></data>
   <data name="PropertyFinderTagsLabel" xml:space="preserve"><value>Finder tags</value></data>
   <data name="PropertyFinderTagsPlaceholder" xml:space="preserve"><value>Comma-separated tags</value></data>
+  <data name="PropertyHiddenLabel" xml:space="preserve"><value>Hidden</value></data>
+  <data name="PropertyLockedLabel" xml:space="preserve"><value>Locked</value></data>
+  <data name="PropertyOwnerLabel" xml:space="preserve"><value>Owner</value></data>
+  <data name="PropertyGroupLabel" xml:space="preserve"><value>Group</value></data>
+  <data name="PropertyAclLabel" xml:space="preserve"><value>Access control</value></data>
+  <data name="NoAccessControlEntriesText" xml:space="preserve"><value>No extended access entries</value></data>
+  <data name="YesText" xml:space="preserve"><value>Yes</value></data>
+  <data name="NoText" xml:space="preserve"><value>No</value></data>
   <data name="PropertiesSavedMessage" xml:space="preserve"><value>Properties saved.</value></data>
   <data name="PropertyLinkTargetLabel" xml:space="preserve">
     <value>Link target</value>

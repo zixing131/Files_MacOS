@@ -11,8 +11,7 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 
 	public Task UpdateAsync(
 		string path,
-		UnixFileMode unixMode,
-		IReadOnlyList<string> finderTags,
+		FilePropertyUpdate update,
 		CancellationToken cancellationToken = default)
 	{
 		return Task.Run(() =>
@@ -21,22 +20,44 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 			string fullPath = Path.GetFullPath(path);
 			UnixFileMode previousMode = File.GetUnixFileMode(fullPath);
 			IReadOnlyList<string> previousTags = MacOSFinderTagService.GetTags(fullPath);
-			File.SetUnixFileMode(fullPath, unixMode);
+			MacOSFileSecurityInfo previousSecurity = MacOSFileSecurityService.GetInfo(fullPath) ??
+				throw new IOException("The current macOS file security information isn't available.");
 			try
 			{
-				MacOSFinderTagService.SetTags(fullPath, finderTags);
-			}
-			catch
-			{
-				File.SetUnixFileMode(fullPath, previousMode);
-				try
+				if (previousSecurity.IsLocked)
 				{
-					MacOSFinderTagService.SetTags(fullPath, previousTags);
+					MacOSFileSecurityService.SetFlags(fullPath, previousSecurity.IsHidden, isLocked: false);
 				}
-				catch (IOException)
+				File.SetUnixFileMode(fullPath, update.UnixMode);
+				MacOSFinderTagService.SetTags(fullPath, update.FinderTags);
+				MacOSFileSecurityService.SetFlags(fullPath, update.IsHidden, update.IsLocked);
+			}
+			catch (Exception originalException)
+			{
+				var rollbackErrors = new List<Exception>();
+				TryRollback(() => MacOSFileSecurityService.SetFlags(fullPath, previousSecurity.IsHidden, isLocked: false));
+				TryRollback(() => File.SetUnixFileMode(fullPath, previousMode));
+				TryRollback(() => MacOSFinderTagService.SetTags(fullPath, previousTags));
+				TryRollback(() => MacOSFileSecurityService.SetFlags(fullPath, previousSecurity.IsHidden, previousSecurity.IsLocked));
+				if (rollbackErrors.Count > 0)
 				{
+					throw new IOException(
+						"The properties couldn't be saved and one or more original values couldn't be restored.",
+						new AggregateException([originalException, .. rollbackErrors]));
 				}
 				throw;
+
+				void TryRollback(Action action)
+				{
+					try
+					{
+						action();
+					}
+					catch (Exception rollbackException) when (rollbackException is IOException or UnauthorizedAccessException)
+					{
+						rollbackErrors.Add(rollbackException);
+					}
+				}
 			}
 		}, cancellationToken);
 	}
@@ -57,7 +78,7 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 
 		if (fullPaths is not [string singlePath])
 		{
-			return new(fullPaths.Length, totals.FileCount, totals.FolderCount, totals.TotalSize, null, null, null, null, null, null, null);
+			return new(fullPaths.Length, totals.FileCount, totals.FolderCount, totals.TotalSize, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 		}
 
 		System.IO.FileAttributes attributes = File.GetAttributes(singlePath);
@@ -72,6 +93,7 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 		catch (PlatformNotSupportedException)
 		{
 		}
+		MacOSFileSecurityInfo? security = MacOSFileSecurityService.GetInfo(singlePath);
 
 		return new(
 			1,
@@ -84,7 +106,14 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 			info.LastWriteTimeUtc,
 			unixMode,
 			linkTarget,
-			MacOSFinderTagService.GetTags(singlePath));
+			MacOSFinderTagService.GetTags(singlePath),
+			security?.Owner,
+			security?.Group,
+			security?.UserId,
+			security?.GroupId,
+			security?.Acl,
+			security?.IsHidden,
+			security?.IsLocked);
 	}
 
 	private static void CountEntry(string path, PropertyTotals totals, CancellationToken cancellationToken, bool isRoot)

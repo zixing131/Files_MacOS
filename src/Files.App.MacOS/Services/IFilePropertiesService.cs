@@ -11,7 +11,20 @@ public sealed record FilePropertiesSummary(
 	DateTimeOffset? Modified,
 	UnixFileMode? UnixMode,
 	string? LinkTarget,
-	IReadOnlyList<string>? FinderTags);
+	IReadOnlyList<string>? FinderTags,
+	string? Owner,
+	string? Group,
+	uint? UserId,
+	uint? GroupId,
+	string? AccessControlList,
+	bool? IsHidden,
+	bool? IsLocked);
+
+public sealed record FilePropertyUpdate(
+	UnixFileMode UnixMode,
+	IReadOnlyList<string> FinderTags,
+	bool IsHidden,
+	bool IsLocked);
 
 public interface IFilePropertiesService
 {
@@ -21,7 +34,6 @@ public interface IFilePropertiesService
 
 	Task UpdateAsync(
 		string path,
-		UnixFileMode unixMode,
-		IReadOnlyList<string> finderTags,
+		FilePropertyUpdate update,
 		CancellationToken cancellationToken = default);
 }

@@ -201,7 +201,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool nativeMenuRouting = menuFirstInvoke && menuSecondInvoke && menuChangedSidebar && isSidebarOpen == menuInitialSidebarState;
 		int commandAccelerators = KeyboardAccelerators.Count(accelerator =>
 			accelerator.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Windows));
-		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip, bool duplicateRoundtrip, bool newTabRoundtrip, bool symbolicLinkRoundtrip) = await RunFileMutationDiagnosticsAsync();
+		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool securityFlagsRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip, bool duplicateRoundtrip, bool newTabRoundtrip, bool symbolicLinkRoundtrip) = await RunFileMutationDiagnosticsAsync();
 
 		using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
 		Console.WriteLine(
@@ -210,7 +210,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_flags={securityFlagsRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -224,7 +224,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"inverted_count={selectedItems.Count} elapsed_ms={selectionTimer.Elapsed.TotalMilliseconds:F1}");
 	}
 
-	private async Task<(bool PermanentDelete, bool MetadataEdit, bool OpenWith, bool RecentLocations, bool Duplicate, bool NewTab, bool SymbolicLink)> RunFileMutationDiagnosticsAsync()
+	private async Task<(bool PermanentDelete, bool MetadataEdit, bool SecurityFlags, bool OpenWith, bool RecentLocations, bool Duplicate, bool NewTab, bool SymbolicLink)> RunFileMutationDiagnosticsAsync()
 	{
 		string root = Path.Combine(Path.GetTempPath(), $"files-macos-diagnostics-{Guid.NewGuid():N}");
 		try
@@ -259,10 +259,41 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			await File.WriteAllTextAsync(metadataPath, "diagnostic");
 			UnixFileMode expectedMode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead;
 			string[] expectedTags = ["Files Diagnostic", "Blue"];
-			await FilePropertiesService.UpdateAsync(metadataPath, expectedMode, expectedTags);
+			await FilePropertiesService.UpdateAsync(
+				metadataPath,
+				new FilePropertyUpdate(expectedMode, expectedTags, IsHidden: true, IsLocked: false));
 			FilePropertiesSummary summary = await FilePropertiesService.GetSummaryAsync([metadataPath]);
 			bool metadataEdit = summary.UnixMode == expectedMode && summary.FinderTags is not null &&
 				expectedTags.All(tag => summary.FinderTags.Contains(tag, StringComparer.Ordinal));
+			IReadOnlyList<LocalFileSystemItem> metadataItems = await new LocalDirectoryService().GetItemsAsync(root, CancellationToken.None);
+			bool securityFlags = summary is
+			{
+				Owner.Length: > 0,
+				Group.Length: > 0,
+				UserId: not null,
+				GroupId: not null,
+				AccessControlList: not null,
+				IsHidden: true,
+				IsLocked: false,
+			} && metadataItems.Single(item => item.Path == metadataPath).IsHidden;
+			await FilePropertiesService.UpdateAsync(
+				metadataPath,
+				new FilePropertyUpdate(expectedMode, expectedTags, IsHidden: false, IsLocked: true));
+			try
+			{
+				await FilePropertiesService.UpdateAsync(
+					metadataPath,
+					new FilePropertyUpdate((UnixFileMode)int.MaxValue, expectedTags, IsHidden: false, IsLocked: false));
+				securityFlags = false;
+			}
+			catch (ArgumentException)
+			{
+				FilePropertiesSummary rollbackSummary = await FilePropertiesService.GetSummaryAsync([metadataPath]);
+				securityFlags &= rollbackSummary.UnixMode == expectedMode && rollbackSummary.IsLocked is true;
+			}
+			await FilePropertiesService.UpdateAsync(
+				metadataPath,
+				new FilePropertyUpdate(expectedMode, expectedTags, IsHidden: false, IsLocked: false));
 			IReadOnlyList<OpenWithApplication> applications = await WorkspaceService.GetOpenWithApplicationsAsync(metadataPath);
 			bool openWith = applications.Count > 0 && applications.Any(static application => application.IsDefault) &&
 				applications.All(static application => !string.IsNullOrWhiteSpace(application.Name) && Directory.Exists(application.ApplicationPath));
@@ -380,11 +411,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				symbolicLink &= File.Exists(links[1].Path) || Directory.Exists(links[1].Path);
 			}
-			return (permanentDelete, metadataEdit, openWith, recentLocations, duplicate, newTab, symbolicLink);
+			return (permanentDelete, metadataEdit, securityFlags, openWith, recentLocations, duplicate, newTab, symbolicLink);
 		}
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 		{
-			return (false, false, false, false, false, false, false);
+			Console.Error.WriteLine($"FILES_MACOS_MUTATION_ERROR type={ex.GetType().Name} message={ex.Message}");
+			return (false, false, false, false, false, false, false, false);
 		}
 		finally
 		{
@@ -3184,8 +3216,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		try
 		{
 			FilePropertiesSummary summary = await FilePropertiesService.GetSummaryAsync(items.Select(static item => item.Path).ToArray());
-			FrameworkElement content = CreatePropertiesContent(summary, out TextBox? permissionsBox, out TextBox? tagsBox);
-			bool canEdit = summary.Path is not null && permissionsBox is not null && tagsBox is not null;
+			FrameworkElement content = CreatePropertiesContent(
+				summary,
+				out TextBox? permissionsBox,
+				out TextBox? tagsBox,
+				out CheckBox? hiddenBox,
+				out CheckBox? lockedBox);
+			bool canEdit = summary.Path is not null && permissionsBox is not null && tagsBox is not null &&
+				hiddenBox is not null && lockedBox is not null;
 			var dialog = new ContentDialog
 			{
 				Title = GetResource("PropertiesDialogTitle"),
@@ -3206,9 +3244,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 			if (await dialog.ShowAsync() is ContentDialogResult.Primary &&
 				summary.Path is not null && permissionsBox is not null && tagsBox is not null &&
+				hiddenBox is not null && lockedBox is not null &&
 				TryParseUnixMode(permissionsBox.Text, out UnixFileMode unixMode))
 			{
-				await FilePropertiesService.UpdateAsync(summary.Path, unixMode, ParseFinderTags(tagsBox.Text));
+				await FilePropertiesService.UpdateAsync(
+					summary.Path,
+					new FilePropertyUpdate(
+						unixMode,
+						ParseFinderTags(tagsBox.Text),
+						hiddenBox.IsChecked is true,
+						lockedBox.IsChecked is true));
 				targetBrowser.StatusText = GetResource("PropertiesSavedMessage");
 				await targetBrowser.RefreshAsync();
 			}
@@ -3227,15 +3272,20 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private FrameworkElement CreatePropertiesContent(
 		FilePropertiesSummary summary,
 		out TextBox? permissionsBox,
-		out TextBox? tagsBox)
+		out TextBox? tagsBox,
+		out CheckBox? hiddenBox,
+		out CheckBox? lockedBox)
 	{
 		permissionsBox = null;
 		tagsBox = null;
+		hiddenBox = null;
+		lockedBox = null;
 		var panel = new StackPanel
 		{
 			Spacing = 10,
-			MinWidth = 420,
+			MinWidth = 460,
 		};
+		AddPropertySectionHeader(panel, GetResource("GeneralPropertiesSection"));
 
 		AddPropertyRow(
 			panel,
@@ -3261,6 +3311,32 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			AddPropertyRow(panel, GetResource("PropertyModifiedLabel"), summary.Modified.Value.ToLocalTime().ToString("F"));
 		}
+		if (summary.FinderTags is not null)
+		{
+			string tags = string.Join(", ", summary.FinderTags);
+			if (summary.Path is not null && summary.LinkTarget is null)
+			{
+				tagsBox = AddEditablePropertyRow(panel, GetResource("PropertyFinderTagsLabel"), tags);
+				tagsBox.PlaceholderText = GetResource("PropertyFinderTagsPlaceholder");
+				hiddenBox = AddCheckBoxPropertyRow(panel, GetResource("PropertyHiddenLabel"), summary.IsHidden is true);
+				lockedBox = AddCheckBoxPropertyRow(panel, GetResource("PropertyLockedLabel"), summary.IsLocked is true);
+			}
+			else
+			{
+				AddPropertyRow(panel, GetResource("PropertyFinderTagsLabel"), tags);
+				AddPropertyRow(panel, GetResource("PropertyHiddenLabel"), GetResource(summary.IsHidden is true ? "YesText" : "NoText"));
+				AddPropertyRow(panel, GetResource("PropertyLockedLabel"), GetResource(summary.IsLocked is true ? "YesText" : "NoText"));
+			}
+		}
+		if (summary.LinkTarget is not null)
+		{
+			AddPropertyRow(panel, GetResource("PropertyLinkTargetLabel"), summary.LinkTarget);
+		}
+
+		if (summary.UnixMode is not null || summary.Owner is not null || summary.Group is not null)
+		{
+			AddPropertySectionHeader(panel, GetResource("PermissionsPropertiesSection"));
+		}
 		if (summary.UnixMode is not null)
 		{
 			string octalMode = Convert.ToString((int)summary.UnixMode.Value, 8).PadLeft(3, '0');
@@ -3274,22 +3350,22 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				AddPropertyRow(panel, GetResource("PropertyPermissionsLabel"), $"{octalMode}  ({summary.UnixMode.Value})");
 			}
 		}
-		if (summary.FinderTags is not null)
+		if (summary.Owner is not null)
 		{
-			string tags = string.Join(", ", summary.FinderTags);
-			if (summary.Path is not null && summary.LinkTarget is null)
-			{
-				tagsBox = AddEditablePropertyRow(panel, GetResource("PropertyFinderTagsLabel"), tags);
-				tagsBox.PlaceholderText = GetResource("PropertyFinderTagsPlaceholder");
-			}
-			else
-			{
-				AddPropertyRow(panel, GetResource("PropertyFinderTagsLabel"), tags);
-			}
+			AddPropertyRow(panel, GetResource("PropertyOwnerLabel"), $"{summary.Owner} ({summary.UserId})");
 		}
-		if (summary.LinkTarget is not null)
+		if (summary.Group is not null)
 		{
-			AddPropertyRow(panel, GetResource("PropertyLinkTargetLabel"), summary.LinkTarget);
+			AddPropertyRow(panel, GetResource("PropertyGroupLabel"), $"{summary.Group} ({summary.GroupId})");
+		}
+		if (summary.AccessControlList is not null)
+		{
+			AddPropertyRow(
+				panel,
+				GetResource("PropertyAclLabel"),
+				string.IsNullOrWhiteSpace(summary.AccessControlList)
+					? GetResource("NoAccessControlEntriesText")
+					: summary.AccessControlList.Trim());
 		}
 
 		return new ScrollViewer
@@ -3298,6 +3374,30 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			MaxHeight = 480,
 			HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
 		};
+	}
+
+	private static void AddPropertySectionHeader(Panel panel, string text)
+	{
+		panel.Children.Add(new TextBlock
+		{
+			Text = text,
+			FontSize = 16,
+			FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+			Margin = new Thickness(0, panel.Children.Count is 0 ? 0 : 8, 0, 2),
+		});
+	}
+
+	private static CheckBox AddCheckBoxPropertyRow(Panel panel, string label, bool value)
+	{
+		var row = new Grid();
+		row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+		row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+		row.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
+		var input = new CheckBox { IsChecked = value, HorizontalAlignment = HorizontalAlignment.Left };
+		Grid.SetColumn(input, 1);
+		row.Children.Add(input);
+		panel.Children.Add(row);
+		return input;
 	}
 
 	private static TextBox AddEditablePropertyRow(Panel panel, string label, string value)

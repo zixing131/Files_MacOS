@@ -8,10 +8,13 @@
 #import <dispatch/dispatch.h>
 #import <copyfile.h>
 #import <errno.h>
+#import <grp.h>
+#import <pwd.h>
 #import <stdatomic.h>
 #import <stdlib.h>
 #import <string.h>
 #import <sys/stat.h>
+#import <sys/acl.h>
 
 @interface FilesQuickLookDataSource : NSObject <QLPreviewPanelDataSource>
 @property(nonatomic, strong) NSURL *url;
@@ -1121,6 +1124,83 @@ __attribute__((visibility("default"))) char *files_macos_set_finder_tags(const c
 		if (![url setResourceValue:value forKey:NSURLTagNamesKey error:&error])
 		{
 			return files_copy_error(error) ?: strdup("Finder tags couldn't be saved.");
+		}
+		return NULL;
+	}
+}
+
+__attribute__((visibility("default"))) char *files_macos_get_file_security(const char *path)
+{
+	@autoreleasepool
+	{
+		if (path == NULL)
+		{
+			return NULL;
+		}
+
+		struct stat status;
+		if (stat(path, &status) != 0)
+		{
+			return NULL;
+		}
+		struct passwd *user = getpwuid(status.st_uid);
+		struct group *group = getgrgid(status.st_gid);
+		NSString *ownerName = user == NULL || user->pw_name == NULL
+			? [NSString stringWithFormat:@"%u", status.st_uid]
+			: [NSString stringWithUTF8String:user->pw_name];
+		NSString *groupName = group == NULL || group->gr_name == NULL
+			? [NSString stringWithFormat:@"%u", status.st_gid]
+			: [NSString stringWithUTF8String:group->gr_name];
+
+		NSString *aclText = @"";
+		acl_t acl = acl_get_file(path, ACL_TYPE_EXTENDED);
+		if (acl != NULL)
+		{
+			ssize_t textLength = 0;
+			char *text = acl_to_text(acl, &textLength);
+			if (text != NULL)
+			{
+				aclText = [[NSString alloc] initWithBytes:text length:(NSUInteger)(textLength > 0 ? textLength : 0) encoding:NSUTF8StringEncoding] ?: @"";
+				acl_free(text);
+			}
+			acl_free(acl);
+		}
+
+		return files_copy_json(@{
+			@"owner": ownerName ?: @"",
+			@"group": groupName ?: @"",
+			@"userId": @(status.st_uid),
+			@"groupId": @(status.st_gid),
+			@"acl": aclText,
+			@"isHidden": (status.st_flags & UF_HIDDEN) != 0 ? @YES : @NO,
+			@"isLocked": (status.st_flags & UF_IMMUTABLE) != 0 ? @YES : @NO
+		});
+	}
+}
+
+__attribute__((visibility("default"))) char *files_macos_set_file_flags(
+	const char *path,
+	int isHidden,
+	int isLocked)
+{
+	@autoreleasepool
+	{
+		if (path == NULL)
+		{
+			return strdup("The file flag request is invalid.");
+		}
+
+		struct stat status;
+		if (stat(path, &status) != 0)
+		{
+			return strdup(strerror(errno));
+		}
+		u_int flags = status.st_flags;
+		flags = isHidden ? flags | UF_HIDDEN : flags & ~UF_HIDDEN;
+		flags = isLocked ? flags | UF_IMMUTABLE : flags & ~UF_IMMUTABLE;
+		if (chflags(path, flags) != 0)
+		{
+			return strdup(strerror(errno));
 		}
 		return NULL;
 	}
