@@ -1,0 +1,464 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="ApplicationName" xml:space="preserve">
+    <value>文件</value>
+  </data>
+  <data name="BackButton.Content" xml:space="preserve">
+    <value>←</value>
+  </data>
+  <data name="ForwardButton.Content" xml:space="preserve">
+    <value>→</value>
+  </data>
+  <data name="UpButton.Content" xml:space="preserve">
+    <value>↑</value>
+  </data>
+  <data name="HomeButton.Content" xml:space="preserve">
+    <value>个人目录</value>
+  </data>
+  <data name="RefreshButton.Content" xml:space="preserve">
+    <value>↻</value>
+  </data>
+  <data name="SearchButton.Content" xml:space="preserve">
+    <value>⌕</value>
+  </data>
+  <data name="AddressBox.PlaceholderText" xml:space="preserve">
+    <value>输入文件夹路径</value>
+  </data>
+  <data name="LocationsHeading.Text" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="ToggleSidebarButton.Content" xml:space="preserve"><value>☰</value></data>
+  <data name="SidebarFavoritesHeading" xml:space="preserve"><value>收藏夹</value></data>
+  <data name="SidebarLibrariesHeading" xml:space="preserve"><value>库</value></data>
+  <data name="SidebarNetworkHeading" xml:space="preserve"><value>网络</value></data>
+  <data name="SidebarDrivesHeading" xml:space="preserve"><value>驱动器</value></data>
+  <data name="SidebarHomeButton.Content" xml:space="preserve">
+    <value>个人目录</value>
+  </data>
+  <data name="SidebarDesktopButton.Content" xml:space="preserve">
+    <value>桌面</value>
+  </data>
+  <data name="SidebarDocumentsButton.Content" xml:space="preserve">
+    <value>文稿</value>
+  </data>
+  <data name="SidebarDownloadsButton.Content" xml:space="preserve">
+    <value>下载</value>
+  </data>
+  <data name="SidebarPicturesButton.Content" xml:space="preserve">
+    <value>图片</value>
+  </data>
+  <data name="SidebarMusicButton.Content" xml:space="preserve">
+    <value>音乐</value>
+  </data>
+  <data name="SidebarMoviesButton.Content" xml:space="preserve">
+    <value>影片</value>
+  </data>
+  <data name="SettingsButton.Content" xml:space="preserve">
+    <value>⚙  设置</value>
+  </data>
+  <data name="NewButton.Content" xml:space="preserve">
+    <value>＋ 新建</value>
+  </data>
+  <data name="CutButton.Content" xml:space="preserve">
+    <value>✂ 剪切</value>
+  </data>
+  <data name="CopyButton.Content" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="PasteButton.Content" xml:space="preserve">
+    <value>粘贴</value>
+  </data>
+  <data name="RenameButton.Content" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="ShareButton.Content" xml:space="preserve">
+    <value>共享</value>
+  </data>
+  <data name="DeleteButton.Content" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="RevealButton.Content" xml:space="preserve">
+    <value>在访达中显示</value>
+  </data>
+  <data name="PropertiesButton.Content" xml:space="preserve">
+    <value>属性</value>
+  </data>
+  <data name="SortButton.Content" xml:space="preserve">
+    <value>排序</value>
+  </data>
+  <data name="ViewButton.Content" xml:space="preserve">
+    <value>视图</value>
+  </data>
+  <data name="HomeTabHeader" xml:space="preserve">
+    <value>个人目录</value>
+  </data>
+  <data name="NameColumn.Text" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="ModifiedColumn.Text" xml:space="preserve">
+    <value>修改日期</value>
+  </data>
+  <data name="SizeColumn.Text" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="PathRequired" xml:space="preserve">
+    <value>请输入文件夹路径。</value>
+  </data>
+  <data name="FolderNotFoundFormat" xml:space="preserve">
+    <value>找不到文件夹：{0}</value>
+  </data>
+  <data name="LoadingStatus" xml:space="preserve">
+    <value>正在加载…</value>
+  </data>
+  <data name="ItemCountFormat" xml:space="preserve">
+    <value>{0} 个项目</value>
+  </data>
+  <data name="SelectedItemCountFormat" xml:space="preserve">
+    <value>已选择 {0} 个项目</value>
+  </data>
+  <data name="SelectedItemCountAndSizeFormat" xml:space="preserve">
+    <value>已选择 {0} 个项目  |  {1}</value>
+  </data>
+  <data name="NewFolderDefaultName" xml:space="preserve">
+    <value>新建文件夹</value>
+  </data>
+  <data name="CreateFolderDialogTitle" xml:space="preserve">
+    <value>新建文件夹</value>
+  </data>
+  <data name="RenameDialogTitle" xml:space="preserve">
+    <value>重命名项目</value>
+  </data>
+  <data name="CreateButtonText" xml:space="preserve">
+    <value>创建</value>
+  </data>
+  <data name="RenameButtonText" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="CancelButtonText" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="CloseButtonText" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="FileOperationErrorTitle" xml:space="preserve">
+    <value>无法完成操作</value>
+  </data>
+  <data name="InvalidItemNameMessage" xml:space="preserve">
+    <value>请输入有效的项目名称。</value>
+  </data>
+  <data name="InvalidItemNameCharactersMessage" xml:space="preserve">
+    <value>项目名称包含无效字符。</value>
+  </data>
+  <data name="MissingParentFolderMessage" xml:space="preserve">
+    <value>该项目没有父文件夹。</value>
+  </data>
+  <data name="ItemAlreadyExistsFormat" xml:space="preserve">
+    <value>名为“{0}”的项目已存在。</value>
+  </data>
+  <data name="ItemNotFoundMessage" xml:space="preserve">
+    <value>该项目已不存在。</value>
+  </data>
+  <data name="UnknownFileOperationErrorMessage" xml:space="preserve">
+    <value>发生未知的文件操作错误。</value>
+  </data>
+  <data name="MoveToTrashDialogTitle" xml:space="preserve">
+    <value>移到废纸篓？</value>
+  </data>
+  <data name="MoveToTrashDialogMessageFormat" xml:space="preserve">
+    <value>将把选中的 {0} 个项目移到废纸篓。</value>
+  </data>
+  <data name="MoveToTrashButtonText" xml:space="preserve">
+    <value>移到废纸篓</value>
+  </data>
+  <data name="MoveToTrashErrorMessage" xml:space="preserve">
+    <value>无法将选中的项目移到废纸篓。</value>
+  </data>
+  <data name="OpenItemErrorMessage" xml:space="preserve">
+    <value>无法打开该项目。</value>
+  </data>
+  <data name="RevealItemErrorMessage" xml:space="preserve">
+    <value>无法在访达中显示该项目。</value>
+  </data>
+  <data name="QuickLookErrorMessage" xml:space="preserve">
+    <value>该项目没有可用的快速查看预览。</value>
+  </data>
+  <data name="CancelOperationButton.Content" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="CopiedToClipboardFormat" xml:space="preserve">
+    <value>已准备复制 {0} 个项目</value>
+  </data>
+  <data name="CutToClipboardFormat" xml:space="preserve">
+    <value>已准备移动 {0} 个项目</value>
+  </data>
+  <data name="ConflictDialogTitle" xml:space="preserve">
+    <value>目标位置已有同名项目</value>
+  </data>
+  <data name="ConflictDialogMessage" xml:space="preserve">
+    <value>请选择如何处理同名项目。此选择将应用于本次操作。</value>
+  </data>
+  <data name="ConflictKeepBothOption" xml:space="preserve">
+    <value>保留两者（自动添加编号）</value>
+  </data>
+  <data name="ConflictReplaceOption" xml:space="preserve">
+    <value>替换现有项目</value>
+  </data>
+  <data name="ConflictSkipOption" xml:space="preserve">
+    <value>跳过现有项目</value>
+  </data>
+  <data name="ContinueButtonText" xml:space="preserve">
+    <value>继续</value>
+  </data>
+  <data name="FileTransferProgressFormat" xml:space="preserve">
+    <value>正在传输 {0}  |  {1}/{2} 个项目</value>
+  </data>
+  <data name="FileTransferCompletedFormat" xml:space="preserve">
+    <value>已完成 {0} 个项目，跳过 {1} 个</value>
+  </data>
+  <data name="FileTransferCanceledMessage" xml:space="preserve">
+    <value>文件操作已取消。</value>
+  </data>
+  <data name="ClipboardWriteErrorMessage" xml:space="preserve">
+    <value>无法将所选文件写入 macOS 剪贴板。</value>
+  </data>
+  <data name="ClipboardReadErrorMessage" xml:space="preserve">
+    <value>无法从 macOS 剪贴板读取文件地址。</value>
+  </data>
+  <data name="ClipboardHasNoFilesMessage" xml:space="preserve">
+    <value>剪贴板中没有文件。</value>
+  </data>
+  <data name="SortNameItem.Text" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="SortModifiedItem.Text" xml:space="preserve">
+    <value>修改日期</value>
+  </data>
+  <data name="SortSizeItem.Text" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="SortAscendingItem.Text" xml:space="preserve">
+    <value>升序</value>
+  </data>
+  <data name="SortDescendingItem.Text" xml:space="preserve">
+    <value>降序</value>
+  </data>
+  <data name="PropertiesDialogTitle" xml:space="preserve">
+    <value>属性</value>
+  </data>
+  <data name="CalculatingPropertiesMessage" xml:space="preserve">
+    <value>正在计算属性…</value>
+  </data>
+  <data name="PropertyNameLabel" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="PropertyLocationLabel" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="PropertySizeLabel" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="PropertyContainsLabel" xml:space="preserve">
+    <value>包含</value>
+  </data>
+  <data name="PropertyContainsFormat" xml:space="preserve">
+    <value>{0} 个文件，{1} 个文件夹</value>
+  </data>
+  <data name="PropertyCreatedLabel" xml:space="preserve">
+    <value>创建时间</value>
+  </data>
+  <data name="PropertyModifiedLabel" xml:space="preserve">
+    <value>修改时间</value>
+  </data>
+  <data name="PropertyPermissionsLabel" xml:space="preserve">
+    <value>权限</value>
+  </data>
+  <data name="PropertyLinkTargetLabel" xml:space="preserve">
+    <value>链接目标</value>
+  </data>
+  <data name="SearchBox.PlaceholderText" xml:space="preserve">
+    <value>搜索此文件夹</value>
+  </data>
+  <data name="SearchSyntaxHelp" xml:space="preserve">
+    <value>搜索名称或正文。可组合带引号的词组与筛选条件，例如 ext:pdf、kind:image、tag:红色、size:&gt;10MB 或 modified:today。</value>
+  </data>
+  <data name="SearchOptionsTooltip" xml:space="preserve">
+    <value>搜索历史和已保存搜索</value>
+  </data>
+  <data name="SaveCurrentSearchMenuItem" xml:space="preserve">
+    <value>保存此搜索</value>
+  </data>
+  <data name="SavedSearchesMenu" xml:space="preserve">
+    <value>已保存搜索</value>
+  </data>
+  <data name="SearchHistoryMenu" xml:space="preserve">
+    <value>最近搜索</value>
+  </data>
+  <data name="NoSavedSearchesMenuItem" xml:space="preserve">
+    <value>没有已保存搜索</value>
+  </data>
+  <data name="NoSearchHistoryMenuItem" xml:space="preserve">
+    <value>没有最近搜索</value>
+  </data>
+  <data name="ClearSearchHistoryMenuItem" xml:space="preserve">
+    <value>清除最近搜索</value>
+  </data>
+  <data name="ClearSavedSearchesMenuItem" xml:space="preserve">
+    <value>清除已保存搜索</value>
+  </data>
+  <data name="SavedSearchNamePlaceholder" xml:space="preserve">
+    <value>搜索名称</value>
+  </data>
+  <data name="SaveSearchDialogTitle" xml:space="preserve">
+    <value>保存搜索</value>
+  </data>
+  <data name="SearchSavedMessage" xml:space="preserve">
+    <value>搜索已保存</value>
+  </data>
+  <data name="SearchingStatus" xml:space="preserve">
+    <value>正在搜索…</value>
+  </data>
+  <data name="SearchingStatusWithCountFormat" xml:space="preserve">
+    <value>正在搜索… 已找到 {0} 项</value>
+  </data>
+  <data name="SearchResultCountFormat" xml:space="preserve">
+    <value>{0} 个搜索结果</value>
+  </data>
+  <data name="ShareItemsErrorMessage" xml:space="preserve">
+    <value>无法共享所选项目。</value>
+  </data>
+  <data name="SettingsDialogTitle" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="ThemeSettingLabel" xml:space="preserve">
+    <value>应用主题</value>
+  </data>
+  <data name="ThemeSystemOption" xml:space="preserve">
+    <value>使用系统设置</value>
+  </data>
+  <data name="ThemeLightOption" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="ThemeDarkOption" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="LanguageSettingLabel" xml:space="preserve"><value>应用语言</value></data>
+  <data name="LanguageSystemOption" xml:space="preserve"><value>跟随系统语言</value></data>
+  <data name="LanguageRestartTitle" xml:space="preserve"><value>语言已更改</value></data>
+  <data name="LanguageRestartMessage" xml:space="preserve"><value>重新启动 Files 后，新的语言将在整个应用中生效。</value></data>
+  <data name="ShowHiddenFilesSetting" xml:space="preserve">
+    <value>显示隐藏文件</value>
+  </data>
+  <data name="DefaultGridViewSetting" xml:space="preserve">
+    <value>新标签页默认使用网格视图</value>
+  </data>
+  <data name="SaveButtonText" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="SaveSettingsErrorMessage" xml:space="preserve">
+    <value>无法保存设置。</value>
+  </data>
+  <data name="ContextOpenItem.Text" xml:space="preserve"><value>打开</value></data>
+  <data name="ContextPreviewItem.Text" xml:space="preserve"><value>快速查看</value></data>
+  <data name="ContextRevealItem.Text" xml:space="preserve"><value>在访达中显示</value></data>
+  <data name="ContextCutItem.Text" xml:space="preserve"><value>剪切</value></data>
+  <data name="ContextCopyItem.Text" xml:space="preserve"><value>复制</value></data>
+  <data name="ContextRenameItem.Text" xml:space="preserve"><value>重命名</value></data>
+  <data name="ContextShareItem.Text" xml:space="preserve"><value>共享</value></data>
+  <data name="ContextDeleteItem.Text" xml:space="preserve"><value>移到废纸篓</value></data>
+  <data name="ContextPropertiesItem.Text" xml:space="preserve"><value>属性</value></data>
+  <data name="DropCopyCaption" xml:space="preserve"><value>复制到此文件夹</value></data>
+  <data name="DropItemsErrorMessage" xml:space="preserve"><value>无法复制拖入的项目。</value></data>
+  <data name="NewFolderMenuItem.Text" xml:space="preserve"><value>文件夹</value></data>
+  <data name="NewTextFileMenuItem.Text" xml:space="preserve"><value>文本文稿</value></data>
+  <data name="NewTextFileDefaultName" xml:space="preserve"><value>新建文本文稿.txt</value></data>
+  <data name="CreateTextFileDialogTitle" xml:space="preserve"><value>新建文本文稿</value></data>
+  <data name="ArchiveButton.Content" xml:space="preserve"><value>归档</value></data>
+  <data name="CompressArchiveMenuItem.Text" xml:space="preserve"><value>压缩为 ZIP</value></data>
+  <data name="ExtractArchiveMenuItem.Text" xml:space="preserve"><value>解压 ZIP</value></data>
+  <data name="ContextCompressItem.Text" xml:space="preserve"><value>压缩为 ZIP</value></data>
+  <data name="ContextExtractItem.Text" xml:space="preserve"><value>解压 ZIP</value></data>
+  <data name="DefaultArchiveName" xml:space="preserve"><value>归档</value></data>
+  <data name="CreateArchiveDialogTitle" xml:space="preserve"><value>创建 ZIP 归档</value></data>
+  <data name="ExtractArchiveDialogTitle" xml:space="preserve"><value>解压 ZIP 归档</value></data>
+  <data name="ExtractButtonText" xml:space="preserve"><value>解压</value></data>
+  <data name="SelectZipArchiveMessage" xml:space="preserve"><value>请选择一个要解压的 ZIP 归档。</value></data>
+  <data name="CompressingArchiveProgressFormat" xml:space="preserve"><value>正在压缩 {0}  |  {1}/{2} 个项目</value></data>
+  <data name="ExtractingArchiveProgressFormat" xml:space="preserve"><value>正在解压 {0}  |  {1}/{2} 个项目</value></data>
+  <data name="ArchiveCreatedFormat" xml:space="preserve"><value>已创建 {0}</value></data>
+  <data name="ArchiveExtractedFormat" xml:space="preserve"><value>已解压到 {0}</value></data>
+  <data name="ArchiveOperationErrorMessage" xml:space="preserve"><value>无法完成归档操作。</value></data>
+  <data name="FavoriteButton.Content" xml:space="preserve"><value>收藏</value></data>
+  <data name="ContextFavoriteItem.Text" xml:space="preserve"><value>固定到侧栏或取消固定</value></data>
+  <data name="FavoriteAddedMessage" xml:space="preserve"><value>已将文件夹固定到侧栏。</value></data>
+  <data name="FavoriteRemovedMessage" xml:space="preserve"><value>已从侧栏移除文件夹。</value></data>
+  <data name="SystemVolumeName" xml:space="preserve"><value>Macintosh HD</value></data>
+  <data name="TerminalButton.Content" xml:space="preserve"><value>终端</value></data>
+  <data name="ContextTerminalItem.Text" xml:space="preserve"><value>在终端中打开</value></data>
+  <data name="OpenTerminalErrorMessage" xml:space="preserve"><value>无法在终端中打开该文件夹。</value></data>
+  <data name="SplitViewButton.Content" xml:space="preserve"><value>双栏</value></data>
+  <data name="CloseSplitViewButtonText" xml:space="preserve"><value>关闭分栏</value></data>
+  <data name="ConnectServerButton.Content" xml:space="preserve"><value>连接服务器</value></data>
+  <data name="ConnectServerDialogTitle" xml:space="preserve"><value>连接服务器</value></data>
+  <data name="ConnectButtonText" xml:space="preserve"><value>连接</value></data>
+  <data name="ConnectServerAddressPlaceholder" xml:space="preserve"><value>smb://服务器/共享</value></data>
+  <data name="ConnectingServerMessage" xml:space="preserve"><value>正在连接服务器…</value></data>
+  <data name="ServerConnectedMessage" xml:space="preserve"><value>已连接服务器。</value></data>
+  <data name="ServerOpenedExternallyMessage" xml:space="preserve"><value>已使用系统处理程序打开服务器。</value></data>
+  <data name="ServerConnectionCanceledMessage" xml:space="preserve"><value>已取消服务器连接。</value></data>
+  <data name="ConnectServerErrorMessage" xml:space="preserve"><value>无法连接服务器。</value></data>
+  <data name="ServerAddressRequiredMessage" xml:space="preserve"><value>请输入服务器地址。</value></data>
+  <data name="ServerAddressInvalidMessage" xml:space="preserve"><value>服务器地址无效。</value></data>
+  <data name="ServerSchemeUnsupportedMessage" xml:space="preserve"><value>请使用 smb://、afp://、nfs:// 或 ftp:// 地址。</value></data>
+  <data name="ServerHostRequiredMessage" xml:space="preserve"><value>服务器地址必须包含主机名。</value></data>
+  <data name="ServerCredentialsNotAllowedMessage" xml:space="preserve"><value>请勿在地址中包含凭据，macOS 会安全地请求凭据。</value></data>
+  <data name="ServerQueryNotAllowedMessage" xml:space="preserve"><value>服务器地址不能包含查询或片段。</value></data>
+  <data name="UndoButton.Content" xml:space="preserve"><value>撤销</value></data>
+  <data name="RedoButton.Content" xml:space="preserve"><value>重做</value></data>
+  <data name="UndoCompletedMessage" xml:space="preserve"><value>已撤销操作。</value></data>
+  <data name="RedoCompletedMessage" xml:space="preserve"><value>已重做操作。</value></data>
+  <data name="CreatedItemChangedUndoErrorMessage" xml:space="preserve"><value>新建项目已发生更改，无法通过撤销安全移除。</value></data>
+  <data name="BulkRenameDialogTitle" xml:space="preserve"><value>重命名所选项目</value></data>
+  <data name="BulkRenamePlaceholder" xml:space="preserve"><value>输入基础名称</value></data>
+  <data name="BulkRenameDescriptionFormat" xml:space="preserve"><value>使用同一个基础名称重命名所选的 {0} 个项目。文件扩展名会保留，并在需要时自动添加编号。</value></data>
+  <data name="BulkRenameCompletedFormat" xml:space="preserve"><value>已重命名 {0} 个项目。</value></data>
+  <data name="SelectionButton.Content" xml:space="preserve"><value>选择</value></data>
+  <data name="SelectAllMenuItem.Text" xml:space="preserve"><value>全选</value></data>
+  <data name="InvertSelectionMenuItem.Text" xml:space="preserve"><value>反向选择</value></data>
+  <data name="CopyPathMenuItem.Text" xml:space="preserve"><value>复制路径</value></data>
+  <data name="ContextCopyPathItem.Text" xml:space="preserve"><value>复制路径</value></data>
+  <data name="PathsCopiedFormat" xml:space="preserve"><value>已复制 {0} 个路径。</value></data>
+  <data name="OverlappingRenameSelectionMessage" xml:space="preserve"><value>不能在同一批次中同时重命名文件夹及其子项目。</value></data>
+  <data name="UndoDataUnavailableMessage" xml:space="preserve"><value>重做此操作所需的临时数据已不可用。</value></data>
+  <data name="HistoryTransferIncompleteMessage" xml:space="preserve"><value>由于一个或多个目标位置发生变化，无法完成历史移动操作。</value></data>
+  <data name="HistoryRollbackFailedMessage" xml:space="preserve"><value>历史操作失败，并且无法完全恢复到之前的状态。继续操作前请检查受影响的文件夹。</value></data>
+  <data name="FileTransferCanceledWithCompletedFormat" xml:space="preserve"><value>文件操作在完成 {0} 个根项目后被取消，已完成的项目可以撤销。</value></data>
+  <data name="FileTransferFailedWithCompletedFormat" xml:space="preserve"><value>操作在完成 {0} 个根项目后停止，已完成的项目可以撤销。</value></data>
+  <data name="OpenFolderButton.Content" xml:space="preserve"><value>打开文件夹…</value></data>
+  <data name="OpenFolderErrorMessage" xml:space="preserve"><value>无法打开该文件夹。</value></data>
+  <data name="FolderAccessSettingLabel" xml:space="preserve"><value>文件夹访问权限</value></data>
+  <data name="FolderAccessSettingDescription" xml:space="preserve"><value>取消勾选可忘记已保存的 macOS 文件夹访问权限。在沙盒版本中，使用该文件夹的标签页可能会停止工作。</value></data>
+  <data name="PreviewPaneButton.Content" xml:space="preserve"><value>预览</value></data>
+  <data name="PreviewPaneHeading.Text" xml:space="preserve"><value>预览</value></data>
+  <data name="ClosePreviewPaneButton.Content" xml:space="preserve"><value>×</value></data>
+  <data name="PreviewModifiedLabel.Text" xml:space="preserve"><value>修改时间</value></data>
+  <data name="PreviewSizeLabel.Text" xml:space="preserve"><value>大小</value></data>
+  <data name="PreviewPaneQuickLookButton.Content" xml:space="preserve"><value>打开快速查看</value></data>
+  <data name="PreviewPaneEmptyMessage" xml:space="preserve"><value>选择一个项目以预览并查看详细信息。</value></data>
+  <data name="PreviewPaneMultipleFormat" xml:space="preserve"><value>已选择 {0} 个项目</value></data>
+  <data name="PreviewItemErrorMessage" xml:space="preserve"><value>无法预览所选项目。</value></data>
+  <data name="MoreCommandsButton.Content" xml:space="preserve"><value>•••</value></data>
+  <data name="MoreSelectionSubItem.Text" xml:space="preserve"><value>选择</value></data>
+  <data name="MoreArchiveSubItem.Text" xml:space="preserve"><value>压缩包</value></data>
+  <data name="EmptyFolderHeading.Text" xml:space="preserve"><value>此文件夹为空</value></data>
+  <data name="EmptyFolderDescription.Text" xml:space="preserve"><value>将文件拖到此处，或使用“新建”创建内容。</value></data>
+  <data name="NoSearchResultsHeading.Text" xml:space="preserve"><value>未找到结果</value></data>
+  <data name="NoSearchResultsDescription.Text" xml:space="preserve"><value>请尝试其他名称或调整搜索筛选条件。</value></data>
+  <data name="GridViewTooltip" xml:space="preserve"><value>网格视图</value></data>
+  <data name="DetailsViewTooltip" xml:space="preserve"><value>详细信息视图</value></data>
+</root>

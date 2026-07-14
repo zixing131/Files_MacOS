@@ -1,0 +1,128 @@
+<Application
+	x:Class="Files.App.MacOS.App"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+	<Application.Resources>
+		<ResourceDictionary>
+			<ResourceDictionary.MergedDictionaries>
+				<XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+			</ResourceDictionary.MergedDictionaries>
+
+			<ResourceDictionary.ThemeDictionaries>
+				<ResourceDictionary x:Key="Light">
+					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#F7F7F7" />
+					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#F3F3F3" />
+					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#FBFBFB" />
+					<SolidColorBrush x:Key="FilesCardBrush" Color="#FFFFFF" />
+					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#18000000" />
+					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#08000000" />
+					<SolidColorBrush x:Key="FilesAccentBrush" Color="#0067C0" />
+					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#180067C0" />
+				</ResourceDictionary>
+				<ResourceDictionary x:Key="Dark">
+					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#202020" />
+					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#252525" />
+					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#292929" />
+					<SolidColorBrush x:Key="FilesCardBrush" Color="#2B2B2B" />
+					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#20FFFFFF" />
+					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#0CFFFFFF" />
+					<SolidColorBrush x:Key="FilesAccentBrush" Color="#60CDFF" />
+					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#2460CDFF" />
+				</ResourceDictionary>
+				<ResourceDictionary x:Key="Default">
+					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#202020" />
+					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#252525" />
+					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#292929" />
+					<SolidColorBrush x:Key="FilesCardBrush" Color="#2B2B2B" />
+					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#20FFFFFF" />
+					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#0CFFFFFF" />
+					<SolidColorBrush x:Key="FilesAccentBrush" Color="#60CDFF" />
+					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#2460CDFF" />
+				</ResourceDictionary>
+			</ResourceDictionary.ThemeDictionaries>
+
+			<Style x:Key="FilesFlatButtonStyle" TargetType="Button">
+				<Setter Property="Background" Value="Transparent" />
+				<Setter Property="BorderBrush" Value="Transparent" />
+				<Setter Property="BorderThickness" Value="0" />
+				<Setter Property="CornerRadius" Value="5" />
+				<Setter Property="HorizontalContentAlignment" Value="Center" />
+				<Setter Property="VerticalContentAlignment" Value="Center" />
+				<Setter Property="Template">
+					<Setter.Value>
+						<ControlTemplate TargetType="Button">
+							<Border
+								x:Name="Root"
+								Padding="{TemplateBinding Padding}"
+								Background="{TemplateBinding Background}"
+								BorderBrush="{TemplateBinding BorderBrush}"
+								BorderThickness="{TemplateBinding BorderThickness}"
+								CornerRadius="{TemplateBinding CornerRadius}">
+								<VisualStateManager.VisualStateGroups>
+									<VisualStateGroup x:Name="CommonStates">
+										<VisualState x:Name="Normal" />
+										<VisualState x:Name="PointerOver">
+											<VisualState.Setters><Setter Target="Root.Background" Value="{ThemeResource FilesSubtleBrush}" /></VisualState.Setters>
+										</VisualState>
+										<VisualState x:Name="Pressed">
+											<VisualState.Setters><Setter Target="Root.Background" Value="{ThemeResource FilesAccentSubtleBrush}" /></VisualState.Setters>
+										</VisualState>
+										<VisualState x:Name="Disabled">
+											<VisualState.Setters><Setter Target="Root.Opacity" Value="0.38" /></VisualState.Setters>
+										</VisualState>
+									</VisualStateGroup>
+								</VisualStateManager.VisualStateGroups>
+								<ContentPresenter
+									HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+									VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+									Content="{TemplateBinding Content}"
+									ContentTemplate="{TemplateBinding ContentTemplate}" />
+							</Border>
+						</ControlTemplate>
+					</Setter.Value>
+				</Setter>
+			</Style>
+
+			<Style x:Key="NavigationButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
+				<Setter Property="Width" Value="36" />
+				<Setter Property="Height" Value="32" />
+				<Setter Property="Padding" Value="0" />
+			</Style>
+
+			<Style x:Key="ToolbarButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
+				<Setter Property="Height" Value="32" />
+				<Setter Property="Padding" Value="10,0" />
+			</Style>
+
+			<Style x:Key="BreadcrumbButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
+				<Setter Property="Height" Value="30" />
+				<Setter Property="MinWidth" Value="28" />
+				<Setter Property="Padding" Value="8,0" />
+				<Setter Property="HorizontalContentAlignment" Value="Center" />
+			</Style>
+
+			<Style x:Key="DetailsHeaderButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
+				<Setter Property="Height" Value="35" />
+				<Setter Property="Padding" Value="8,0" />
+				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+				<Setter Property="FontWeight" Value="SemiBold" />
+			</Style>
+
+			<Style x:Key="StatusViewButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
+				<Setter Property="Width" Value="30" />
+				<Setter Property="Height" Value="26" />
+				<Setter Property="Padding" Value="0" />
+			</Style>
+
+			<Style x:Key="SidebarListItemStyle" TargetType="ListViewItem">
+				<Setter Property="MinHeight" Value="0" />
+				<Setter Property="Margin" Value="0,1" />
+				<Setter Property="Padding" Value="0" />
+				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+				<Setter Property="CornerRadius" Value="6" />
+			</Style>
+		</ResourceDictionary>
+	</Application.Resources>
+
+</Application>

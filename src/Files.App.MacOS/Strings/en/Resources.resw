@@ -1,0 +1,464 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <data name="ApplicationName" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="BackButton.Content" xml:space="preserve">
+    <value>←</value>
+  </data>
+  <data name="ForwardButton.Content" xml:space="preserve">
+    <value>→</value>
+  </data>
+  <data name="UpButton.Content" xml:space="preserve">
+    <value>↑</value>
+  </data>
+  <data name="HomeButton.Content" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="RefreshButton.Content" xml:space="preserve">
+    <value>↻</value>
+  </data>
+  <data name="SearchButton.Content" xml:space="preserve">
+    <value>⌕</value>
+  </data>
+  <data name="AddressBox.PlaceholderText" xml:space="preserve">
+    <value>Enter a folder path</value>
+  </data>
+  <data name="LocationsHeading.Text" xml:space="preserve">
+    <value>Locations</value>
+  </data>
+  <data name="ToggleSidebarButton.Content" xml:space="preserve"><value>☰</value></data>
+  <data name="SidebarFavoritesHeading" xml:space="preserve"><value>Favorites</value></data>
+  <data name="SidebarLibrariesHeading" xml:space="preserve"><value>Libraries</value></data>
+  <data name="SidebarNetworkHeading" xml:space="preserve"><value>Network</value></data>
+  <data name="SidebarDrivesHeading" xml:space="preserve"><value>Drives</value></data>
+  <data name="SidebarHomeButton.Content" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="SidebarDesktopButton.Content" xml:space="preserve">
+    <value>Desktop</value>
+  </data>
+  <data name="SidebarDocumentsButton.Content" xml:space="preserve">
+    <value>Documents</value>
+  </data>
+  <data name="SidebarDownloadsButton.Content" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="SidebarPicturesButton.Content" xml:space="preserve">
+    <value>Pictures</value>
+  </data>
+  <data name="SidebarMusicButton.Content" xml:space="preserve">
+    <value>Music</value>
+  </data>
+  <data name="SidebarMoviesButton.Content" xml:space="preserve">
+    <value>Movies</value>
+  </data>
+  <data name="SettingsButton.Content" xml:space="preserve">
+    <value>⚙  Settings</value>
+  </data>
+  <data name="NewButton.Content" xml:space="preserve">
+    <value>＋ New</value>
+  </data>
+  <data name="CutButton.Content" xml:space="preserve">
+    <value>✂ Cut</value>
+  </data>
+  <data name="CopyButton.Content" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="PasteButton.Content" xml:space="preserve">
+    <value>Paste</value>
+  </data>
+  <data name="RenameButton.Content" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="ShareButton.Content" xml:space="preserve">
+    <value>Share</value>
+  </data>
+  <data name="DeleteButton.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="RevealButton.Content" xml:space="preserve">
+    <value>Show in Finder</value>
+  </data>
+  <data name="PropertiesButton.Content" xml:space="preserve">
+    <value>Properties</value>
+  </data>
+  <data name="SortButton.Content" xml:space="preserve">
+    <value>Sort</value>
+  </data>
+  <data name="ViewButton.Content" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="HomeTabHeader" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="NameColumn.Text" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ModifiedColumn.Text" xml:space="preserve">
+    <value>Date Modified</value>
+  </data>
+  <data name="SizeColumn.Text" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="PathRequired" xml:space="preserve">
+    <value>Enter a folder path.</value>
+  </data>
+  <data name="FolderNotFoundFormat" xml:space="preserve">
+    <value>Folder not found: {0}</value>
+  </data>
+  <data name="LoadingStatus" xml:space="preserve">
+    <value>Loading…</value>
+  </data>
+  <data name="ItemCountFormat" xml:space="preserve">
+    <value>{0} items</value>
+  </data>
+  <data name="SelectedItemCountFormat" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="SelectedItemCountAndSizeFormat" xml:space="preserve">
+    <value>{0} selected  |  {1}</value>
+  </data>
+  <data name="NewFolderDefaultName" xml:space="preserve">
+    <value>New folder</value>
+  </data>
+  <data name="CreateFolderDialogTitle" xml:space="preserve">
+    <value>Create a new folder</value>
+  </data>
+  <data name="RenameDialogTitle" xml:space="preserve">
+    <value>Rename item</value>
+  </data>
+  <data name="CreateButtonText" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="RenameButtonText" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="CancelButtonText" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CloseButtonText" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="FileOperationErrorTitle" xml:space="preserve">
+    <value>Couldn't complete the operation</value>
+  </data>
+  <data name="InvalidItemNameMessage" xml:space="preserve">
+    <value>Enter a valid item name.</value>
+  </data>
+  <data name="InvalidItemNameCharactersMessage" xml:space="preserve">
+    <value>The item name contains invalid characters.</value>
+  </data>
+  <data name="MissingParentFolderMessage" xml:space="preserve">
+    <value>The item has no parent folder.</value>
+  </data>
+  <data name="ItemAlreadyExistsFormat" xml:space="preserve">
+    <value>An item named “{0}” already exists.</value>
+  </data>
+  <data name="ItemNotFoundMessage" xml:space="preserve">
+    <value>The item no longer exists.</value>
+  </data>
+  <data name="UnknownFileOperationErrorMessage" xml:space="preserve">
+    <value>An unknown file operation error occurred.</value>
+  </data>
+  <data name="MoveToTrashDialogTitle" xml:space="preserve">
+    <value>Move to Trash?</value>
+  </data>
+  <data name="MoveToTrashDialogMessageFormat" xml:space="preserve">
+    <value>{0} selected item(s) will be moved to the Trash.</value>
+  </data>
+  <data name="MoveToTrashButtonText" xml:space="preserve">
+    <value>Move to Trash</value>
+  </data>
+  <data name="MoveToTrashErrorMessage" xml:space="preserve">
+    <value>The selected items couldn't be moved to the Trash.</value>
+  </data>
+  <data name="OpenItemErrorMessage" xml:space="preserve">
+    <value>The item couldn't be opened.</value>
+  </data>
+  <data name="RevealItemErrorMessage" xml:space="preserve">
+    <value>The item couldn't be shown in Finder.</value>
+  </data>
+  <data name="QuickLookErrorMessage" xml:space="preserve">
+    <value>A Quick Look preview isn't available for this item.</value>
+  </data>
+  <data name="CancelOperationButton.Content" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CopiedToClipboardFormat" xml:space="preserve">
+    <value>{0} item(s) ready to copy</value>
+  </data>
+  <data name="CutToClipboardFormat" xml:space="preserve">
+    <value>{0} item(s) ready to move</value>
+  </data>
+  <data name="ConflictDialogTitle" xml:space="preserve">
+    <value>Items already exist</value>
+  </data>
+  <data name="ConflictDialogMessage" xml:space="preserve">
+    <value>Choose how Files should handle items with the same name. This choice applies to this operation.</value>
+  </data>
+  <data name="ConflictKeepBothOption" xml:space="preserve">
+    <value>Keep both (add a number)</value>
+  </data>
+  <data name="ConflictReplaceOption" xml:space="preserve">
+    <value>Replace existing items</value>
+  </data>
+  <data name="ConflictSkipOption" xml:space="preserve">
+    <value>Skip existing items</value>
+  </data>
+  <data name="ContinueButtonText" xml:space="preserve">
+    <value>Continue</value>
+  </data>
+  <data name="FileTransferProgressFormat" xml:space="preserve">
+    <value>Transferring {0}  |  {1} of {2} items</value>
+  </data>
+  <data name="FileTransferCompletedFormat" xml:space="preserve">
+    <value>Completed {0} item(s); skipped {1}</value>
+  </data>
+  <data name="FileTransferCanceledMessage" xml:space="preserve">
+    <value>File operation canceled.</value>
+  </data>
+  <data name="ClipboardWriteErrorMessage" xml:space="preserve">
+    <value>The selected files couldn't be copied to the macOS clipboard.</value>
+  </data>
+  <data name="ClipboardReadErrorMessage" xml:space="preserve">
+    <value>Files couldn't read file URLs from the macOS clipboard.</value>
+  </data>
+  <data name="ClipboardHasNoFilesMessage" xml:space="preserve">
+    <value>The clipboard doesn't contain files.</value>
+  </data>
+  <data name="SortNameItem.Text" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="SortModifiedItem.Text" xml:space="preserve">
+    <value>Date modified</value>
+  </data>
+  <data name="SortSizeItem.Text" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="SortAscendingItem.Text" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="SortDescendingItem.Text" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="PropertiesDialogTitle" xml:space="preserve">
+    <value>Properties</value>
+  </data>
+  <data name="CalculatingPropertiesMessage" xml:space="preserve">
+    <value>Calculating properties…</value>
+  </data>
+  <data name="PropertyNameLabel" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="PropertyLocationLabel" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="PropertySizeLabel" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="PropertyContainsLabel" xml:space="preserve">
+    <value>Contains</value>
+  </data>
+  <data name="PropertyContainsFormat" xml:space="preserve">
+    <value>{0} files, {1} folders</value>
+  </data>
+  <data name="PropertyCreatedLabel" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="PropertyModifiedLabel" xml:space="preserve">
+    <value>Modified</value>
+  </data>
+  <data name="PropertyPermissionsLabel" xml:space="preserve">
+    <value>Permissions</value>
+  </data>
+  <data name="PropertyLinkTargetLabel" xml:space="preserve">
+    <value>Link target</value>
+  </data>
+  <data name="SearchBox.PlaceholderText" xml:space="preserve">
+    <value>Search this folder</value>
+  </data>
+  <data name="SearchSyntaxHelp" xml:space="preserve">
+    <value>Search names or content. Combine quoted phrases with filters such as ext:pdf, kind:image, tag:Red, size:&gt;10MB, or modified:today.</value>
+  </data>
+  <data name="SearchOptionsTooltip" xml:space="preserve">
+    <value>Search history and saved searches</value>
+  </data>
+  <data name="SaveCurrentSearchMenuItem" xml:space="preserve">
+    <value>Save this search</value>
+  </data>
+  <data name="SavedSearchesMenu" xml:space="preserve">
+    <value>Saved searches</value>
+  </data>
+  <data name="SearchHistoryMenu" xml:space="preserve">
+    <value>Recent searches</value>
+  </data>
+  <data name="NoSavedSearchesMenuItem" xml:space="preserve">
+    <value>No saved searches</value>
+  </data>
+  <data name="NoSearchHistoryMenuItem" xml:space="preserve">
+    <value>No recent searches</value>
+  </data>
+  <data name="ClearSearchHistoryMenuItem" xml:space="preserve">
+    <value>Clear recent searches</value>
+  </data>
+  <data name="ClearSavedSearchesMenuItem" xml:space="preserve">
+    <value>Clear saved searches</value>
+  </data>
+  <data name="SavedSearchNamePlaceholder" xml:space="preserve">
+    <value>Search name</value>
+  </data>
+  <data name="SaveSearchDialogTitle" xml:space="preserve">
+    <value>Save search</value>
+  </data>
+  <data name="SearchSavedMessage" xml:space="preserve">
+    <value>Search saved</value>
+  </data>
+  <data name="SearchingStatus" xml:space="preserve">
+    <value>Searching…</value>
+  </data>
+  <data name="SearchingStatusWithCountFormat" xml:space="preserve">
+    <value>Searching… {0} result(s)</value>
+  </data>
+  <data name="SearchResultCountFormat" xml:space="preserve">
+    <value>{0} search result(s)</value>
+  </data>
+  <data name="ShareItemsErrorMessage" xml:space="preserve">
+    <value>The selected items couldn't be shared.</value>
+  </data>
+  <data name="SettingsDialogTitle" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="ThemeSettingLabel" xml:space="preserve">
+    <value>App theme</value>
+  </data>
+  <data name="ThemeSystemOption" xml:space="preserve">
+    <value>Use system setting</value>
+  </data>
+  <data name="ThemeLightOption" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="ThemeDarkOption" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="LanguageSettingLabel" xml:space="preserve"><value>App language</value></data>
+  <data name="LanguageSystemOption" xml:space="preserve"><value>Use system language</value></data>
+  <data name="LanguageRestartTitle" xml:space="preserve"><value>Language changed</value></data>
+  <data name="LanguageRestartMessage" xml:space="preserve"><value>Restart Files to apply the new language throughout the app.</value></data>
+  <data name="ShowHiddenFilesSetting" xml:space="preserve">
+    <value>Show hidden files</value>
+  </data>
+  <data name="DefaultGridViewSetting" xml:space="preserve">
+    <value>Use grid view for new tabs</value>
+  </data>
+  <data name="SaveButtonText" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="SaveSettingsErrorMessage" xml:space="preserve">
+    <value>Settings couldn't be saved.</value>
+  </data>
+  <data name="ContextOpenItem.Text" xml:space="preserve"><value>Open</value></data>
+  <data name="ContextPreviewItem.Text" xml:space="preserve"><value>Quick Look</value></data>
+  <data name="ContextRevealItem.Text" xml:space="preserve"><value>Show in Finder</value></data>
+  <data name="ContextCutItem.Text" xml:space="preserve"><value>Cut</value></data>
+  <data name="ContextCopyItem.Text" xml:space="preserve"><value>Copy</value></data>
+  <data name="ContextRenameItem.Text" xml:space="preserve"><value>Rename</value></data>
+  <data name="ContextShareItem.Text" xml:space="preserve"><value>Share</value></data>
+  <data name="ContextDeleteItem.Text" xml:space="preserve"><value>Move to Trash</value></data>
+  <data name="ContextPropertiesItem.Text" xml:space="preserve"><value>Properties</value></data>
+  <data name="DropCopyCaption" xml:space="preserve"><value>Copy to this folder</value></data>
+  <data name="DropItemsErrorMessage" xml:space="preserve"><value>The dropped items couldn't be copied.</value></data>
+  <data name="NewFolderMenuItem.Text" xml:space="preserve"><value>Folder</value></data>
+  <data name="NewTextFileMenuItem.Text" xml:space="preserve"><value>Text document</value></data>
+  <data name="NewTextFileDefaultName" xml:space="preserve"><value>New Text Document.txt</value></data>
+  <data name="CreateTextFileDialogTitle" xml:space="preserve"><value>Create a text document</value></data>
+  <data name="ArchiveButton.Content" xml:space="preserve"><value>Archive</value></data>
+  <data name="CompressArchiveMenuItem.Text" xml:space="preserve"><value>Compress to ZIP</value></data>
+  <data name="ExtractArchiveMenuItem.Text" xml:space="preserve"><value>Extract ZIP</value></data>
+  <data name="ContextCompressItem.Text" xml:space="preserve"><value>Compress to ZIP</value></data>
+  <data name="ContextExtractItem.Text" xml:space="preserve"><value>Extract ZIP</value></data>
+  <data name="DefaultArchiveName" xml:space="preserve"><value>Archive</value></data>
+  <data name="CreateArchiveDialogTitle" xml:space="preserve"><value>Create ZIP archive</value></data>
+  <data name="ExtractArchiveDialogTitle" xml:space="preserve"><value>Extract ZIP archive</value></data>
+  <data name="ExtractButtonText" xml:space="preserve"><value>Extract</value></data>
+  <data name="SelectZipArchiveMessage" xml:space="preserve"><value>Select one ZIP archive to extract.</value></data>
+  <data name="CompressingArchiveProgressFormat" xml:space="preserve"><value>Compressing {0}  |  {1} of {2} items</value></data>
+  <data name="ExtractingArchiveProgressFormat" xml:space="preserve"><value>Extracting {0}  |  {1} of {2} items</value></data>
+  <data name="ArchiveCreatedFormat" xml:space="preserve"><value>Created {0}</value></data>
+  <data name="ArchiveExtractedFormat" xml:space="preserve"><value>Extracted to {0}</value></data>
+  <data name="ArchiveOperationErrorMessage" xml:space="preserve"><value>The archive operation couldn't be completed.</value></data>
+  <data name="FavoriteButton.Content" xml:space="preserve"><value>Favorite</value></data>
+  <data name="ContextFavoriteItem.Text" xml:space="preserve"><value>Pin or unpin from sidebar</value></data>
+  <data name="FavoriteAddedMessage" xml:space="preserve"><value>Folder pinned to the sidebar.</value></data>
+  <data name="FavoriteRemovedMessage" xml:space="preserve"><value>Folder removed from the sidebar.</value></data>
+  <data name="SystemVolumeName" xml:space="preserve"><value>Macintosh HD</value></data>
+  <data name="TerminalButton.Content" xml:space="preserve"><value>Terminal</value></data>
+  <data name="ContextTerminalItem.Text" xml:space="preserve"><value>Open in Terminal</value></data>
+  <data name="OpenTerminalErrorMessage" xml:space="preserve"><value>The folder couldn't be opened in Terminal.</value></data>
+  <data name="SplitViewButton.Content" xml:space="preserve"><value>Split pane</value></data>
+  <data name="CloseSplitViewButtonText" xml:space="preserve"><value>Close pane</value></data>
+  <data name="ConnectServerButton.Content" xml:space="preserve"><value>Connect to server</value></data>
+  <data name="ConnectServerDialogTitle" xml:space="preserve"><value>Connect to server</value></data>
+  <data name="ConnectButtonText" xml:space="preserve"><value>Connect</value></data>
+  <data name="ConnectServerAddressPlaceholder" xml:space="preserve"><value>smb://server/share</value></data>
+  <data name="ConnectingServerMessage" xml:space="preserve"><value>Connecting to server…</value></data>
+  <data name="ServerConnectedMessage" xml:space="preserve"><value>Connected to the server.</value></data>
+  <data name="ServerOpenedExternallyMessage" xml:space="preserve"><value>The server was opened with the system handler.</value></data>
+  <data name="ServerConnectionCanceledMessage" xml:space="preserve"><value>Server connection canceled.</value></data>
+  <data name="ConnectServerErrorMessage" xml:space="preserve"><value>The server couldn't be connected.</value></data>
+  <data name="ServerAddressRequiredMessage" xml:space="preserve"><value>Enter a server address.</value></data>
+  <data name="ServerAddressInvalidMessage" xml:space="preserve"><value>The server address isn't valid.</value></data>
+  <data name="ServerSchemeUnsupportedMessage" xml:space="preserve"><value>Use an smb://, afp://, nfs:// or ftp:// address.</value></data>
+  <data name="ServerHostRequiredMessage" xml:space="preserve"><value>The server address must include a host name.</value></data>
+  <data name="ServerCredentialsNotAllowedMessage" xml:space="preserve"><value>Don't include credentials in the address. macOS will request them securely.</value></data>
+  <data name="ServerQueryNotAllowedMessage" xml:space="preserve"><value>Server addresses can't contain a query or fragment.</value></data>
+  <data name="UndoButton.Content" xml:space="preserve"><value>Undo</value></data>
+  <data name="RedoButton.Content" xml:space="preserve"><value>Redo</value></data>
+  <data name="UndoCompletedMessage" xml:space="preserve"><value>Operation undone.</value></data>
+  <data name="RedoCompletedMessage" xml:space="preserve"><value>Operation redone.</value></data>
+  <data name="CreatedItemChangedUndoErrorMessage" xml:space="preserve"><value>The new item has changed and can't be safely removed by Undo.</value></data>
+  <data name="BulkRenameDialogTitle" xml:space="preserve"><value>Rename selected items</value></data>
+  <data name="BulkRenamePlaceholder" xml:space="preserve"><value>Enter a base name</value></data>
+  <data name="BulkRenameDescriptionFormat" xml:space="preserve"><value>Rename {0} selected items with the same base name. File extensions are preserved and numbers are added when needed.</value></data>
+  <data name="BulkRenameCompletedFormat" xml:space="preserve"><value>Renamed {0} items.</value></data>
+  <data name="SelectionButton.Content" xml:space="preserve"><value>Select</value></data>
+  <data name="SelectAllMenuItem.Text" xml:space="preserve"><value>Select all</value></data>
+  <data name="InvertSelectionMenuItem.Text" xml:space="preserve"><value>Invert selection</value></data>
+  <data name="CopyPathMenuItem.Text" xml:space="preserve"><value>Copy path</value></data>
+  <data name="ContextCopyPathItem.Text" xml:space="preserve"><value>Copy path</value></data>
+  <data name="PathsCopiedFormat" xml:space="preserve"><value>Copied {0} path(s).</value></data>
+  <data name="OverlappingRenameSelectionMessage" xml:space="preserve"><value>A folder and one of its descendants can't be renamed in the same batch.</value></data>
+  <data name="UndoDataUnavailableMessage" xml:space="preserve"><value>The temporary data required to redo this operation is no longer available.</value></data>
+  <data name="HistoryTransferIncompleteMessage" xml:space="preserve"><value>The historical move couldn't be completed because one or more destinations changed.</value></data>
+  <data name="HistoryRollbackFailedMessage" xml:space="preserve"><value>The historical operation failed and Files couldn't fully restore its previous state. Review the affected folders before continuing.</value></data>
+  <data name="FileTransferCanceledWithCompletedFormat" xml:space="preserve"><value>File operation canceled after completing {0} root item(s). The completed items can be undone.</value></data>
+  <data name="FileTransferFailedWithCompletedFormat" xml:space="preserve"><value>The operation stopped after completing {0} root item(s). The completed items can be undone.</value></data>
+  <data name="OpenFolderButton.Content" xml:space="preserve"><value>Open folder…</value></data>
+  <data name="OpenFolderErrorMessage" xml:space="preserve"><value>The folder couldn't be opened.</value></data>
+  <data name="FolderAccessSettingLabel" xml:space="preserve"><value>Folder access</value></data>
+  <data name="FolderAccessSettingDescription" xml:space="preserve"><value>Clear a folder to forget its saved macOS access permission. Open tabs using that folder may stop working in sandboxed builds.</value></data>
+  <data name="PreviewPaneButton.Content" xml:space="preserve"><value>Preview</value></data>
+  <data name="PreviewPaneHeading.Text" xml:space="preserve"><value>Preview</value></data>
+  <data name="ClosePreviewPaneButton.Content" xml:space="preserve"><value>×</value></data>
+  <data name="PreviewModifiedLabel.Text" xml:space="preserve"><value>Modified</value></data>
+  <data name="PreviewSizeLabel.Text" xml:space="preserve"><value>Size</value></data>
+  <data name="PreviewPaneQuickLookButton.Content" xml:space="preserve"><value>Open Quick Look</value></data>
+  <data name="PreviewPaneEmptyMessage" xml:space="preserve"><value>Select an item to preview it and view its details.</value></data>
+  <data name="PreviewPaneMultipleFormat" xml:space="preserve"><value>{0} items selected</value></data>
+  <data name="PreviewItemErrorMessage" xml:space="preserve"><value>The selected item couldn't be previewed.</value></data>
+  <data name="MoreCommandsButton.Content" xml:space="preserve"><value>•••</value></data>
+  <data name="MoreSelectionSubItem.Text" xml:space="preserve"><value>Selection</value></data>
+  <data name="MoreArchiveSubItem.Text" xml:space="preserve"><value>Archive</value></data>
+  <data name="EmptyFolderHeading.Text" xml:space="preserve"><value>This folder is empty</value></data>
+  <data name="EmptyFolderDescription.Text" xml:space="preserve"><value>Drag files here or use New to create something.</value></data>
+  <data name="NoSearchResultsHeading.Text" xml:space="preserve"><value>No results found</value></data>
+  <data name="NoSearchResultsDescription.Text" xml:space="preserve"><value>Try a different name or adjust the search filters.</value></data>
+  <data name="GridViewTooltip" xml:space="preserve"><value>Grid view</value></data>
+  <data name="DetailsViewTooltip" xml:space="preserve"><value>Details view</value></data>
+</root>

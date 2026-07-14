@@ -1,0 +1,12 @@
+<Solution>
+	<Configurations>
+		<Platform Name="arm64" />
+		<Platform Name="x64" />
+	</Configurations>
+	<Folder Name="/src/">
+		<Project Path="src/Files.App.MacOS/Files.App.MacOS.csproj">
+			<Platform Solution="*|arm64" Project="AnyCPU" />
+			<Platform Solution="*|x64" Project="AnyCPU" />
+		</Project>
+	</Folder>
+</Solution>

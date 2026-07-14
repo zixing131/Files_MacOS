@@ -1,0 +1,128 @@
+<Project Sdk="Uno.Sdk/6.5.36">
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
+    <!-- Directory.Build.props uses this SDK-reserved name for a TFM. Let the SDK infer it locally. -->
+    <TargetFrameworkVersion />
+    <OutputType>Exe</OutputType>
+    <UnoSingleProject>true</UnoSingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RuntimeIdentifiers>osx-arm64;osx-x64</RuntimeIdentifiers>
+	<SelfContained Condition="'$(Configuration)' == 'Release' and '$(RuntimeIdentifier)' != ''">true</SelfContained>
+
+    <MacOSBridgeArch Condition="'$(RuntimeIdentifier)' == 'osx-arm64'">arm64</MacOSBridgeArch>
+    <MacOSBridgeArch Condition="'$(RuntimeIdentifier)' == 'osx-x64'">x86_64</MacOSBridgeArch>
+    <MacOSBridgeSource>$(MSBuildProjectDirectory)/Native/FilesMacOSBridge.m</MacOSBridgeSource>
+    <MacOSBridgeOutput>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(RuntimeIdentifier)/native/libFilesMacOSBridge.dylib</MacOSBridgeOutput>
+    <MacOSBridgeDestination>$(MSBuildProjectDirectory)/bin/$(Configuration)/net10.0-desktop/$(RuntimeIdentifier)</MacOSBridgeDestination>
+
+    <ApplicationTitle>Files</ApplicationTitle>
+    <ApplicationId>io.filescommunity.files.macos</ApplicationId>
+    <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationPublisher>Files Community</ApplicationPublisher>
+    <Description>Files for macOS technical preview.</Description>
+	<MacOSCodeSignIdentity Condition="'$(MacOSCodeSignIdentity)' == ''">-</MacOSCodeSignIdentity>
+	<MacOSCodeSignTimestampArgument Condition="'$(MacOSCodeSignTimestampArgument)' == ''">--timestamp=none</MacOSCodeSignTimestampArgument>
+	<MacOSCodeSignEntitlements Condition="'$(MacOSCodeSignEntitlements)' == '' and '$(MacOSCodeSignIdentity)' == '-'">$(MSBuildProjectDirectory)/Packaging/Files.AdHoc.entitlements</MacOSCodeSignEntitlements>
+	<MacOSCodeSignEntitlements Condition="'$(MacOSCodeSignEntitlements)' == ''">$(MSBuildProjectDirectory)/Packaging/Files.entitlements</MacOSCodeSignEntitlements>
+
+    <UnoFeatures>
+      Mvvm;
+      SkiaRenderer;
+    </UnoFeatures>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<Content Remove="Packaging/AppIconSource.png" />
+	</ItemGroup>
+
+  <Target
+    Name="BuildMacOSBridge"
+    BeforeTargets="CoreCompile"
+    Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' != ''"
+    Inputs="$(MacOSBridgeSource)"
+    Outputs="$(MacOSBridgeOutput)">
+    <Error Condition="'$(MacOSBridgeArch)' == ''" Text="Unsupported macOS runtime identifier: $(RuntimeIdentifier)" />
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(MacOSBridgeOutput)'))" />
+    <Exec Command="xcrun clang -arch $(MacOSBridgeArch) -mmacosx-version-min=13.0 -dynamiclib -fobjc-arc -fblocks -framework AppKit -framework CoreServices -framework Foundation -framework NetFS -framework QuickLook -framework QuickLookUI -framework QuickLookThumbnailing &quot;$(MacOSBridgeSource)&quot; -o &quot;$(MacOSBridgeOutput)&quot;" />
+  </Target>
+
+  <Target
+    Name="CopyMacOSBridge"
+    AfterTargets="Build"
+    Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' != ''">
+    <MakeDir Directories="$(MacOSBridgeDestination)" />
+    <Copy SourceFiles="$(MacOSBridgeOutput)" DestinationFolder="$(MacOSBridgeDestination)" SkipUnchangedFiles="true" />
+  </Target>
+
+	<Target
+		Name="CreateMacOSAppBundle"
+		AfterTargets="Publish"
+		Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' != '' and '$(Configuration)' == 'Release'">
+		<Error Condition="'$(SelfContained)' != 'true'" Text="Release macOS app bundles must be self-contained so hardened-runtime library validation can verify the embedded .NET runtime." />
+		<PropertyGroup>
+			<_MacOSAppBundlePath>$([System.IO.Path]::GetFullPath('$(PublishDir)../Files.app'))</_MacOSAppBundlePath>
+			<_MacOSContentsDirectory>$(_MacOSAppBundlePath)/Contents</_MacOSContentsDirectory>
+			<_MacOSExecutableDirectory>$(_MacOSContentsDirectory)/MacOS</_MacOSExecutableDirectory>
+			<_MacOSResourcesDirectory>$(_MacOSContentsDirectory)/Resources</_MacOSResourcesDirectory>
+			<_MacOSRuntimeResourcesDirectory>$(_MacOSResourcesDirectory)/Runtime</_MacOSRuntimeResourcesDirectory>
+			<_MacOSIconSetDirectory>$(IntermediateOutputPath)macos/AppIcon.iconset</_MacOSIconSetDirectory>
+			<_MacOSIconPath>$(IntermediateOutputPath)macos/AppIcon.icns</_MacOSIconPath>
+			<_MacOSCompiledEntitlements>$(IntermediateOutputPath)macos/Files.entitlements</_MacOSCompiledEntitlements>
+		</PropertyGroup>
+
+		<RemoveDir Directories="$(_MacOSAppBundlePath);$(_MacOSIconSetDirectory)" />
+		<MakeDir Directories="$(_MacOSExecutableDirectory);$(_MacOSRuntimeResourcesDirectory);$(_MacOSIconSetDirectory)" />
+
+		<ItemGroup>
+			<_MacOSExecutableFile Include="$(PublishDir)Files.App.MacOS;$(PublishDir)*.dylib" />
+			<_MacOSRuntimeFile Include="$(PublishDir)**/*" Exclude="@(_MacOSExecutableFile);$(PublishDir)Packaging/**/*" />
+			<_MacOSIconFile Include="icon_16x16.png"><PixelSize>16</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_16x16@2x.png"><PixelSize>32</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_32x32.png"><PixelSize>32</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_32x32@2x.png"><PixelSize>64</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_128x128.png"><PixelSize>128</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_128x128@2x.png"><PixelSize>256</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_256x256.png"><PixelSize>256</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_256x256@2x.png"><PixelSize>512</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_512x512.png"><PixelSize>512</PixelSize></_MacOSIconFile>
+			<_MacOSIconFile Include="icon_512x512@2x.png"><PixelSize>1024</PixelSize></_MacOSIconFile>
+		</ItemGroup>
+
+		<Copy
+			SourceFiles="@(_MacOSExecutableFile)"
+			DestinationFiles="@(_MacOSExecutableFile->'$(_MacOSExecutableDirectory)/%(Filename)%(Extension)')" />
+		<Copy
+			SourceFiles="@(_MacOSRuntimeFile)"
+			DestinationFiles="@(_MacOSRuntimeFile->'$(_MacOSRuntimeResourcesDirectory)/%(RecursiveDir)%(Filename)%(Extension)')" />
+		<Copy SourceFiles="$(MacOSBridgeOutput)" DestinationFolder="$(_MacOSExecutableDirectory)" />
+		<Copy SourceFiles="$(MSBuildProjectDirectory)/Packaging/Info.plist" DestinationFolder="$(_MacOSContentsDirectory)" />
+		<Exec Command="/bin/zsh -c 'for item in &quot;$(_MacOSRuntimeResourcesDirectory)&quot;/*(DN); do name=${item:t}; /bin/ln -s &quot;../Resources/Runtime/$name&quot; &quot;$(_MacOSExecutableDirectory)/$name&quot;; done'" />
+		<Exec Command="/bin/zsh -c 'for library in &quot;$(_MacOSExecutableDirectory)&quot;/*.dylib(N); do name=${library:t}; /bin/ln -s &quot;../../MacOS/$name&quot; &quot;$(_MacOSRuntimeResourcesDirectory)/$name&quot;; done'" />
+
+		<Exec
+			Command="xcrun sips -z %(_MacOSIconFile.PixelSize) %(_MacOSIconFile.PixelSize) &quot;$(MSBuildProjectDirectory)/Packaging/AppIconSource.png&quot; --out &quot;$(_MacOSIconSetDirectory)/%(_MacOSIconFile.Identity)&quot;"
+			StandardOutputImportance="Low" />
+		<Exec Command="xcrun iconutil -c icns &quot;$(_MacOSIconSetDirectory)&quot; -o &quot;$(_MacOSIconPath)&quot;" />
+		<Copy SourceFiles="$(_MacOSIconPath)" DestinationFolder="$(_MacOSResourcesDirectory)" />
+		<Exec Command="/usr/bin/plutil -convert xml1 -o &quot;$(_MacOSCompiledEntitlements)&quot; &quot;$(MacOSCodeSignEntitlements)&quot;" />
+
+		<Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleIdentifier $(ApplicationId)&quot; &quot;$(_MacOSContentsDirectory)/Info.plist&quot;" />
+		<Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleShortVersionString $(ApplicationDisplayVersion)&quot; &quot;$(_MacOSContentsDirectory)/Info.plist&quot;" />
+		<Exec Command="/usr/libexec/PlistBuddy -c &quot;Set :CFBundleVersion $(ApplicationVersion)&quot; &quot;$(_MacOSContentsDirectory)/Info.plist&quot;" />
+		<Exec Command="/bin/chmod +x &quot;$(_MacOSExecutableDirectory)/Files.App.MacOS&quot;" />
+
+		<ItemGroup>
+			<_MacOSNativeLibrary Include="$(_MacOSExecutableDirectory)/*.dylib" />
+		</ItemGroup>
+		<Exec Command="/bin/chmod +x &quot;%(_MacOSNativeLibrary.Identity)&quot;" />
+		<Exec Command="/usr/bin/codesign --force --sign &quot;$(MacOSCodeSignIdentity)&quot; --options runtime $(MacOSCodeSignTimestampArgument) &quot;%(_MacOSNativeLibrary.Identity)&quot;" />
+		<Exec Command="/usr/bin/codesign --force --sign &quot;$(MacOSCodeSignIdentity)&quot; --options runtime $(MacOSCodeSignTimestampArgument) --entitlements &quot;$(_MacOSCompiledEntitlements)&quot; &quot;$(_MacOSAppBundlePath)&quot;" />
+		<Message Importance="High" Text="Created macOS app bundle: $(_MacOSAppBundlePath)" />
+	</Target>
+
+</Project>
