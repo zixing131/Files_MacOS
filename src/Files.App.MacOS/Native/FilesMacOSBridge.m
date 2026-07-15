@@ -1077,6 +1077,20 @@ __attribute__((visibility("default"))) int files_macos_eject_volume(const char *
 		{
 			dispatch_sync(dispatch_get_main_queue(), ejectBlock);
 		}
+		if (!success)
+		{
+			NSTask *task = [[NSTask alloc] init];
+			task.executableURL = [NSURL fileURLWithPath:@"/usr/sbin/diskutil"];
+			task.arguments = @[ @"eject", volumeURL.path ];
+			task.standardOutput = [NSPipe pipe];
+			task.standardError = [NSPipe pipe];
+			NSError *launchError = nil;
+			if ([task launchAndReturnError:&launchError])
+			{
+				[task waitUntilExit];
+				success = task.terminationStatus == 0;
+			}
+		}
 		return success ? 1 : 0;
 	}
 }
