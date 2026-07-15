@@ -2631,7 +2631,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void CopyAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
 	{
-		if (selectedItems.Count > 0 && fileTransferCancellation is null)
+		if (!IsTextInputFocused() && selectedItems.Count > 0 && fileTransferCancellation is null)
 		{
 			args.Handled = true;
 			await SetFileClipboardAsync(FileTransferMode.Copy);
@@ -2640,7 +2640,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void CutAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
 	{
-		if (selectedItems.Count > 0 && fileTransferCancellation is null)
+		if (!IsTextInputFocused() && selectedItems.Count > 0 && fileTransferCancellation is null)
 		{
 			args.Handled = true;
 			await SetFileClipboardAsync(FileTransferMode.Move);
@@ -2649,7 +2649,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void PasteAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
 	{
-		if (fileTransferCancellation is null)
+		if (!IsTextInputFocused() && fileTransferCancellation is null)
 		{
 			args.Handled = true;
 			await PasteAsync();

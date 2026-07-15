@@ -40,6 +40,9 @@
 		</MenuFlyout>
 	</Page.Resources>
 	<Page.KeyboardAccelerators>
+		<KeyboardAccelerator Key="C" Modifiers="Control" Invoked="CopyAccelerator_Invoked" />
+		<KeyboardAccelerator Key="X" Modifiers="Control" Invoked="CutAccelerator_Invoked" />
+		<KeyboardAccelerator Key="V" Modifiers="Control" Invoked="PasteAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Tab" Modifiers="Control" Invoked="NextTabAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Tab" Modifiers="Control,Shift" Invoked="PreviousTabAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Number1" Modifiers="Control" Invoked="SelectNumberedTabAccelerator_Invoked" />
