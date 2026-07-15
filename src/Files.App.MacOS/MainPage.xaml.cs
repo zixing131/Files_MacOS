@@ -4277,7 +4277,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		FolderAccessGrant[] existingGrants = currentSettings.AccessGrants ?? [];
 		CheckBox[] grantToggles = existingGrants.Select(grant => new CheckBox
 		{
-			Content = grant.Path,
+			Content = new TextBlock
+			{
+				Text = grant.Path,
+				TextWrapping = TextWrapping.Wrap,
+				MaxWidth = 330,
+			},
 			IsChecked = true,
 			Tag = grant,
 			HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -4307,7 +4312,15 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		var dialog = new ContentDialog
 		{
 			Title = GetResource("SettingsDialogTitle"),
-			Content = content,
+			Content = new ScrollViewer
+			{
+				MaxHeight = 560,
+				HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+				HorizontalScrollMode = ScrollMode.Disabled,
+				VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+				VerticalScrollMode = ScrollMode.Enabled,
+				Content = content,
+			},
 			PrimaryButtonText = GetResource("SaveButtonText"),
 			CloseButtonText = GetResource("CancelButtonText"),
 			DefaultButton = ContentDialogButton.Primary,
