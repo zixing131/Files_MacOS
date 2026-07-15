@@ -679,6 +679,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Directory.CreateDirectory(Path.GetDirectoryName(internalPath)!);
 			Directory.CreateDirectory(Path.Combine(root, "Ordinary Folder"));
 			await File.WriteAllTextAsync(internalPath, "package-internal-marker");
+			bool nativePackageProbe =
+				MacOSFilePackage.TryGetNativePackageState(packagePath, out bool nativePackage) && nativePackage &&
+				MacOSFilePackage.TryGetNativePackageState(Path.Combine(root, "Ordinary Folder"), out bool nativeFolderPackage) && !nativeFolderPackage;
 
 			IReadOnlyList<LocalFileSystemItem> items = await new LocalDirectoryService().GetItemsAsync(root, CancellationToken.None);
 			LocalFileSystemItem? package = items.SingleOrDefault(static item => item.Name == "Sample.app");
@@ -703,7 +706,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 			Browser?.PrepareAccessibilityNames([package]);
 			var iconConverter = new Converters.FileSystemItemToIconConverter();
-			return packageResults is [{ IsPackage: true, Name: "Sample.app" }] &&
+			return nativePackageProbe &&
+				packageResults is [{ IsPackage: true, Name: "Sample.app" }] &&
 				folderResults.Any(static item => item.Name == "Ordinary Folder") &&
 				folderResults.All(static item => !item.IsPackage) &&
 				nestedResults.Count is 0 &&

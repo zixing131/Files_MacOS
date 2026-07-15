@@ -9,6 +9,9 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_open_path", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int OpenPath(string path);
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_is_file_package", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial int IsFilePackage(string path);
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_get_open_with_applications", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial nint GetOpenWithApplications(string path);
 

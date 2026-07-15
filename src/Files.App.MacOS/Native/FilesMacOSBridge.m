@@ -887,6 +887,27 @@ __attribute__((visibility("default"))) int files_macos_open_path(const char *pat
 	}
 }
 
+__attribute__((visibility("default"))) int files_macos_is_file_package(const char *path)
+{
+	@autoreleasepool
+	{
+		NSURL *url = files_url_from_path(path);
+		if (url == nil)
+		{
+			return -1;
+		}
+
+		NSNumber *isPackage = nil;
+		NSError *error = nil;
+		if (![url getResourceValue:&isPackage forKey:NSURLIsPackageKey error:&error] || isPackage == nil)
+		{
+			return -1;
+		}
+
+		return isPackage.boolValue ? 1 : 0;
+	}
+}
+
 __attribute__((visibility("default"))) char *files_macos_get_open_with_applications(const char *path)
 {
 	@autoreleasepool
