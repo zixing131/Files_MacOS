@@ -73,6 +73,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private DirectoryBrowserViewModel? typeSelectBrowser;
 	private string typeSelectPrefix = string.Empty;
 	private long lastTypeSelectTimestamp;
+	private string? lastControlClickPath;
+	private long lastControlClickTimestamp;
 
 	public MainPage()
 		: this(restoresWorkspace: true)
@@ -533,7 +535,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			"OpenWith", "Reveal", "Terminal", "Duplicate", "CreateSymbolicLink", "CopyPath", "Share",
 			"Compress", "Extract", "Favorite", "PermanentDelete",
 		];
-		bool compactItemContextMenu = itemContextFlyout.Items.Count <= 11 &&
+		bool compactItemContextMenu = itemContextFlyout.Items.Count <= 12 &&
 			expectedItemContextActions.All(itemContextActions.Contains);
 		string[] expectedBackgroundActions =
 		[
@@ -3204,6 +3206,17 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			return;
 		}
+		if (IsKeyDown(VirtualKey.Control))
+		{
+			long timestamp = Environment.TickCount64;
+			if (!string.Equals(lastControlClickPath, item.Path, StringComparison.Ordinal) ||
+				timestamp - lastControlClickTimestamp is < 0 or > 500)
+			{
+				ToggleModifiedSelection(browser, item);
+			}
+			e.Handled = true;
+			return;
+		}
 
 		FrameworkElement control = GetVisibleItemsControl(browser);
 		if (control is ItemsView view)
@@ -3227,6 +3240,55 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			target,
 			new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = e.GetPosition(target) });
 		e.Handled = true;
+	}
+
+	private void Item_PointerPressed(object sender, PointerRoutedEventArgs e)
+	{
+		if (!e.GetCurrentPoint(sender as UIElement).Properties.IsLeftButtonPressed ||
+			!IsKeyDown(VirtualKey.Control) ||
+			sender is not FrameworkElement { DataContext: LocalFileSystemItem item } ||
+			GetBrowserForItem(item) is not DirectoryBrowserViewModel browser)
+		{
+			return;
+		}
+
+		ToggleModifiedSelection(browser, item);
+		lastControlClickPath = item.Path;
+		lastControlClickTimestamp = Environment.TickCount64;
+		e.Handled = true;
+	}
+
+	private void ToggleModifiedSelection(DirectoryBrowserViewModel browser, LocalFileSystemItem item)
+	{
+		FrameworkElement control = GetVisibleItemsControl(browser);
+		if (control is ItemsView view)
+		{
+			int index = browser.Items.IndexOf(item);
+			if (index >= 0)
+			{
+				if (view.IsSelected(index))
+				{
+					view.Deselect(index);
+				}
+				else
+				{
+					view.Select(index);
+				}
+			}
+		}
+		else if (control is ListViewBase list)
+		{
+			if (list.SelectedItems.Contains(item))
+			{
+				list.SelectedItems.Remove(item);
+			}
+			else
+			{
+				list.SelectedItems.Add(item);
+			}
+		}
+		control.Focus(FocusState.Pointer);
+		ActivateBrowser(browser, control);
 	}
 
 	private void PrimaryPane_RightTapped(object sender, RightTappedRoutedEventArgs e) =>
@@ -3277,6 +3339,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		var flyout = new MenuFlyout();
 		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenItem/Text", "Open"));
+		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenWithItem/Text", "OpenWith"));
 		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenInNewTabItem/Text", "OpenInNewTab"));
 		flyout.Items.Add(CreateItemContextMenuItem("ContextPreviewItem/Text", "Preview"));
 		flyout.Items.Add(new MenuFlyoutSeparator());
@@ -3292,7 +3355,6 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Text = GetResource("ContextMoreActionsSubItem/Text"),
 			Tag = "MoreActions",
 		};
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextOpenWithItem/Text", "OpenWith"));
 		moreActions.Items.Add(CreateItemContextMenuItem("ContextRevealItem/Text", "Reveal"));
 		moreActions.Items.Add(CreateItemContextMenuItem("ContextTerminalItem/Text", "Terminal"));
 		moreActions.Items.Add(new MenuFlyoutSeparator());

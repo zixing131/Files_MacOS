@@ -25,6 +25,7 @@
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationPublisher>Files Community</ApplicationPublisher>
     <Description>Files for macOS technical preview.</Description>
+    <UnoPlatformDefaultSymbolsFontFamily>ms-appx:///uno-fluentui-assets.ttf</UnoPlatformDefaultSymbolsFontFamily>
 	<MacOSCodeSignIdentity Condition="'$(MacOSCodeSignIdentity)' == ''">-</MacOSCodeSignIdentity>
 	<MacOSCodeSignTimestampArgument Condition="'$(MacOSCodeSignTimestampArgument)' == ''">--timestamp=none</MacOSCodeSignTimestampArgument>
 	<MacOSCodeSignEntitlements Condition="'$(MacOSCodeSignEntitlements)' == '' and '$(MacOSCodeSignIdentity)' == '-'">$(MSBuildProjectDirectory)/Packaging/Files.AdHoc.entitlements</MacOSCodeSignEntitlements>
@@ -57,6 +58,8 @@
     Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' != ''">
     <MakeDir Directories="$(MacOSBridgeDestination)" />
     <Copy SourceFiles="$(MacOSBridgeOutput)" DestinationFolder="$(MacOSBridgeDestination)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MacOSBridgeDestination)/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf" DestinationFolder="$(MacOSBridgeDestination)" SkipUnchangedFiles="true" />
+    <Exec Command="/bin/chmod 644 &quot;$(MacOSBridgeDestination)/uno-fluentui-assets.ttf&quot;" />
   </Target>
 
 	<Target
@@ -102,6 +105,7 @@
 		<Copy SourceFiles="$(MacOSBridgeOutput)" DestinationFolder="$(_MacOSExecutableDirectory)" />
 		<Copy SourceFiles="$(MSBuildProjectDirectory)/Packaging/Info.plist" DestinationFolder="$(_MacOSContentsDirectory)" />
 		<Exec Command="/bin/zsh -c 'for item in &quot;$(_MacOSRuntimeResourcesDirectory)&quot;/*(DN); do name=${item:t}; /bin/ln -s &quot;../Resources/Runtime/$name&quot; &quot;$(_MacOSExecutableDirectory)/$name&quot;; done'" />
+		<Exec Command="/bin/ln -s &quot;../Resources/Runtime/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf&quot; &quot;$(_MacOSExecutableDirectory)/uno-fluentui-assets.ttf&quot;" />
 		<Exec Command="/bin/zsh -c 'for library in &quot;$(_MacOSExecutableDirectory)&quot;/*.dylib(N); do name=${library:t}; /bin/ln -s &quot;../../MacOS/$name&quot; &quot;$(_MacOSRuntimeResourcesDirectory)/$name&quot;; done'" />
 
 		<Exec

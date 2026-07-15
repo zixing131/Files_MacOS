@@ -52,6 +52,9 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_get_accessibility_display_options")]
 	internal static partial int GetAccessibilityDisplayOptions();
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_get_accent_color_argb")]
+	internal static partial uint GetAccentColorArgb();
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_announce_accessibility", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int AnnounceAccessibility(string announcement, int highPriority);
 

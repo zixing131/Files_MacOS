@@ -17,8 +17,8 @@
 					<SolidColorBrush x:Key="FilesCardBrush" Color="#FFFFFF" />
 					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#18000000" />
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#08000000" />
-					<SolidColorBrush x:Key="FilesAccentBrush" Color="#0067C0" />
-					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#180067C0" />
+					<SolidColorBrush x:Key="FilesAccentBrush" Color="#007AFF" />
+					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#26007AFF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackground" Color="Transparent" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FFFFFFFF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#0A000000" />
@@ -32,8 +32,8 @@
 					<SolidColorBrush x:Key="FilesCardBrush" Color="#2B2B2B" />
 					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#20FFFFFF" />
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#0CFFFFFF" />
-					<SolidColorBrush x:Key="FilesAccentBrush" Color="#60CDFF" />
-					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#2460CDFF" />
+					<SolidColorBrush x:Key="FilesAccentBrush" Color="#0A84FF" />
+					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#330A84FF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackground" Color="Transparent" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FF323232" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#12FFFFFF" />
@@ -47,8 +47,8 @@
 					<SolidColorBrush x:Key="FilesCardBrush" Color="#2B2B2B" />
 					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#20FFFFFF" />
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#0CFFFFFF" />
-					<SolidColorBrush x:Key="FilesAccentBrush" Color="#60CDFF" />
-					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#2460CDFF" />
+					<SolidColorBrush x:Key="FilesAccentBrush" Color="#0A84FF" />
+					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#330A84FF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackground" Color="Transparent" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FF323232" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#12FFFFFF" />

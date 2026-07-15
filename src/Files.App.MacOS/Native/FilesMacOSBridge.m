@@ -347,6 +347,23 @@ __attribute__((visibility("default"))) int files_macos_get_accessibility_display
 	}
 }
 
+__attribute__((visibility("default"))) unsigned int files_macos_get_accent_color_argb(void)
+{
+	@autoreleasepool
+	{
+		NSColor *color = [NSColor.controlAccentColor colorUsingColorSpace:NSColorSpace.sRGBColorSpace];
+		if (color == nil)
+		{
+			return 0;
+		}
+
+		unsigned int red = (unsigned int)lround(fmin(1, fmax(0, color.redComponent)) * 255);
+		unsigned int green = (unsigned int)lround(fmin(1, fmax(0, color.greenComponent)) * 255);
+		unsigned int blue = (unsigned int)lround(fmin(1, fmax(0, color.blueComponent)) * 255);
+		return 0xFF000000u | (red << 16) | (green << 8) | blue;
+	}
+}
+
 __attribute__((visibility("default"))) int files_macos_announce_accessibility(const char *announcement, int highPriority)
 {
 	@autoreleasepool
@@ -2206,10 +2223,7 @@ __attribute__((visibility("default"))) int files_macos_generate_thumbnail(
 
 		BOOL wasAlias = NO;
 		NSURL *previewURL = files_macos_resolve_alias_url(url, &wasAlias);
-		BOOL isApplication = [previewURL.pathExtension caseInsensitiveCompare:@"app"] == NSOrderedSame;
-		NSData *iconData = wasAlias || isApplication
-			? files_macos_png_for_file_icon(previewURL, width, height, scale)
-			: nil;
+		NSData *iconData = files_macos_png_for_file_icon(previewURL, width, height, scale);
 		if (iconData.length > 0)
 		{
 			unsigned char *buffer = malloc(iconData.length);

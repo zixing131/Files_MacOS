@@ -1,8 +1,10 @@
 using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
+using Files.App.MacOS.Interop;
 using Files.App.MacOS.Models;
 using Files.App.MacOS.Services;
 using Files.App.MacOS.ViewModels;
+using Microsoft.UI.Xaml.Media;
 
 namespace Files.App.MacOS;
 
@@ -24,11 +26,13 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	private bool hasRestoredWindowSession;
 	private bool isRestoringWindowSession;
 	private MacOSAccessibilityDisplayOptions accessibilityDisplayOptions;
+	private uint systemAccentColorArgb;
 
 	public App()
 	{
 		AppLanguageManager.Apply(AppLanguageManager.LoadPreference());
 		InitializeComponent();
+		RefreshSystemAccentColor();
 	}
 
 	protected Window? MainWindow { get; private set; }
@@ -83,6 +87,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		window.Activate();
 		nativeWindowHandles[window] = MacOSWindowPlacementService.GetNativeWindowHandle(window);
 		ConfigureNativeWindow(window);
+		RefreshSystemAccentColor();
 		RefreshAccessibilityDisplayOptions();
 		UpdateMainMenu(page);
 		return window;
@@ -217,6 +222,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 
 		activePage = page;
 		ConfigureNativeWindow(window);
+		RefreshSystemAccentColor();
 		RefreshAccessibilityDisplayOptions();
 		activationOrder.Remove(window);
 		activationOrder.Add(window);
@@ -293,6 +299,38 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		foreach (MainPage page in windows.Values)
 		{
 			page.ApplyAccessibilityDisplayOptions(options);
+		}
+	}
+
+	private void RefreshSystemAccentColor()
+	{
+		uint argb = MacOSNativeMethods.GetAccentColorArgb();
+		if (argb is 0 || argb == systemAccentColorArgb)
+		{
+			return;
+		}
+
+		systemAccentColorArgb = argb;
+		Windows.UI.Color accent = Windows.UI.Color.FromArgb(
+			(byte)(argb >> 24),
+			(byte)(argb >> 16),
+			(byte)(argb >> 8),
+			(byte)argb);
+		foreach (string theme in new[] { "Light", "Dark", "Default" })
+		{
+			if (Resources.ThemeDictionaries[theme] is not ResourceDictionary resources)
+			{
+				continue;
+			}
+
+			if (resources["FilesAccentBrush"] is SolidColorBrush accentBrush)
+			{
+				accentBrush.Color = accent;
+			}
+			if (resources["FilesAccentSubtleBrush"] is SolidColorBrush subtleBrush)
+			{
+				subtleBrush.Color = Windows.UI.Color.FromArgb(theme is "Light" ? (byte)38 : (byte)51, accent.R, accent.G, accent.B);
+			}
 		}
 	}
 

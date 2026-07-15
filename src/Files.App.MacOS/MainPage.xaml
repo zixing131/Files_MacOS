@@ -5,7 +5,8 @@
 	xmlns:converters="using:Files.App.MacOS.Converters"
 	xmlns:controls="using:Files.App.MacOS.Controls"
 	xmlns:viewmodels="using:Files.App.MacOS.ViewModels"
-	Background="{ThemeResource FilesBackgroundBrush}">
+	Background="{ThemeResource FilesBackgroundBrush}"
+	KeyboardAcceleratorPlacementMode="Hidden">
 
 	<Page.Resources>
 		<converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -13,6 +14,7 @@
 		<converters:SidebarGlyphToIconConverter x:Key="SidebarGlyphToIconConverter" />
 		<MenuFlyout x:Key="ItemContextFlyout" Opening="ItemContextFlyout_Opening">
 			<MenuFlyoutItem x:Uid="ContextOpenItem" Click="ContextAction_Click" Tag="Open" />
+			<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
 			<MenuFlyoutItem x:Uid="ContextOpenInNewTabItem" Click="ContextAction_Click" Tag="OpenInNewTab" />
 			<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
 			<MenuFlyoutSeparator />
@@ -23,7 +25,6 @@
 			<MenuFlyoutSeparator />
 			<MenuFlyoutItem x:Uid="ContextPropertiesItem" Click="ContextAction_Click" Tag="Properties" />
 			<MenuFlyoutSubItem Tag="MoreActions">
-				<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
 				<MenuFlyoutItem x:Uid="ContextRevealItem" Click="ContextAction_Click" Tag="Reveal" />
 				<MenuFlyoutItem x:Uid="ContextTerminalItem" Click="ContextAction_Click" Tag="Terminal" />
 				<MenuFlyoutSeparator />
@@ -217,6 +218,9 @@
 						x:Uid="AddressBox"
 						Background="Transparent"
 						BorderThickness="0"
+						Padding="12,3,12,0"
+						VerticalAlignment="Center"
+						VerticalContentAlignment="Center"
 						KeyDown="AddressBox_KeyDown"
 						LostFocus="AddressBox_LostFocus"
 						Visibility="Collapsed" />
@@ -564,7 +568,7 @@
 							<ItemsView.ItemTemplate>
 								<DataTemplate>
 									<ItemContainer Width="116" Height="108" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
-									<Grid CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" RowDefinitions="72,*" ToolTipService.ToolTip="{Binding Path}">
+									<Grid CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" PointerPressed="Item_PointerPressed" RowDefinitions="72,*" ToolTipService.ToolTip="{Binding Path}">
 										<Grid Width="64" Height="64" HorizontalAlignment="Center">
 											<PathIcon Width="44" Height="44" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 											<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
@@ -624,7 +628,7 @@
 								</ListView.ItemsPanel>
 								<ListView.ItemTemplate>
 									<DataTemplate>
-										<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,180,100" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+										<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,180,100" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 											<Grid Grid.Column="0" Width="24" Height="24">
 												<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
@@ -747,7 +751,7 @@
 								<ItemsView.ItemTemplate>
 									<DataTemplate>
 										<ItemContainer Width="116" Height="108" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
-										<Grid CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" RowDefinitions="72,*" ToolTipService.ToolTip="{Binding Path}">
+										<Grid CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" PointerPressed="Item_PointerPressed" RowDefinitions="72,*" ToolTipService.ToolTip="{Binding Path}">
 											<Grid Width="64" Height="64" HorizontalAlignment="Center">
 											<PathIcon Width="44" Height="44" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
@@ -799,7 +803,7 @@
 									</ListView.ItemsPanel>
 									<ListView.ItemTemplate>
 										<DataTemplate>
-											<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,140,90" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+											<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,140,90" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 												<Grid Grid.Column="0" Width="24" Height="24">
 												<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 													<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
