@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.App.MacOS.Models;
 using Files.App.MacOS.Services;
@@ -335,8 +336,40 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	private void ReplaceItems(IEnumerable<LocalFileSystemItem> items)
 	{
 		sourceItems = items.ToArray();
+		PrepareAccessibilityNames(sourceItems);
 		ApplyView();
 		UpdateEmptyState();
+	}
+
+	internal void PrepareAccessibilityNames(IReadOnlyList<LocalFileSystemItem> items)
+	{
+		string separator = GetResource("ItemAutomationSeparator");
+		string folderType = GetResource("FolderItemAutomationType");
+		string fileType = GetResource("FileItemAutomationType");
+		string hiddenState = GetResource("HiddenItemAutomationState");
+		string sizeFormat = GetResource("ItemSizeAutomationFormat");
+		string modifiedFormat = GetResource("ItemModifiedAutomationFormat");
+		string locationFormat = GetResource("ItemLocationAutomationFormat");
+		var builder = new StringBuilder(160);
+		foreach (LocalFileSystemItem item in items)
+		{
+			builder.Clear();
+			builder.Append(item.Name).Append(separator).Append(item.IsDirectory ? folderType : fileType);
+			if (item.IsHidden)
+			{
+				builder.Append(separator).Append(hiddenState);
+			}
+			if (!string.IsNullOrWhiteSpace(item.SizeText))
+			{
+				builder.Append(separator).AppendFormat(sizeFormat, item.SizeText);
+			}
+			builder.Append(separator).AppendFormat(modifiedFormat, item.ModifiedText);
+			if (!string.IsNullOrWhiteSpace(item.SearchLocation))
+			{
+				builder.Append(separator).AppendFormat(locationFormat, item.SearchLocation);
+			}
+			item.AccessibilityName = builder.ToString();
+		}
 	}
 
 	private void ApplyView()

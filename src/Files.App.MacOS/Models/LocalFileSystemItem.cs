@@ -16,6 +16,8 @@ public sealed partial class LocalFileSystemItem(
 
 	public string Name { get; } = name;
 
+	public string AccessibilityName { get; internal set; } = name;
+
 	public bool IsDirectory { get; } = isDirectory;
 
 	public bool IsHidden { get; } = isHidden;

@@ -520,4 +520,11 @@
   <data name="SortedColumnAutomationFormat" xml:space="preserve"><value>{0}, sorted {1}. Press Return to reverse the order.</value></data>
   <data name="UnsortedColumnAutomationFormat" xml:space="preserve"><value>{0}. Press Return to sort ascending.</value></data>
   <data name="SortChangedAnnouncementFormat" xml:space="preserve"><value>Sorted by {0}, {1}.</value></data>
+  <data name="ItemAutomationSeparator" xml:space="preserve"><value>, </value></data>
+  <data name="FolderItemAutomationType" xml:space="preserve"><value>Folder</value></data>
+  <data name="FileItemAutomationType" xml:space="preserve"><value>File</value></data>
+  <data name="HiddenItemAutomationState" xml:space="preserve"><value>Hidden</value></data>
+  <data name="ItemSizeAutomationFormat" xml:space="preserve"><value>Size {0}</value></data>
+  <data name="ItemModifiedAutomationFormat" xml:space="preserve"><value>Modified {0}</value></data>
+  <data name="ItemLocationAutomationFormat" xml:space="preserve"><value>Location {0}</value></data>
 </root>

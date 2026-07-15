@@ -520,4 +520,11 @@
   <data name="SortedColumnAutomationFormat" xml:space="preserve"><value>{0}，已按{1}排序。按 Return 反转顺序。</value></data>
   <data name="UnsortedColumnAutomationFormat" xml:space="preserve"><value>{0}。按 Return 进行升序排序。</value></data>
   <data name="SortChangedAnnouncementFormat" xml:space="preserve"><value>已按{0}{1}排序。</value></data>
+  <data name="ItemAutomationSeparator" xml:space="preserve"><value>，</value></data>
+  <data name="FolderItemAutomationType" xml:space="preserve"><value>文件夹</value></data>
+  <data name="FileItemAutomationType" xml:space="preserve"><value>文件</value></data>
+  <data name="HiddenItemAutomationState" xml:space="preserve"><value>已隐藏</value></data>
+  <data name="ItemSizeAutomationFormat" xml:space="preserve"><value>大小 {0}</value></data>
+  <data name="ItemModifiedAutomationFormat" xml:space="preserve"><value>修改日期 {0}</value></data>
+  <data name="ItemLocationAutomationFormat" xml:space="preserve"><value>位置 {0}</value></data>
 </root>
