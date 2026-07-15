@@ -3180,7 +3180,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ActivateBrowser(browser, control);
 		MenuFlyout flyout = CreateItemContextFlyout();
 		PrepareItemContextFlyout(flyout);
-		flyout.ShowAt((FrameworkElement)sender);
+		var target = (FrameworkElement)sender;
+		flyout.ShowAt(
+			target,
+			new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = e.GetPosition(target) });
 		e.Handled = true;
 	}
 
