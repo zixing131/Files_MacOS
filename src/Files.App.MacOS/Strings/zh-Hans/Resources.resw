@@ -393,6 +393,15 @@
   <data name="ContextShareItem.Text" xml:space="preserve"><value>共享</value></data>
   <data name="ContextDeleteItem.Text" xml:space="preserve"><value>移到废纸篓</value></data>
   <data name="ContextPropertiesItem.Text" xml:space="preserve"><value>属性</value></data>
+  <data name="ContextMoreActionsSubItem.Text" xml:space="preserve"><value>更多操作</value></data>
+  <data name="BackgroundNewSubItem.Text" xml:space="preserve"><value>新建</value></data>
+  <data name="BackgroundPasteItem.Text" xml:space="preserve"><value>粘贴</value></data>
+  <data name="BackgroundTerminalItem.Text" xml:space="preserve"><value>在终端中打开此文件夹</value></data>
+  <data name="BackgroundRefreshItem.Text" xml:space="preserve"><value>刷新</value></data>
+  <data name="BackgroundSortSubItem.Text" xml:space="preserve"><value>排序方式</value></data>
+  <data name="BackgroundViewSubItem.Text" xml:space="preserve"><value>视图</value></data>
+  <data name="BackgroundGridViewItem.Text" xml:space="preserve"><value>网格</value></data>
+  <data name="BackgroundDetailsViewItem.Text" xml:space="preserve"><value>详细信息</value></data>
   <data name="DropCopyCaption" xml:space="preserve"><value>复制到此文件夹</value></data>
   <data name="DropItemsErrorMessage" xml:space="preserve"><value>无法复制拖入的项目。</value></data>
   <data name="NewFolderMenuItem.Text" xml:space="preserve"><value>文件夹</value></data>

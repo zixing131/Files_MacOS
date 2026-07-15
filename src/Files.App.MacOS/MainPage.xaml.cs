@@ -85,6 +85,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		RegisterDividerPointerHandlers(SplitDivider, SplitDivider_PointerPressed, SplitDivider_PointerMoved, SplitDivider_PointerReleased, SplitDivider_PointerCaptureLost);
 		MoreSelectionSubItem.Text = GetResource("MoreSelectionSubItem/Text");
 		MoreArchiveSubItem.Text = GetResource("MoreArchiveSubItem/Text");
+		LocalizeContextMenuSubItems();
 		ConfigureIconButton(ToggleSidebarButton, "ToggleSidebarTooltip");
 		ConfigureIconButton(BackButton, "BackNavigationTooltip");
 		ConfigureIconButton(ForwardButton, "ForwardNavigationTooltip");
@@ -472,6 +473,31 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			splitViewLabel == expectedSplitViewLabel &&
 			MoreSelectionSubItem.Text == GetResource("MoreSelectionSubItem/Text") &&
 			MoreArchiveSubItem.Text == GetResource("MoreArchiveSubItem/Text");
+		MenuFlyout itemContextFlyout = (MenuFlyout)Resources["ItemContextFlyout"];
+		string[] itemContextActions = EnumerateMenuFlyoutItems(itemContextFlyout.Items)
+			.OfType<MenuFlyoutItem>()
+			.Select(static item => item.Tag as string)
+			.Where(static action => action is not null)
+			.Cast<string>()
+			.ToArray();
+		string[] expectedItemContextActions =
+		[
+			"Open", "OpenInNewTab", "Preview", "Cut", "Copy", "Rename", "Delete", "Properties",
+			"OpenWith", "Reveal", "Terminal", "Duplicate", "CreateSymbolicLink", "CopyPath", "Share",
+			"Compress", "Extract", "Favorite", "PermanentDelete",
+		];
+		bool compactItemContextMenu = itemContextFlyout.Items.Count <= 11 &&
+			expectedItemContextActions.All(itemContextActions.Contains);
+		string[] expectedBackgroundActions =
+		[
+			"NewFolder", "NewTextFile", "Paste", "Terminal", "Refresh", "Name", "Modified", "Size",
+			"Ascending", "Descending", "Grid", "Details",
+		];
+		bool backgroundContextMenu =
+			expectedBackgroundActions.All(GetMenuActionTags(PrimaryBackgroundContextFlyout).Contains) &&
+			expectedBackgroundActions.All(GetMenuActionTags(SecondaryBackgroundContextFlyout).Contains);
+		int itemContextTargets = CountItemContextTargets(PrimaryPaneBorder) + CountItemContextTargets(SecondaryPaneBorder);
+		bool itemContextHitTargets = browser.Items.Count is 0 || itemContextTargets > 0;
 		bool aliasApplicationThumbnail = await RunAliasApplicationThumbnailDiagnosticsAsync();
 		bool thumbnailDoubleBuffer = RunThumbnailDoubleBufferDiagnostics();
 		bool packageSemantics = await RunPackageSemanticsDiagnosticsAsync();
@@ -657,7 +683,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"items={browser.Items.Count} realized={realizedContainers} selection_roundtrip={selectionRoundtrip} " +
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} sidebar_header_spacing={sidebarHeaderSpacing} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
-			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} tab_icon_layout={tabIconLayout} breadcrumb_home_icon={breadcrumbHomeIcon} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} dynamic_labels={dynamicCommandLabels} alias_app_thumbnail={aliasApplicationThumbnail} thumbnail_double_buffer={thumbnailDoubleBuffer} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
+			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} tab_icon_layout={tabIconLayout} breadcrumb_home_icon={breadcrumbHomeIcon} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} dynamic_labels={dynamicCommandLabels} item_context_compact={compactItemContextMenu} background_context_menu={backgroundContextMenu} item_context_hit_targets={itemContextHitTargets} item_context_targets={itemContextTargets} alias_app_thumbnail={aliasApplicationThumbnail} thumbnail_double_buffer={thumbnailDoubleBuffer} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
 			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
@@ -3082,7 +3108,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		bool isIdle = fileTransferCancellation is null && !isHistoryOperationRunning && !isConnectingServer;
-		foreach (MenuFlyoutItem item in flyout.Items.OfType<MenuFlyoutItem>())
+		foreach (MenuFlyoutItem item in EnumerateMenuFlyoutItems(flyout.Items).OfType<MenuFlyoutItem>())
 		{
 			item.IsEnabled = item.Tag switch
 			{
@@ -3098,6 +3124,113 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				"Favorite" => isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }],
 				_ => item.IsEnabled,
 			};
+		}
+	}
+
+	private void PrimaryBackgroundContextFlyout_Opening(object sender, object e) =>
+		PrepareBackgroundContextMenu(sender, ViewModel.ActiveTab?.Browser);
+
+	private void SecondaryBackgroundContextFlyout_Opening(object sender, object e) =>
+		PrepareBackgroundContextMenu(sender, ViewModel.ActiveTab?.SecondaryBrowser);
+
+	private void PrepareBackgroundContextMenu(object sender, DirectoryBrowserViewModel? browser)
+	{
+		if (sender is not MenuFlyout flyout || browser is null)
+		{
+			return;
+		}
+
+		FrameworkElement control = GetVisibleItemsControl(browser);
+		if (control is ItemsView itemsView)
+		{
+			itemsView.DeselectAll();
+		}
+		else if (control is ListViewBase listView)
+		{
+			listView.SelectedItems.Clear();
+		}
+		ActivateBrowser(browser, control);
+
+		bool isIdle = fileTransferCancellation is null && !isHistoryOperationRunning && !isConnectingServer;
+		foreach (MenuFlyoutItemBase item in EnumerateMenuFlyoutItems(flyout.Items))
+		{
+			if (item is ToggleMenuFlyoutItem { Tag: string option } toggle)
+			{
+				toggle.IsChecked = option switch
+				{
+					"Name" => browser.SortField is FileSortField.Name,
+					"Modified" => browser.SortField is FileSortField.Modified,
+					"Size" => browser.SortField is FileSortField.Size,
+					"Ascending" => browser.SortDirection is FileSortDirection.Ascending,
+					"Descending" => browser.SortDirection is FileSortDirection.Descending,
+					"Grid" => browser.IsGridView,
+					"Details" => !browser.IsGridView,
+					_ => toggle.IsChecked,
+				};
+				toggle.IsEnabled = isIdle;
+			}
+			else if (item is MenuFlyoutItem { Tag: string action } command)
+			{
+				command.IsEnabled = action switch
+				{
+					"NewFolder" or "NewTextFile" or "Paste" or "Terminal" or "Refresh" => isIdle,
+					_ => command.IsEnabled,
+				};
+			}
+		}
+	}
+
+	private static string[] GetMenuActionTags(MenuFlyout flyout) =>
+		EnumerateMenuFlyoutItems(flyout.Items)
+			.Select(static item => item.Tag as string)
+			.Where(static action => action is not null)
+			.Cast<string>()
+			.ToArray();
+
+	private void LocalizeContextMenuSubItems()
+	{
+		MenuFlyout itemContextFlyout = (MenuFlyout)Resources["ItemContextFlyout"];
+		foreach (MenuFlyoutSubItem subItem in new[] { itemContextFlyout, PrimaryBackgroundContextFlyout, SecondaryBackgroundContextFlyout }
+			.SelectMany(static flyout => EnumerateMenuFlyoutItems(flyout.Items))
+			.OfType<MenuFlyoutSubItem>())
+		{
+			subItem.Text = subItem.Tag switch
+			{
+				"MoreActions" => GetResource("ContextMoreActionsSubItem/Text"),
+				"New" => GetResource("BackgroundNewSubItem/Text"),
+				"Sort" => GetResource("BackgroundSortSubItem/Text"),
+				"View" => GetResource("BackgroundViewSubItem/Text"),
+				_ => subItem.Text,
+			};
+		}
+	}
+
+	private static int CountItemContextTargets(DependencyObject root)
+	{
+		int count = root is FrameworkElement
+		{
+			DataContext: LocalFileSystemItem,
+			ContextFlyout: MenuFlyout,
+		} ? 1 : 0;
+		for (int index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+		{
+			count += CountItemContextTargets(VisualTreeHelper.GetChild(root, index));
+		}
+		return count;
+	}
+
+	private static IEnumerable<MenuFlyoutItemBase> EnumerateMenuFlyoutItems(IEnumerable<MenuFlyoutItemBase> items)
+	{
+		foreach (MenuFlyoutItemBase item in items)
+		{
+			yield return item;
+			if (item is MenuFlyoutSubItem subItem)
+			{
+				foreach (MenuFlyoutItemBase child in EnumerateMenuFlyoutItems(subItem.Items))
+				{
+					yield return child;
+				}
+			}
 		}
 	}
 

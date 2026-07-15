@@ -393,6 +393,15 @@
   <data name="ContextShareItem.Text" xml:space="preserve"><value>Share</value></data>
   <data name="ContextDeleteItem.Text" xml:space="preserve"><value>Move to Trash</value></data>
   <data name="ContextPropertiesItem.Text" xml:space="preserve"><value>Properties</value></data>
+  <data name="ContextMoreActionsSubItem.Text" xml:space="preserve"><value>More actions</value></data>
+  <data name="BackgroundNewSubItem.Text" xml:space="preserve"><value>New</value></data>
+  <data name="BackgroundPasteItem.Text" xml:space="preserve"><value>Paste</value></data>
+  <data name="BackgroundTerminalItem.Text" xml:space="preserve"><value>Open this folder in Terminal</value></data>
+  <data name="BackgroundRefreshItem.Text" xml:space="preserve"><value>Refresh</value></data>
+  <data name="BackgroundSortSubItem.Text" xml:space="preserve"><value>Sort by</value></data>
+  <data name="BackgroundViewSubItem.Text" xml:space="preserve"><value>View</value></data>
+  <data name="BackgroundGridViewItem.Text" xml:space="preserve"><value>Grid</value></data>
+  <data name="BackgroundDetailsViewItem.Text" xml:space="preserve"><value>Details</value></data>
   <data name="DropCopyCaption" xml:space="preserve"><value>Copy to this folder</value></data>
   <data name="DropItemsErrorMessage" xml:space="preserve"><value>The dropped items couldn't be copied.</value></data>
   <data name="NewFolderMenuItem.Text" xml:space="preserve"><value>Folder</value></data>
