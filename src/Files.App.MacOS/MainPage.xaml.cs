@@ -951,7 +951,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
 			recentLocations &= restoredSettings is
 			{
-				SchemaVersion: 11,
+				SchemaVersion: 12,
 				RecentPaths: [var restoredRecentPath],
 				CollapsedSidebarSections: ["Recent"],
 				AdditionalWindowWorkspaces: [{ Tabs: [{ SplitRatio: 0.8 }] }],
@@ -4226,6 +4226,52 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		content.Children.Add(showHiddenToggle);
 		content.Children.Add(defaultGridToggle);
 		content.Children.Add(reverseTabScrollToggle);
+		SidebarLocationOption[] defaultSidebarLocations = ViewModel.GetDefaultSidebarLocations();
+		var hiddenSidebarLocations = (currentSettings.HiddenDefaultSidebarLocations ?? []).ToHashSet(StringComparer.Ordinal);
+		CheckBox[] defaultLocationToggles = defaultSidebarLocations.Select(location => new CheckBox
+		{
+			Content = location.Name,
+			IsChecked = !hiddenSidebarLocations.Contains(location.Id),
+			Tag = location.Id,
+		}).ToArray();
+		content.Children.Add(new TextBlock { Text = GetResource("SidebarLocationsSettingLabel") });
+		var defaultLocationList = new StackPanel { Spacing = 4 };
+		foreach (CheckBox locationToggle in defaultLocationToggles)
+		{
+			defaultLocationList.Children.Add(locationToggle);
+		}
+		content.Children.Add(defaultLocationList);
+
+		var customLocationToggles = new List<CheckBox>();
+		var customLocationList = new StackPanel { Spacing = 4 };
+		foreach (string favoritePath in currentSettings.FavoritePaths ?? [])
+		{
+			var toggle = new CheckBox { Content = favoritePath, IsChecked = true, Tag = favoritePath };
+			customLocationToggles.Add(toggle);
+			customLocationList.Children.Add(toggle);
+		}
+		var pendingLocationGrants = new List<FolderAccessGrant>();
+		var addLocationButton = new Button
+		{
+			Content = GetResource("AddSidebarLocationButtonText"),
+			HorizontalAlignment = HorizontalAlignment.Left,
+		};
+		addLocationButton.Click += async (_, _) =>
+		{
+			FolderAccessGrant? grant = await AccessGrantService.PickFolderAsync(
+				Browser?.CurrentPath ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+			if (grant is null || customLocationToggles.Any(toggle => string.Equals(toggle.Tag as string, grant.Path, StringComparison.OrdinalIgnoreCase)))
+			{
+				return;
+			}
+			var toggle = new CheckBox { Content = grant.Path, IsChecked = true, Tag = grant.Path };
+			customLocationToggles.Add(toggle);
+			customLocationList.Children.Add(toggle);
+			pendingLocationGrants.Add(grant);
+		};
+		content.Children.Add(new TextBlock { Text = GetResource("CustomSidebarLocationsSettingLabel") });
+		content.Children.Add(customLocationList);
+		content.Children.Add(addLocationButton);
 		FolderAccessGrant[] existingGrants = currentSettings.AccessGrants ?? [];
 		CheckBox[] grantToggles = existingGrants.Select(grant => new CheckBox
 		{
@@ -4278,9 +4324,21 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ShowHiddenFiles = showHiddenToggle.IsOn,
 			UseGridViewForNewTabs = defaultGridToggle.IsOn,
 			ReverseTabScrollDirection = reverseTabScrollToggle.IsOn,
+			HiddenDefaultSidebarLocations = defaultLocationToggles
+				.Where(static toggle => toggle.IsChecked is not true)
+				.Select(static toggle => (string)toggle.Tag)
+				.Order(StringComparer.Ordinal)
+				.ToArray(),
+			FavoritePaths = customLocationToggles
+				.Where(static toggle => toggle.IsChecked is true)
+				.Select(static toggle => (string)toggle.Tag)
+				.Order(StringComparer.CurrentCultureIgnoreCase)
+				.ToArray(),
 			AccessGrants = grantToggles
 				.Where(static toggle => toggle.IsChecked is true)
 				.Select(static toggle => (FolderAccessGrant)toggle.Tag)
+				.Concat(pendingLocationGrants)
+				.DistinctBy(static grant => grant.Path, StringComparer.Ordinal)
 				.ToArray(),
 		};
 		try
@@ -5565,7 +5623,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				WindowPlacement = windowSession.PrimaryWindowPlacement,
 				AdditionalWindowPlacements = windowSession.AdditionalWindowPlacements,
 				SidebarWidth = mergedSettings.SidebarWidth,
-				SchemaVersion = 11,
+				SchemaVersion = 12,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;
@@ -5597,6 +5655,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			SidebarWidth = !requested.SidebarWidth.Equals(baseline.SidebarWidth) ? requested.SidebarWidth : latest.SidebarWidth,
 			Language = requested.Language != baseline.Language ? requested.Language : latest.Language,
 			CollapsedSidebarSections = HasSequenceChanged(requested.CollapsedSidebarSections, baseline.CollapsedSidebarSections, StringComparer.Ordinal) ? requested.CollapsedSidebarSections : latest.CollapsedSidebarSections,
+			HiddenDefaultSidebarLocations = HasSequenceChanged(requested.HiddenDefaultSidebarLocations, baseline.HiddenDefaultSidebarLocations, StringComparer.Ordinal) ? requested.HiddenDefaultSidebarLocations : latest.HiddenDefaultSidebarLocations,
 		};
 	}
 

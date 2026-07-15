@@ -86,6 +86,9 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 		string[] collapsedSidebarSections = NormalizeStrings(settings.CollapsedSidebarSections, 5, StringComparer.Ordinal)
 			.Where(static section => section is "Favorites" or "Recent" or "Libraries" or "Network" or "Drives")
 			.ToArray();
+		string[] hiddenDefaultSidebarLocations = NormalizeStrings(settings.HiddenDefaultSidebarLocations, 10, StringComparer.Ordinal)
+			.Where(static id => id is "Home" or "Applications" or "Downloads" or "Documents" or "Desktop" or "Pictures" or "Music" or "Movies" or "Shared" or "ICloud")
+			.ToArray();
 		SavedSearch[] savedSearches = (settings.SavedSearches ?? [])
 			.Where(static search => search is not null &&
 				!string.IsNullOrWhiteSpace(search.Name) &&
@@ -124,6 +127,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			RecentServers = recentServers,
 			SearchHistory = searchHistory,
 			CollapsedSidebarSections = collapsedSidebarSections,
+			HiddenDefaultSidebarLocations = hiddenDefaultSidebarLocations,
 			SavedSearches = savedSearches,
 			Workspace = workspace,
 			AdditionalWindowWorkspaces = additionalWindowWorkspaces,
@@ -133,7 +137,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			AccessGrants = accessGrants,
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
-			SchemaVersion = 11,
+			SchemaVersion = 12,
 		};
 	}
 

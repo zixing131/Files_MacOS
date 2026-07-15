@@ -404,6 +404,11 @@
   <data name="BackgroundDetailsViewItem.Text" xml:space="preserve"><value>详细信息</value></data>
   <data name="ToggleOnText" xml:space="preserve"><value>开启</value></data>
   <data name="ToggleOffText" xml:space="preserve"><value>关闭</value></data>
+  <data name="SidebarSharedLocationName" xml:space="preserve"><value>共享</value></data>
+  <data name="SidebarICloudLocationName" xml:space="preserve"><value>iCloud 云盘</value></data>
+  <data name="SidebarLocationsSettingLabel" xml:space="preserve"><value>访达位置</value></data>
+  <data name="CustomSidebarLocationsSettingLabel" xml:space="preserve"><value>自定义位置</value></data>
+  <data name="AddSidebarLocationButtonText" xml:space="preserve"><value>添加文件夹…</value></data>
   <data name="DropCopyCaption" xml:space="preserve"><value>复制到此文件夹</value></data>
   <data name="DropItemsErrorMessage" xml:space="preserve"><value>无法复制拖入的项目。</value></data>
   <data name="NewFolderMenuItem.Text" xml:space="preserve"><value>文件夹</value></data>

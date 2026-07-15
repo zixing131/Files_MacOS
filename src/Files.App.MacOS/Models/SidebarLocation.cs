@@ -1,5 +1,7 @@
 namespace Files.App.MacOS.Models;
 
+public sealed record SidebarLocationOption(string Id, string Name, string Path, string Glyph);
+
 public sealed record SidebarLocation(
 	string Name,
 	string Path,

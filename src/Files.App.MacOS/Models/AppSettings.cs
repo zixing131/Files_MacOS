@@ -35,7 +35,8 @@ public sealed record AppSettings(
 	WindowPlacementState? WindowPlacement = null,
 	WindowPlacementState?[]? AdditionalWindowPlacements = null,
 	bool ReverseTabScrollDirection = false,
-	int SchemaVersion = 11);
+	string[]? HiddenDefaultSidebarLocations = null,
+	int SchemaVersion = 12);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 

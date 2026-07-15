@@ -404,6 +404,11 @@
   <data name="BackgroundDetailsViewItem.Text" xml:space="preserve"><value>Details</value></data>
   <data name="ToggleOnText" xml:space="preserve"><value>On</value></data>
   <data name="ToggleOffText" xml:space="preserve"><value>Off</value></data>
+  <data name="SidebarSharedLocationName" xml:space="preserve"><value>Shared</value></data>
+  <data name="SidebarICloudLocationName" xml:space="preserve"><value>iCloud Drive</value></data>
+  <data name="SidebarLocationsSettingLabel" xml:space="preserve"><value>Finder locations</value></data>
+  <data name="CustomSidebarLocationsSettingLabel" xml:space="preserve"><value>Custom locations</value></data>
+  <data name="AddSidebarLocationButtonText" xml:space="preserve"><value>Add folder…</value></data>
   <data name="DropCopyCaption" xml:space="preserve"><value>Copy to this folder</value></data>
   <data name="DropItemsErrorMessage" xml:space="preserve"><value>The dropped items couldn't be copied.</value></data>
   <data name="NewFolderMenuItem.Text" xml:space="preserve"><value>Folder</value></data>

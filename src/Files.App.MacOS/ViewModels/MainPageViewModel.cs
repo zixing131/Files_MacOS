@@ -517,20 +517,18 @@ public sealed class MainPageViewModel : ObservableObject
 
 	public void RefreshLocations()
 	{
-		string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-		List<SidebarLocation> pinnedLocations =
-		[
-			new(GetResource("SidebarHomeButton/Content"), home, "⌂"),
-		];
-		List<SidebarLocation> libraryLocations =
-		[
-			new(GetResource("SidebarDesktopButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "▣"),
-			new(GetResource("SidebarDownloadsButton/Content"), Path.Combine(home, "Downloads"), "↓"),
-			new(GetResource("SidebarDocumentsButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "▤"),
-			new(GetResource("SidebarPicturesButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "▧"),
-			new(GetResource("SidebarMusicButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "♫"),
-			new(GetResource("SidebarMoviesButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "▶"),
-		];
+		SidebarLocationOption[] defaultLocations = GetDefaultSidebarLocations();
+		var hiddenLocations = (settings.HiddenDefaultSidebarLocations ?? []).ToHashSet(StringComparer.Ordinal);
+		List<SidebarLocation> pinnedLocations = defaultLocations
+			.Where(static location => location.Id is "Home" or "Applications" or "Shared" or "ICloud")
+			.Where(location => !hiddenLocations.Contains(location.Id))
+			.Select(static location => new SidebarLocation(location.Name, location.Path, location.Glyph))
+			.ToList();
+		List<SidebarLocation> libraryLocations = defaultLocations
+			.Where(static location => location.Id is "Desktop" or "Downloads" or "Documents" or "Pictures" or "Music" or "Movies")
+			.Where(location => !hiddenLocations.Contains(location.Id))
+			.Select(static location => new SidebarLocation(location.Name, location.Path, location.Glyph))
+			.ToList();
 
 		var knownPaths = new HashSet<string>(pinnedLocations.Concat(libraryLocations).Select(static location => location.Path), StringComparer.OrdinalIgnoreCase);
 		foreach (string configuredPath in settings.FavoritePaths ?? [])
@@ -622,6 +620,24 @@ public sealed class MainPageViewModel : ObservableObject
 			Locations.Add(location);
 		}
 		OnPropertyChanged(nameof(HasRecentLocations));
+	}
+
+	public SidebarLocationOption[] GetDefaultSidebarLocations()
+	{
+		string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		return new[]
+		{
+			new SidebarLocationOption("Home", GetResource("SidebarHomeButton/Content"), home, "⌂"),
+			new SidebarLocationOption("Applications", GetResource("ApplicationsFolderDisplayName"), "/Applications", "A"),
+			new SidebarLocationOption("Shared", GetResource("SidebarSharedLocationName"), "/Users/Shared", "S"),
+			new SidebarLocationOption("ICloud", GetResource("SidebarICloudLocationName"), Path.Combine(home, "Library/Mobile Documents/com~apple~CloudDocs"), "☁"),
+			new SidebarLocationOption("Desktop", GetResource("SidebarDesktopButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "▣"),
+			new SidebarLocationOption("Downloads", GetResource("SidebarDownloadsButton/Content"), Path.Combine(home, "Downloads"), "↓"),
+			new SidebarLocationOption("Documents", GetResource("SidebarDocumentsButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "▤"),
+			new SidebarLocationOption("Pictures", GetResource("SidebarPicturesButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "▧"),
+			new SidebarLocationOption("Music", GetResource("SidebarMusicButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "♫"),
+			new SidebarLocationOption("Movies", GetResource("SidebarMoviesButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "▶"),
+		}.Where(static location => Directory.Exists(location.Path)).ToArray();
 	}
 
 	public string[] ToggleSidebarSection(string sectionId)
