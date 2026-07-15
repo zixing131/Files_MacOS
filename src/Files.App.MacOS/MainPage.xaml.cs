@@ -3126,8 +3126,18 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		bool isIdle = fileTransferCancellation is null && !isHistoryOperationRunning && !isConnectingServer;
+		bool isSingleFile = selectedItems is [LocalFileSystemItem { IsNavigableDirectory: false }];
+		bool isSingleFolder = selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }];
+		bool isSingleZip = selectedItems is [LocalFileSystemItem selectedArchive] && IsZipArchive(selectedArchive);
 		foreach (MenuFlyoutItem item in EnumerateMenuFlyoutItems(flyout.Items).OfType<MenuFlyoutItem>())
 		{
+			item.Visibility = item.Tag switch
+			{
+				"OpenWith" => isSingleFile ? Visibility.Visible : Visibility.Collapsed,
+				"OpenInNewTab" or "Favorite" => isSingleFolder ? Visibility.Visible : Visibility.Collapsed,
+				"Extract" => isSingleZip ? Visibility.Visible : Visibility.Collapsed,
+				_ => Visibility.Visible,
+			};
 			item.IsEnabled = item.Tag switch
 			{
 				"Open" or "Preview" or "Reveal" => isIdle && selectedItems.Count is 1,
