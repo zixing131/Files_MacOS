@@ -1968,6 +1968,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				await browser.NavigateAsync(item.Path);
 			}
+			else if (IsZipArchive(item))
+			{
+				await ExtractZipArchiveAsync(browser, item);
+			}
 			else
 			{
 				await WorkspaceService.OpenAsync(item.Path);
@@ -3351,12 +3355,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void ExtractArchiveMenuItem_Click(object sender, RoutedEventArgs e)
 	{
-		if (Browser is null || selectedItems is not [LocalFileSystemItem item] || !IsZipArchive(item) || fileTransferCancellation is not null)
+		if (Browser is not DirectoryBrowserViewModel browser || selectedItems is not [LocalFileSystemItem item] || !IsZipArchive(item) || fileTransferCancellation is not null)
 		{
 			await ShowErrorAsync(GetResource("SelectZipArchiveMessage"));
 			return;
 		}
+		await ExtractZipArchiveAsync(browser, item);
+	}
 
+	private async Task ExtractZipArchiveAsync(DirectoryBrowserViewModel browser, LocalFileSystemItem item)
+	{
 		string folderName = Path.GetFileNameWithoutExtension(item.Name);
 		var input = new TextBox { Text = folderName };
 		ContentDialog dialog = CreateTextInputDialog("ExtractArchiveDialogTitle", "ExtractButtonText", input);
@@ -3365,7 +3373,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		string destination = Browser.CurrentPath;
+		string destination = browser.CurrentPath;
 		await RunArchiveOperationAsync(
 			(progress, cancellationToken) => ArchiveService.ExtractZipAsync(item.Path, destination, input.Text.Trim(), progress, cancellationToken),
 			"ExtractingArchiveProgressFormat",
