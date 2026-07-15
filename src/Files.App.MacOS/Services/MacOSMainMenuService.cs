@@ -46,6 +46,8 @@ internal enum MacOSMenuCommand
 	CloseTabsToLeft,
 	CloseTabsToRight,
 	MoveTabToNewWindow,
+	NextTab,
+	PreviousTab,
 }
 
 internal interface IMacOSMenuCommandTarget

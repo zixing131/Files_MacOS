@@ -34,6 +34,7 @@ public sealed record AppSettings(
 	int ActiveWindowIndex = 0,
 	WindowPlacementState? WindowPlacement = null,
 	WindowPlacementState?[]? AdditionalWindowPlacements = null,
+	bool ReverseTabScrollDirection = false,
 	int SchemaVersion = 11);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);

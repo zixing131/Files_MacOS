@@ -499,4 +499,5 @@
   <data name="CloseTabsToRightMenuItem.Text" xml:space="preserve"><value>关闭右侧标签页</value></data>
   <data name="MoveTabToNewWindowMenuItem.Text" xml:space="preserve"><value>将标签页移到新窗口</value></data>
   <data name="MoveTabToNewWindowErrorMessage" xml:space="preserve"><value>无法将标签页移到新窗口。</value></data>
+  <data name="ReverseTabScrollDirectionSetting" xml:space="preserve"><value>反转标签栏滚动方向</value></data>
 </root>

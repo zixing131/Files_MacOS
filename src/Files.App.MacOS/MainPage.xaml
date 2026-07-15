@@ -28,6 +28,8 @@
 		<KeyboardAccelerator Key="Enter" Modifiers="Control" Invoked="OpenInNewTabAccelerator_Invoked" />
 		<KeyboardAccelerator Key="T" Modifiers="Control,Shift" Invoked="ReopenClosedTabAccelerator_Invoked" />
 		<KeyboardAccelerator Key="K" Modifiers="Control,Shift" Invoked="DuplicateTabAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Tab" Modifiers="Control" Invoked="NextTabAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Tab" Modifiers="Control,Shift" Invoked="PreviousTabAccelerator_Invoked" />
 		<!--  Uno maps the macOS Command key to the WinUI Windows modifier.  -->
 		<KeyboardAccelerator Key="C" Modifiers="Windows" Invoked="CopyAccelerator_Invoked" />
 		<KeyboardAccelerator Key="X" Modifiers="Windows" Invoked="CutAccelerator_Invoked" />
@@ -57,13 +59,16 @@
 			Grid.Row="0"
 			Margin="76,4,4,0"
 			AddTabButtonClick="Tabs_AddTabButtonClick"
+			AllowDropTabs="True"
 			CanDragTabs="True"
 			CanReorderTabs="True"
 			IsAddTabButtonVisible="False"
 			SelectedItem="{Binding ActiveTab, Mode=TwoWay}"
 			SelectionChanged="Tabs_SelectionChanged"
+			PointerWheelChanged="Tabs_PointerWheelChanged"
 			TabCloseRequested="Tabs_TabCloseRequested"
 			TabDragCompleted="Tabs_TabDragCompleted"
+			TabDroppedOutside="Tabs_TabDroppedOutside"
 			TabItemsSource="{Binding Tabs}">
 			<TabView.TabItemTemplate>
 				<DataTemplate x:DataType="viewmodels:BrowserTabViewModel">

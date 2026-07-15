@@ -499,4 +499,5 @@
   <data name="CloseTabsToRightMenuItem.Text" xml:space="preserve"><value>Close tabs to the right</value></data>
   <data name="MoveTabToNewWindowMenuItem.Text" xml:space="preserve"><value>Move tab to new window</value></data>
   <data name="MoveTabToNewWindowErrorMessage" xml:space="preserve"><value>The tab couldn't be moved to a new window.</value></data>
+  <data name="ReverseTabScrollDirectionSetting" xml:space="preserve"><value>Reverse tab bar scroll direction</value></data>
 </root>

@@ -387,15 +387,25 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}
 			tabWindowTransfer &= app.WindowCount == transferWindowCount && ReferenceEquals(app.ActivePage, this);
 		}
+		int switchSourceTabCount = ViewModel.Tabs.Count;
+		await ViewModel.NewTabAsync(browser.CurrentPath);
+		BrowserTabViewModel switchTab = ViewModel.ActiveTab!;
+		bool tabSwitching = Tabs.CanDragTabs && Tabs.CanReorderTabs &&
+			KeyboardAccelerators.Count(accelerator => accelerator.Key is Windows.System.VirtualKey.Tab &&
+				accelerator.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Control)) == 2 &&
+			SelectRelativeTab(1, wrap: true) && ReferenceEquals(ViewModel.ActiveTab, ViewModel.Tabs[0]) &&
+			SelectRelativeTab(-1, wrap: true) && ReferenceEquals(ViewModel.ActiveTab, switchTab) &&
+			!SelectRelativeTab(1, wrap: false) && ReferenceEquals(ViewModel.ActiveTab, switchTab);
+		tabSwitching &= ViewModel.DetachTabForTransfer(switchTab) && ViewModel.Tabs.Count == switchSourceTabCount;
 		int commandAccelerators = KeyboardAccelerators.Count(accelerator =>
 			accelerator.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Windows));
 		var mergeBaseline = new AppSettings(FavoritePaths: ["baseline-favorite"], RecentPaths: ["baseline-recent"]);
 		AppSettings mergedConcurrentSettings = MergeChangedSettings(
-			mergeBaseline with { FavoritePaths = ["newer-favorite"] },
+			mergeBaseline with { FavoritePaths = ["newer-favorite"], ReverseTabScrollDirection = true },
 			mergeBaseline,
 			mergeBaseline with { RecentPaths = ["requested-recent"] });
 		bool multiWindowSettingsMerge = mergedConcurrentSettings.FavoritePaths is ["newer-favorite"] &&
-			mergedConcurrentSettings.RecentPaths is ["requested-recent"];
+			mergedConcurrentSettings.RecentPaths is ["requested-recent"] && mergedConcurrentSettings.ReverseTabScrollDirection;
 		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool securityPropertiesRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip, bool duplicateRoundtrip, bool newTabRoundtrip, bool tabHistoryRoundtrip, bool tabManagementRoundtrip, bool symbolicLinkRoundtrip) = await RunFileMutationDiagnosticsAsync();
 
 		using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
@@ -405,7 +415,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -549,6 +559,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				ActiveWindowIndex: 99,
 				WindowPlacement: new(200_000, 0, 1, 1),
 				AdditionalWindowPlacements: [new(20, 30, 800, 600), new(0, 0, 0, 0)],
+				ReverseTabScrollDirection: true,
 				SchemaVersion: 10));
 			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
 			recentLocations &= restoredSettings is
@@ -560,6 +571,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				ActiveWindowIndex: 1,
 				WindowPlacement: null,
 				AdditionalWindowPlacements: [{ Width: 800, Height: 600 }],
+				ReverseTabScrollDirection: true,
 			} && restoredRecentPath == root;
 			string originalGrantPath = Path.Combine(root, "old-grant");
 			string restoredGrantPath = Path.Combine(root, "restored-grant");
@@ -891,6 +903,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			MacOSMenuCommand.CloseTabsToLeft => isIdle && ViewModel.ActiveTab is BrowserTabViewModel leftTab && ViewModel.Tabs.IndexOf(leftTab) > 0,
 			MacOSMenuCommand.CloseTabsToRight => isIdle && ViewModel.ActiveTab is BrowserTabViewModel rightTab && ViewModel.Tabs.IndexOf(rightTab) < ViewModel.Tabs.Count - 1,
 			MacOSMenuCommand.MoveTabToNewWindow => isIdle && ViewModel.Tabs.Count > 1,
+			MacOSMenuCommand.NextTab or MacOSMenuCommand.PreviousTab => isIdle && ViewModel.Tabs.Count > 1,
 			MacOSMenuCommand.Properties or MacOSMenuCommand.MoveToTrash or MacOSMenuCommand.DeletePermanently or MacOSMenuCommand.Rename or
 				MacOSMenuCommand.Cut or MacOSMenuCommand.Copy or MacOSMenuCommand.CopyPath => isIdle && selectedItems.Count > 0,
 			MacOSMenuCommand.OpenWith => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: false }],
@@ -950,6 +963,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				break;
 			case MacOSMenuCommand.MoveTabToNewWindow when ViewModel.ActiveTab is BrowserTabViewModel movedTab:
 				await MoveTabToNewWindowAsync(movedTab);
+				break;
+			case MacOSMenuCommand.NextTab:
+				SelectRelativeTab(1, wrap: true);
+				break;
+			case MacOSMenuCommand.PreviousTab:
+				SelectRelativeTab(-1, wrap: true);
 				break;
 			case MacOSMenuCommand.Properties:
 				PropertiesButton_Click(PropertiesButton, args);
@@ -1533,6 +1552,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			args.Handled = true;
 			await DuplicateTabAsync(tab);
 		}
+	}
+
+	private void NextTabAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		args.Handled = SelectRelativeTab(1, wrap: true);
+	}
+
+	private void PreviousTabAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		args.Handled = SelectRelativeTab(-1, wrap: true);
 	}
 
 	private bool CanDuplicateSelection()
@@ -3399,6 +3428,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Header = GetResource("DefaultGridViewSetting"),
 			IsOn = currentSettings.UseGridViewForNewTabs,
 		};
+		var reverseTabScrollToggle = new ToggleSwitch
+		{
+			Header = GetResource("ReverseTabScrollDirectionSetting"),
+			IsOn = currentSettings.ReverseTabScrollDirection,
+		};
 		var content = new StackPanel
 		{
 			Spacing = 16,
@@ -3410,6 +3444,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		content.Children.Add(languagePicker);
 		content.Children.Add(showHiddenToggle);
 		content.Children.Add(defaultGridToggle);
+		content.Children.Add(reverseTabScrollToggle);
 		FolderAccessGrant[] existingGrants = currentSettings.AccessGrants ?? [];
 		CheckBox[] grantToggles = existingGrants.Select(grant => new CheckBox
 		{
@@ -3461,6 +3496,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Language = (AppLanguagePreference)Math.Clamp(languagePicker.SelectedIndex, 0, 2),
 			ShowHiddenFiles = showHiddenToggle.IsOn,
 			UseGridViewForNewTabs = defaultGridToggle.IsOn,
+			ReverseTabScrollDirection = reverseTabScrollToggle.IsOn,
 			AccessGrants = grantToggles
 				.Where(static toggle => toggle.IsChecked is true)
 				.Select(static toggle => (FolderAccessGrant)toggle.Tag)
@@ -4099,6 +4135,52 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
+	private async void Tabs_TabDroppedOutside(TabView sender, TabViewTabDroppedOutsideEventArgs args)
+	{
+		if (args.Item is BrowserTabViewModel tab && ViewModel.Tabs.Count > 1)
+		{
+			await MoveTabToNewWindowAsync(tab);
+		}
+	}
+
+	private void Tabs_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+	{
+		int delta = e.GetCurrentPoint(null).Properties.MouseWheelDelta;
+		if (delta is 0)
+		{
+			return;
+		}
+
+		int offset = (delta > 0) == !currentSettings.ReverseTabScrollDirection ? 1 : -1;
+		SelectRelativeTab(offset, wrap: false);
+		e.Handled = true;
+	}
+
+	private bool SelectRelativeTab(int offset, bool wrap)
+	{
+		if (ViewModel.Tabs.Count <= 1 || ViewModel.ActiveTab is not BrowserTabViewModel activeTab)
+		{
+			return false;
+		}
+
+		int currentIndex = ViewModel.Tabs.IndexOf(activeTab);
+		if (currentIndex < 0)
+		{
+			return false;
+		}
+
+		int targetIndex = wrap
+			? (currentIndex + offset + ViewModel.Tabs.Count) % ViewModel.Tabs.Count
+			: Math.Clamp(currentIndex + offset, 0, ViewModel.Tabs.Count - 1);
+		if (targetIndex == currentIndex)
+		{
+			return false;
+		}
+
+		ViewModel.ActiveTab = ViewModel.Tabs[targetIndex];
+		return true;
+	}
+
 	private void ViewButton_Click(object sender, RoutedEventArgs e)
 	{
 		if (Browser is DirectoryBrowserViewModel browser)
@@ -4617,6 +4699,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Theme = requested.Theme != baseline.Theme ? requested.Theme : latest.Theme,
 			ShowHiddenFiles = requested.ShowHiddenFiles != baseline.ShowHiddenFiles ? requested.ShowHiddenFiles : latest.ShowHiddenFiles,
 			UseGridViewForNewTabs = requested.UseGridViewForNewTabs != baseline.UseGridViewForNewTabs ? requested.UseGridViewForNewTabs : latest.UseGridViewForNewTabs,
+			ReverseTabScrollDirection = requested.ReverseTabScrollDirection != baseline.ReverseTabScrollDirection ? requested.ReverseTabScrollDirection : latest.ReverseTabScrollDirection,
 			FavoritePaths = HasSequenceChanged(requested.FavoritePaths, baseline.FavoritePaths, StringComparer.OrdinalIgnoreCase) ? requested.FavoritePaths : latest.FavoritePaths,
 			RecentPaths = HasSequenceChanged(requested.RecentPaths, baseline.RecentPaths, StringComparer.Ordinal) ? requested.RecentPaths : latest.RecentPaths,
 			RecentServers = HasSequenceChanged(requested.RecentServers, baseline.RecentServers, StringComparer.OrdinalIgnoreCase) ? requested.RecentServers : latest.RecentServers,

@@ -477,6 +477,8 @@ __attribute__((visibility("default"))) void files_macos_install_main_menu(
 			NSMenu *windowMenu = files_add_main_submenu(mainMenu, zh ? @"窗口" : @"Window");
 			files_add_standard_menu_item(windowMenu, zh ? @"最小化" : @"Minimize", @selector(performMiniaturize:), @"m", NSEventModifierFlagCommand);
 			files_add_standard_menu_item(windowMenu, zh ? @"缩放" : @"Zoom", @selector(performZoom:), @"", 0);
+			files_add_menu_command(windowMenu, zh ? @"显示下一个标签页" : @"Show Next Tab", @"\t", NSEventModifierFlagControl, 41);
+			files_add_menu_command(windowMenu, zh ? @"显示上一个标签页" : @"Show Previous Tab", @"\t", NSEventModifierFlagControl | NSEventModifierFlagShift, 42);
 			[windowMenu addItem:[NSMenuItem separatorItem]];
 			files_add_menu_command(windowMenu, zh ? @"关闭窗口" : @"Close Window", @"w", NSEventModifierFlagCommand | NSEventModifierFlagShift, 34);
 			[NSApp setWindowsMenu:windowMenu];
