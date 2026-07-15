@@ -227,7 +227,9 @@
 				<TextBox
 					x:Name="SearchBox"
 					x:Uid="SearchBox"
-					Padding="12,0,36,0"
+					Height="34"
+					Padding="12,3,36,0"
+					VerticalAlignment="Center"
 					VerticalContentAlignment="Center"
 					Text="{Binding ActiveBrowser.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
 					TextChanged="SearchBox_TextChanged" />
