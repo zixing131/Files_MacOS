@@ -511,4 +511,6 @@
   <data name="PrimaryFilesAutomationName" xml:space="preserve"><value>文件</value></data>
   <data name="SecondaryFilesAutomationName" xml:space="preserve"><value>次要窗格文件</value></data>
   <data name="FileOperationProgressAutomationName" xml:space="preserve"><value>文件操作进度</value></data>
+  <data name="SidebarResizeTooltip" xml:space="preserve"><value>使用左右方向键调整侧边栏宽度</value></data>
+  <data name="SplitResizeTooltip" xml:space="preserve"><value>使用左右方向键调整窗格宽度</value></data>
 </root>

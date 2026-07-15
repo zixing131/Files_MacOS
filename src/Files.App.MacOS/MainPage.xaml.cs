@@ -17,6 +17,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private const double SidebarDividerWidth = 6;
 	private const double MinimumSidebarWidth = 180;
 	private const double MaximumSidebarWidth = 420;
+	private const double KeyboardResizeStep = 16;
 	private MainPageViewModel ViewModel { get; } = new();
 	private IFileOperationService FileOperationService { get; } = new LocalFileOperationService();
 	private FileRenameService FileRenameService { get; } = new();
@@ -73,6 +74,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		FileTrashHistoryService = new(WorkspaceService, FileTransferHistoryService);
 		InitializeComponent();
 		DataContext = ViewModel;
+		RegisterDividerPointerHandlers(SidebarDivider, SidebarDivider_PointerPressed, SidebarDivider_PointerMoved, SidebarDivider_PointerReleased, SidebarDivider_PointerCaptureLost);
+		RegisterDividerPointerHandlers(SplitDivider, SplitDivider_PointerPressed, SplitDivider_PointerMoved, SplitDivider_PointerReleased, SplitDivider_PointerCaptureLost);
 		MoreSelectionSubItem.Text = GetResource("MoreSelectionSubItem/Text");
 		MoreArchiveSubItem.Text = GetResource("MoreArchiveSubItem/Text");
 		ConfigureIconButton(ToggleSidebarButton, "ToggleSidebarTooltip");
@@ -85,6 +88,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ConfigureIconButton(GridViewStatusButton, "GridViewTooltip");
 		ConfigureIconButton(DetailsViewStatusButton, "DetailsViewTooltip");
 		ConfigureIconButton(SearchOptionsButton, "SearchOptionsTooltip");
+		ConfigureIconButton(SidebarDivider, "SidebarResizeTooltip");
+		ConfigureIconButton(SplitDivider, "SplitResizeTooltip");
 		ConfigureAccessibleName(Tabs, "TabStripAutomationName");
 		ConfigureAccessibleName(SidebarList, "LocationsAutomationName");
 		ConfigureAccessibleName(AddressBox, "AddressBarAutomationName");
@@ -140,6 +145,19 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, label.Content);
 			}
 		}
+	}
+
+	private static void RegisterDividerPointerHandlers(
+		UIElement divider,
+		PointerEventHandler pressed,
+		PointerEventHandler moved,
+		PointerEventHandler released,
+		PointerEventHandler captureLost)
+	{
+		divider.AddHandler(UIElement.PointerPressedEvent, pressed, handledEventsToo: true);
+		divider.AddHandler(UIElement.PointerMovedEvent, moved, handledEventsToo: true);
+		divider.AddHandler(UIElement.PointerReleasedEvent, released, handledEventsToo: true);
+		divider.AddHandler(UIElement.PointerCaptureLostEvent, captureLost, handledEventsToo: true);
 	}
 
 	private DirectoryBrowserViewModel? Browser => ViewModel.ActiveBrowser;
@@ -240,9 +258,17 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool sidebarRoundtrip = sidebarChanged && SidebarBorder.Visibility == (initialSidebarState ? Visibility.Visible : Visibility.Collapsed);
 		double initialSidebarWidth = sidebarWidth;
 		isSidebarOpen = true;
-		sidebarWidth = 312;
+		SetSidebarWidth(312, persist: false);
 		UpdateSidebarVisuals();
 		bool sidebarResizeRoundtrip = Math.Abs(SidebarColumn.Width.Value - 312) < 0.1 && Math.Abs(SidebarDividerColumn.Width.Value - SidebarDividerWidth) < 0.1;
+		SetSidebarWidth(sidebarWidth - KeyboardResizeStep, persist: false);
+		bool keyboardResize = Math.Abs(sidebarWidth - (312 - KeyboardResizeStep)) < 0.1;
+		SetSidebarWidth(sidebarWidth + KeyboardResizeStep, persist: false);
+		double splitTestWidth = 1000;
+		keyboardResize &= GetSplitRatioForKey(0.5, splitTestWidth, VirtualKey.Left) is double leftRatio && leftRatio < 0.5 &&
+			GetSplitRatioForKey(leftRatio, splitTestWidth, VirtualKey.Right) is double restoredRatio && Math.Abs(restoredRatio - 0.5) < 0.001 &&
+			GetSplitRatioForKey(0.5, splitTestWidth, VirtualKey.Home) is double minimumRatio && minimumRatio >= MinimumPaneWidth / splitTestWidth &&
+			GetSplitRatioForKey(0.5, splitTestWidth, VirtualKey.End) is double maximumRatio && maximumRatio <= 1 - (MinimumPaneWidth / splitTestWidth);
 		sidebarWidth = initialSidebarWidth;
 		isSidebarOpen = initialSidebarState;
 		UpdateSidebarVisuals();
@@ -320,6 +346,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			SecondaryGridItems,
 			SecondaryDetailsItems,
 			FileOperationProgressBar,
+			SidebarDivider,
+			SplitDivider,
 		];
 		bool accessibilityLabels = accessibilityRegions.All(static element =>
 			!string.IsNullOrWhiteSpace(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(element))) &&
@@ -490,7 +518,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"FILES_MACOS_PERF view={(browser.IsGridView ? "grid" : "details")} " +
 			$"items={browser.Items.Count} realized={realizedContainers} selection_roundtrip={selectionRoundtrip} " +
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
-			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
+			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
 			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} focus_cycle={keyboardFocusNavigation} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
@@ -1430,11 +1458,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		sidebarWidth = Math.Clamp(
-			e.GetCurrentPoint(WorkspaceGrid).Position.X,
-			MinimumSidebarWidth,
-			MaximumSidebarWidth);
-		SidebarColumn.Width = new GridLength(sidebarWidth);
+		SetSidebarWidth(e.GetCurrentPoint(WorkspaceGrid).Position.X, persist: false);
 		e.Handled = true;
 	}
 
@@ -1455,6 +1479,34 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private void SidebarDivider_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
 	{
 		isResizingSidebar = false;
+	}
+
+	private void SidebarDivider_KeyDown(object sender, KeyRoutedEventArgs e)
+	{
+		double requestedWidth = e.Key switch
+		{
+			VirtualKey.Left => sidebarWidth - KeyboardResizeStep,
+			VirtualKey.Right => sidebarWidth + KeyboardResizeStep,
+			VirtualKey.Home => MinimumSidebarWidth,
+			VirtualKey.End => MaximumSidebarWidth,
+			_ => double.NaN,
+		};
+		if (!double.IsNaN(requestedWidth))
+		{
+			SetSidebarWidth(requestedWidth, persist: true);
+			e.Handled = true;
+		}
+	}
+
+	private void SetSidebarWidth(double requestedWidth, bool persist)
+	{
+		sidebarWidth = Math.Clamp(requestedWidth, MinimumSidebarWidth, MaximumSidebarWidth);
+		SidebarColumn.Width = new GridLength(sidebarWidth);
+		if (persist)
+		{
+			currentSettings = currentSettings with { SidebarWidth = sidebarWidth };
+			ScheduleWorkspaceSave();
+		}
 	}
 
 	private async void OpenFolderButton_Click(object sender, RoutedEventArgs e)
@@ -1702,6 +1754,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (isSidebarOpen)
 		{
 			targets.Add(SidebarList);
+			targets.Add(SidebarDivider);
 		}
 		if (BreadcrumbPanel.Children.OfType<Button>().FirstOrDefault() is Button breadcrumb)
 		{
@@ -1710,6 +1763,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		targets.Add(SearchBox);
 		targets.Add(NewCommandButton);
 		targets.Add(itemView);
+		if (ViewModel.ActiveTab?.IsSplitView is true)
+		{
+			targets.Add(SplitDivider);
+		}
 		if (isPreviewPaneOpen)
 		{
 			targets.Add(PreviewPaneQuickLookButton);
@@ -4539,6 +4596,22 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		isResizingSplit = false;
 	}
 
+	private void SplitDivider_KeyDown(object sender, KeyRoutedEventArgs e)
+	{
+		if (ViewModel.ActiveTab is not BrowserTabViewModel { IsSplitView: true } tab)
+		{
+			return;
+		}
+
+		double availableWidth = Math.Max(0, PaneGrid.ActualWidth - SplitDividerWidth);
+		if (GetSplitRatioForKey(tab.SplitRatio, availableWidth, e.Key) is double ratio)
+		{
+			tab.SplitRatio = ratio;
+			ApplySplitLayout();
+			e.Handled = true;
+		}
+	}
+
 	private void PaneGrid_SizeChanged(object sender, SizeChangedEventArgs e)
 	{
 		ApplySplitLayout();
@@ -4667,6 +4740,24 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		double minimumRatio = MinimumPaneWidth / availableWidth;
 		return Math.Clamp(ratio, minimumRatio, 1 - minimumRatio);
+	}
+
+	private static double? GetSplitRatioForKey(double ratio, double availableWidth, VirtualKey key)
+	{
+		if (availableWidth <= 0)
+		{
+			return null;
+		}
+
+		double requestedRatio = key switch
+		{
+			VirtualKey.Left => ratio - (KeyboardResizeStep / availableWidth),
+			VirtualKey.Right => ratio + (KeyboardResizeStep / availableWidth),
+			VirtualKey.Home => 0,
+			VirtualKey.End => 1,
+			_ => double.NaN,
+		};
+		return double.IsNaN(requestedRatio) ? null : ClampSplitRatio(requestedRatio, availableWidth);
 	}
 
 	private void SortFieldMenuItem_Click(object sender, RoutedEventArgs e)

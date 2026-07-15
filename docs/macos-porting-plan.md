@@ -275,7 +275,7 @@ MVP 范围：
 - iCloud Drive、第三方 File Provider、SMB/NFS、网络断开和占位文件状态。
 - 继续打磨共享与权限编辑体验，并验证 Finder tags、ACL、身份及隐藏/锁定标记在真实 File Provider 上的行为。
 - FSEvents 大目录监控、缩略图分级缓存和操作队列恢复。
-- VoiceOver、完整键盘操作、高对比度/Reduce Motion/Reduce Transparency。主界面已加入 F6/Shift-F6 区域循环，以及标签、侧边栏、路径/搜索、工具栏和双窗格文件项目的中英文辅助名称；仍需真实 VoiceOver 顺序/播报验收及系统辅助外观适配。
+- VoiceOver、完整键盘操作、高对比度/Reduce Motion/Reduce Transparency。主界面已加入 F6/Shift-F6 区域循环，侧边栏/双窗格分隔线的方向键与 Home/End 调整、系统焦点描边，以及标签、侧边栏、路径/搜索、工具栏和双窗格文件项目的中英文辅助名称；仍需真实 VoiceOver 顺序/播报验收及系统辅助外观适配。
 - App Store 沙盒原型和安全作用域书签迁移。
 
 ### 阶段 4：发布工程（3～6 周，可与阶段 3 交叠）

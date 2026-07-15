@@ -63,6 +63,7 @@
 				<Setter Property="BorderThickness" Value="0" />
 				<Setter Property="CornerRadius" Value="5" />
 				<Setter Property="HorizontalContentAlignment" Value="Center" />
+				<Setter Property="UseSystemFocusVisuals" Value="True" />
 				<Setter Property="VerticalContentAlignment" Value="Center" />
 				<Setter Property="Template">
 					<Setter.Value>
@@ -128,6 +129,14 @@
 				<Setter Property="Width" Value="30" />
 				<Setter Property="Height" Value="26" />
 				<Setter Property="Padding" Value="0" />
+			</Style>
+
+			<Style x:Key="DividerButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
+				<Setter Property="MinWidth" Value="0" />
+				<Setter Property="MinHeight" Value="0" />
+				<Setter Property="Padding" Value="0" />
+				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+				<Setter Property="VerticalContentAlignment" Value="Stretch" />
 			</Style>
 
 			<Style x:Key="SidebarListItemStyle" TargetType="ListViewItem">

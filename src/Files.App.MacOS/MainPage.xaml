@@ -308,16 +308,13 @@
 					</StackPanel>
 				</Grid>
 			</Border>
-			<Border
+			<Button
 				x:Name="SidebarDivider"
 				Grid.Column="1"
-				Background="Transparent"
-				PointerCaptureLost="SidebarDivider_PointerCaptureLost"
-				PointerMoved="SidebarDivider_PointerMoved"
-				PointerPressed="SidebarDivider_PointerPressed"
-				PointerReleased="SidebarDivider_PointerReleased">
+				KeyDown="SidebarDivider_KeyDown"
+				Style="{StaticResource DividerButtonStyle}">
 				<Border Width="1" HorizontalAlignment="Center" Background="{ThemeResource FilesCardBorderBrush}" />
-			</Border>
+			</Button>
 
 			<Grid Grid.Column="2" Padding="8,6,8,8" RowDefinitions="48,*,36">
 				<!--  File command toolbar  -->
@@ -663,20 +660,17 @@
 					</Grid>
 				</Border>
 
-					<Grid
+					<Button
 						x:Name="SplitDivider"
 						Grid.Column="1"
-						Background="Transparent"
-						PointerCaptureLost="SplitDivider_PointerCaptureLost"
-						PointerMoved="SplitDivider_PointerMoved"
-						PointerPressed="SplitDivider_PointerPressed"
-						PointerReleased="SplitDivider_PointerReleased"
+						KeyDown="SplitDivider_KeyDown"
+						Style="{StaticResource DividerButtonStyle}"
 						Visibility="{Binding ActiveTab.IsSplitView, Converter={StaticResource BooleanToVisibilityConverter}}">
 						<Border
 							Width="1"
 							HorizontalAlignment="Center"
 							Background="{ThemeResource FilesCardBorderBrush}" />
-					</Grid>
+					</Button>
 
 					<Border
 						x:Name="SecondaryPaneBorder"

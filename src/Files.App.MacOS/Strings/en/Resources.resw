@@ -511,4 +511,6 @@
   <data name="PrimaryFilesAutomationName" xml:space="preserve"><value>Files</value></data>
   <data name="SecondaryFilesAutomationName" xml:space="preserve"><value>Secondary pane files</value></data>
   <data name="FileOperationProgressAutomationName" xml:space="preserve"><value>File operation progress</value></data>
+  <data name="SidebarResizeTooltip" xml:space="preserve"><value>Resize sidebar with Left or Right Arrow</value></data>
+  <data name="SplitResizeTooltip" xml:space="preserve"><value>Resize panes with Left or Right Arrow</value></data>
 </root>
