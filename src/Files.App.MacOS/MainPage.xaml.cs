@@ -953,7 +953,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
 			recentLocations &= restoredSettings is
 			{
-				SchemaVersion: 12,
+				SchemaVersion: 13,
 				RecentPaths: [var restoredRecentPath],
 				CollapsedSidebarSections: ["Recent"],
 				AdditionalWindowWorkspaces: [{ Tabs: [{ SplitRatio: 0.8 }] }],
@@ -3274,7 +3274,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			: Browser.CurrentPath;
 		try
 		{
-			await WorkspaceService.OpenTerminalAsync(path);
+			await WorkspaceService.OpenTerminalAsync(path, currentSettings.Terminal);
 		}
 		catch (IOException)
 		{
@@ -4205,6 +4205,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			SelectedIndex = (int)currentSettings.Language,
 			HorizontalAlignment = HorizontalAlignment.Stretch,
 		};
+		var terminalPicker = new ComboBox
+		{
+			ItemsSource = new[] { "Terminal", "iTerm2", "Warp", "kitty", "Alacritty", "WezTerm" },
+			SelectedIndex = (int)currentSettings.Terminal,
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+		};
 		var showHiddenToggle = new ToggleSwitch
 		{
 			Header = GetResource("ShowHiddenFilesSetting"),
@@ -4235,6 +4241,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		content.Children.Add(themePicker);
 		content.Children.Add(new TextBlock { Text = GetResource("LanguageSettingLabel") });
 		content.Children.Add(languagePicker);
+		content.Children.Add(new TextBlock { Text = GetResource("TerminalSettingLabel") });
+		content.Children.Add(terminalPicker);
 		content.Children.Add(showHiddenToggle);
 		content.Children.Add(defaultGridToggle);
 		content.Children.Add(reverseTabScrollToggle);
@@ -4346,6 +4354,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			Theme = (AppThemePreference)Math.Clamp(themePicker.SelectedIndex, 0, 2),
 			Language = (AppLanguagePreference)Math.Clamp(languagePicker.SelectedIndex, 0, 2),
+			Terminal = (TerminalPreference)Math.Clamp(terminalPicker.SelectedIndex, 0, 5),
 			ShowHiddenFiles = showHiddenToggle.IsOn,
 			UseGridViewForNewTabs = defaultGridToggle.IsOn,
 			ReverseTabScrollDirection = reverseTabScrollToggle.IsOn,
@@ -5706,7 +5715,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				WindowPlacement = windowSession.PrimaryWindowPlacement,
 				AdditionalWindowPlacements = windowSession.AdditionalWindowPlacements,
 				SidebarWidth = mergedSettings.SidebarWidth,
-				SchemaVersion = 12,
+				SchemaVersion = 13,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;
@@ -5739,6 +5748,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Language = requested.Language != baseline.Language ? requested.Language : latest.Language,
 			CollapsedSidebarSections = HasSequenceChanged(requested.CollapsedSidebarSections, baseline.CollapsedSidebarSections, StringComparer.Ordinal) ? requested.CollapsedSidebarSections : latest.CollapsedSidebarSections,
 			HiddenDefaultSidebarLocations = HasSequenceChanged(requested.HiddenDefaultSidebarLocations, baseline.HiddenDefaultSidebarLocations, StringComparer.Ordinal) ? requested.HiddenDefaultSidebarLocations : latest.HiddenDefaultSidebarLocations,
+			Terminal = requested.Terminal != baseline.Terminal ? requested.Terminal : latest.Terminal,
 		};
 	}
 

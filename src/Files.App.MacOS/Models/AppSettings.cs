@@ -14,6 +14,16 @@ public enum AppLanguagePreference
 	SimplifiedChinese,
 }
 
+public enum TerminalPreference
+{
+	Terminal,
+	ITerm2,
+	Warp,
+	Kitty,
+	Alacritty,
+	WezTerm,
+}
+
 public sealed record AppSettings(
 	AppThemePreference Theme = AppThemePreference.System,
 	bool ShowHiddenFiles = false,
@@ -36,7 +46,8 @@ public sealed record AppSettings(
 	WindowPlacementState?[]? AdditionalWindowPlacements = null,
 	bool ReverseTabScrollDirection = false,
 	string[]? HiddenDefaultSidebarLocations = null,
-	int SchemaVersion = 12);
+	TerminalPreference Terminal = TerminalPreference.Terminal,
+	int SchemaVersion = 13);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 

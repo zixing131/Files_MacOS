@@ -90,9 +90,25 @@ public sealed class MacOSWorkspaceService : IMacOSWorkspaceService
 		return InvokeAsync(path, MacOSNativeMethods.RevealPath, cancellationToken);
 	}
 
-	public Task OpenTerminalAsync(string path, CancellationToken cancellationToken = default)
+	public Task OpenTerminalAsync(string path, TerminalPreference terminal, CancellationToken cancellationToken = default)
 	{
-		return InvokeAsync(path, MacOSNativeMethods.OpenTerminal, cancellationToken);
+		string bundleIdentifier = terminal switch
+		{
+			TerminalPreference.ITerm2 => "com.googlecode.iterm2",
+			TerminalPreference.Warp => "dev.warp.Warp-Stable",
+			TerminalPreference.Kitty => "net.kovidgoyal.kitty",
+			TerminalPreference.Alacritty => "org.alacritty",
+			TerminalPreference.WezTerm => "com.github.wez.wezterm",
+			_ => "com.apple.Terminal",
+		};
+		return Task.Run(() =>
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			if (MacOSNativeMethods.OpenTerminal(path, bundleIdentifier) is 0)
+			{
+				throw new IOException("The selected terminal application is unavailable.");
+			}
+		}, cancellationToken);
 	}
 
 	public Task<NetworkConnectionResult> ConnectServerAsync(string address, CancellationToken cancellationToken = default)

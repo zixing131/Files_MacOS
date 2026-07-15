@@ -1044,13 +1044,14 @@ __attribute__((visibility("default"))) int files_macos_reveal_path(const char *p
 	}
 }
 
-__attribute__((visibility("default"))) int files_macos_open_terminal(const char *path)
+__attribute__((visibility("default"))) int files_macos_open_terminal(const char *path, const char *bundleIdentifier)
 {
 	@autoreleasepool
 	{
 		NSURL *url = files_url_from_path(path);
+		NSString *identifier = bundleIdentifier == NULL ? @"com.apple.Terminal" : [NSString stringWithUTF8String:bundleIdentifier];
 		NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
-		NSURL *applicationURL = [workspace URLForApplicationWithBundleIdentifier:@"com.apple.Terminal"];
+		NSURL *applicationURL = [workspace URLForApplicationWithBundleIdentifier:identifier];
 		if (url == nil || applicationURL == nil)
 		{
 			return 0;

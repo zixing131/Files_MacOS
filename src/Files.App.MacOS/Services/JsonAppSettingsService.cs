@@ -79,6 +79,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 	{
 		AppThemePreference theme = Enum.IsDefined(settings.Theme) ? settings.Theme : AppThemePreference.System;
 		AppLanguagePreference language = Enum.IsDefined(settings.Language) ? settings.Language : AppLanguagePreference.System;
+		TerminalPreference terminal = Enum.IsDefined(settings.Terminal) ? settings.Terminal : TerminalPreference.Terminal;
 		string[] favoritePaths = NormalizeStrings(settings.FavoritePaths, 100, StringComparer.OrdinalIgnoreCase);
 		string[] recentPaths = NormalizeStrings(settings.RecentPaths, 8, StringComparer.Ordinal);
 		string[] recentServers = NormalizeStrings(settings.RecentServers, 20, StringComparer.OrdinalIgnoreCase);
@@ -122,6 +123,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 		{
 			Theme = theme,
 			Language = language,
+			Terminal = terminal,
 			FavoritePaths = favoritePaths,
 			RecentPaths = recentPaths,
 			RecentServers = recentServers,
@@ -137,7 +139,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			AccessGrants = accessGrants,
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
-			SchemaVersion = 12,
+			SchemaVersion = 13,
 		};
 	}
 

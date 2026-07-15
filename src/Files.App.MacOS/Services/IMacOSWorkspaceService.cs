@@ -14,7 +14,7 @@ public interface IMacOSWorkspaceService
 
 	Task RevealAsync(string path, CancellationToken cancellationToken = default);
 
-	Task OpenTerminalAsync(string path, CancellationToken cancellationToken = default);
+	Task OpenTerminalAsync(string path, TerminalPreference terminal, CancellationToken cancellationToken = default);
 
 	Task<NetworkConnectionResult> ConnectServerAsync(string address, CancellationToken cancellationToken = default);
 

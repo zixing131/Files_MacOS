@@ -409,6 +409,7 @@
   <data name="SidebarLocationsSettingLabel" xml:space="preserve"><value>Finder locations</value></data>
   <data name="CustomSidebarLocationsSettingLabel" xml:space="preserve"><value>Custom locations</value></data>
   <data name="AddSidebarLocationButtonText" xml:space="preserve"><value>Add folder…</value></data>
+  <data name="TerminalSettingLabel" xml:space="preserve"><value>Default terminal</value></data>
   <data name="DropCopyCaption" xml:space="preserve"><value>Copy to this folder</value></data>
   <data name="DropItemsErrorMessage" xml:space="preserve"><value>The dropped items couldn't be copied.</value></data>
   <data name="NewFolderMenuItem.Text" xml:space="preserve"><value>Folder</value></data>

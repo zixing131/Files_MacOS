@@ -84,7 +84,7 @@ internal static partial class MacOSNativeMethods
 	internal static partial int RevealPath(string path);
 
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_open_terminal", StringMarshalling = StringMarshalling.Utf8)]
-	internal static partial int OpenTerminal(string path);
+	internal static partial int OpenTerminal(string path, string bundleIdentifier);
 
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_connect_server", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial nint ConnectServer(string address);
