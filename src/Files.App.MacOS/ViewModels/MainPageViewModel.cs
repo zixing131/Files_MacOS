@@ -520,7 +520,7 @@ public sealed class MainPageViewModel : ObservableObject
 		SidebarLocationOption[] defaultLocations = GetDefaultSidebarLocations();
 		var hiddenLocations = (settings.HiddenDefaultSidebarLocations ?? []).ToHashSet(StringComparer.Ordinal);
 		List<SidebarLocation> pinnedLocations = defaultLocations
-			.Where(static location => location.Id is "Home" or "Applications" or "Shared" or "ICloud" or "Trash" or "AirDrop")
+			.Where(static location => location.Id is "Home" or "Applications" or "Shared" or "ICloud" or "Trash")
 			.Where(location => !hiddenLocations.Contains(location.Id))
 			.Select(static location => new SidebarLocation(location.Name, location.Path, location.Glyph, ExternalUrl: location.ExternalUrl))
 			.ToList();
@@ -643,7 +643,6 @@ public sealed class MainPageViewModel : ObservableObject
 				Path.Combine(home, ".Trash"),
 				"T",
 				new Uri(Path.Combine(home, ".Trash")).AbsoluteUri),
-			new SidebarLocationOption("AirDrop", GetResource("SidebarAirDropLocationName"), string.Empty, "R", "airdrop://"),
 			new SidebarLocationOption("Desktop", GetResource("SidebarDesktopButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "▣"),
 			new SidebarLocationOption("Downloads", GetResource("SidebarDownloadsButton/Content"), Path.Combine(home, "Downloads"), "↓"),
 			new SidebarLocationOption("Documents", GetResource("SidebarDocumentsButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "▤"),

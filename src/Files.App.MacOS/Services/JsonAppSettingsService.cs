@@ -88,7 +88,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			.Where(static section => section is "Favorites" or "Recent" or "Libraries" or "Network" or "Drives")
 			.ToArray();
 		string[] hiddenDefaultSidebarLocations = NormalizeStrings(settings.HiddenDefaultSidebarLocations, 12, StringComparer.Ordinal)
-			.Where(static id => id is "Home" or "Applications" or "Downloads" or "Documents" or "Desktop" or "Pictures" or "Music" or "Movies" or "Shared" or "ICloud" or "Trash" or "AirDrop")
+			.Where(static id => id is "Home" or "Applications" or "Downloads" or "Documents" or "Desktop" or "Pictures" or "Music" or "Movies" or "Shared" or "ICloud" or "Trash")
 			.ToArray();
 		SavedSearch[] savedSearches = (settings.SavedSearches ?? [])
 			.Where(static search => search is not null &&
