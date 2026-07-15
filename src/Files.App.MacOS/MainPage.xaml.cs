@@ -81,6 +81,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		FileTrashHistoryService = new(WorkspaceService, FileTransferHistoryService);
 		InitializeComponent();
 		DataContext = ViewModel;
+		AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), handledEventsToo: true);
 		RegisterDividerPointerHandlers(SidebarDivider, SidebarDivider_PointerPressed, SidebarDivider_PointerMoved, SidebarDivider_PointerReleased, SidebarDivider_PointerCaptureLost);
 		RegisterDividerPointerHandlers(SplitDivider, SplitDivider_PointerPressed, SplitDivider_PointerMoved, SplitDivider_PointerReleased, SplitDivider_PointerCaptureLost);
 		MoreSelectionSubItem.Text = GetResource("MoreSelectionSubItem/Text");
@@ -1559,6 +1560,21 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (Browser is not null)
 		{
 			await Browser.GoBackAsync();
+		}
+	}
+
+	private async void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
+	{
+		switch (e.GetCurrentPoint(this).Properties.PointerUpdateKind)
+		{
+			case Microsoft.UI.Input.PointerUpdateKind.XButton1Pressed when Browser is not null:
+				e.Handled = true;
+				await Browser.GoBackAsync();
+				break;
+			case Microsoft.UI.Input.PointerUpdateKind.XButton2Pressed when Browser is not null:
+				e.Handled = true;
+				await Browser.GoForwardAsync();
+				break;
 		}
 	}
 
