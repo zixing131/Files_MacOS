@@ -72,6 +72,7 @@
 							<MenuFlyout Opening="TabContextFlyout_Opening">
 								<MenuFlyoutItem x:Uid="NewTabMenuItem" Click="NewTabMenuItem_Click" KeyboardAcceleratorTextOverride="⌘T" />
 								<MenuFlyoutItem x:Uid="DuplicateTabMenuItem" Click="DuplicateTabMenuItem_Click" KeyboardAcceleratorTextOverride="⌘⇧K" Tag="{Binding}" />
+								<MenuFlyoutItem x:Uid="MoveTabToNewWindowMenuItem" Click="MoveTabToNewWindowMenuItem_Click" Tag="{Binding}" />
 								<MenuFlyoutSeparator />
 								<MenuFlyoutItem x:Uid="CloseTabMenuItem" Click="CloseTabMenuItem_Click" KeyboardAcceleratorTextOverride="⌘W" Tag="{Binding}" />
 								<MenuFlyoutItem x:Uid="CloseTabsToLeftMenuItem" Click="CloseTabsToLeftMenuItem_Click" Tag="{Binding}" />

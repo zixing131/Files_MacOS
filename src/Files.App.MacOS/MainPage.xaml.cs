@@ -156,6 +156,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	internal WorkspaceState CaptureWorkspaceState() => ViewModel.CaptureWorkspaceState();
 
+	internal bool TryCaptureTabState(BrowserTabViewModel tab, out BrowserTabState state) => ViewModel.TryCaptureTabState(tab, out state);
+
+	internal bool DetachTabForTransfer(BrowserTabViewModel tab) => ViewModel.DetachTabForTransfer(tab);
+
 	internal void ScheduleSessionSave() => ScheduleWorkspaceSave();
 
 	private async Task ReportPerformanceDiagnosticsWithErrorReportingAsync()
@@ -355,6 +359,34 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		bool multiWindowRoundtrip = secondaryCreated && activeWindowMenuRouting && app.WindowCount == initialWindowCount &&
 			ReferenceEquals(app.ActivePage, menuTargetPage);
+		int transferSourceTabCount = ViewModel.Tabs.Count;
+		bool closedHistoryBeforeTransfer = ViewModel.CanReopenClosedTab;
+		await ViewModel.NewTabAsync(browser.CurrentPath);
+		bool tabWindowTransfer = false;
+		if (ViewModel.ActiveTab is BrowserTabViewModel transferTab)
+		{
+			transferTab.Browser.IsGridView = false;
+			transferTab.Browser.SetSort(FileSortField.Size, FileSortDirection.Descending);
+			await ViewModel.ToggleSplitViewAsync();
+			transferTab.SecondaryBrowser!.IsGridView = true;
+			transferTab.SecondaryBrowser.SetSort(FileSortField.Modified, FileSortDirection.Ascending);
+			transferTab.SplitRatio = 0.65;
+			ViewModel.TryCaptureTabState(transferTab, out BrowserTabState expectedTransferredState);
+			int transferWindowCount = app.WindowCount;
+			bool transferInvoked = await app.MoveTabToNewWindowAsync(this, transferTab);
+			MainPage? destinationPage = app.ActivePage;
+			tabWindowTransfer = transferInvoked && app.WindowCount == transferWindowCount + 1 &&
+				ViewModel.Tabs.Count == transferSourceTabCount && ViewModel.CanReopenClosedTab == closedHistoryBeforeTransfer &&
+				destinationPage is not null && !ReferenceEquals(destinationPage, this) &&
+				destinationPage.CaptureWorkspaceState() is { ActiveTabIndex: 0, Tabs: [var transferredState] } &&
+				transferredState == expectedTransferredState;
+			if (destinationPage is not null && !ReferenceEquals(destinationPage, this))
+			{
+				app.CloseWindow(destinationPage);
+				await Task.Delay(250);
+			}
+			tabWindowTransfer &= app.WindowCount == transferWindowCount && ReferenceEquals(app.ActivePage, this);
+		}
 		int commandAccelerators = KeyboardAccelerators.Count(accelerator =>
 			accelerator.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Windows));
 		var mergeBaseline = new AppSettings(FavoritePaths: ["baseline-favorite"], RecentPaths: ["baseline-recent"]);
@@ -373,7 +405,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -858,6 +890,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			MacOSMenuCommand.DuplicateTab => isIdle && ViewModel.ActiveTab is not null,
 			MacOSMenuCommand.CloseTabsToLeft => isIdle && ViewModel.ActiveTab is BrowserTabViewModel leftTab && ViewModel.Tabs.IndexOf(leftTab) > 0,
 			MacOSMenuCommand.CloseTabsToRight => isIdle && ViewModel.ActiveTab is BrowserTabViewModel rightTab && ViewModel.Tabs.IndexOf(rightTab) < ViewModel.Tabs.Count - 1,
+			MacOSMenuCommand.MoveTabToNewWindow => isIdle && ViewModel.Tabs.Count > 1,
 			MacOSMenuCommand.Properties or MacOSMenuCommand.MoveToTrash or MacOSMenuCommand.DeletePermanently or MacOSMenuCommand.Rename or
 				MacOSMenuCommand.Cut or MacOSMenuCommand.Copy or MacOSMenuCommand.CopyPath => isIdle && selectedItems.Count > 0,
 			MacOSMenuCommand.OpenWith => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: false }],
@@ -914,6 +947,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			case MacOSMenuCommand.CloseTabsToRight when ViewModel.ActiveTab is BrowserTabViewModel rightTab:
 				ViewModel.CloseTabsToRight(rightTab);
 				UpdateCommandStates();
+				break;
+			case MacOSMenuCommand.MoveTabToNewWindow when ViewModel.ActiveTab is BrowserTabViewModel movedTab:
+				await MoveTabToNewWindowAsync(movedTab);
 				break;
 			case MacOSMenuCommand.Properties:
 				PropertiesButton_Click(PropertiesButton, args);
@@ -3918,18 +3954,19 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void TabContextFlyout_Opening(object sender, object e)
 	{
-		if (sender is MenuFlyout { Items.Count: >= 9 } flyout)
+		if (sender is MenuFlyout { Items.Count: >= 10 } flyout)
 		{
 			bool isIdle = fileTransferCancellation is null && !isHistoryOperationRunning && !isConnectingServer;
 			BrowserTabViewModel? tab = (flyout.Items[1] as MenuFlyoutItem)?.Tag as BrowserTabViewModel;
 			int tabIndex = tab is null ? -1 : ViewModel.Tabs.IndexOf(tab);
 			flyout.Items[0].IsEnabled = isIdle;
 			flyout.Items[1].IsEnabled = isIdle && tabIndex >= 0;
-			flyout.Items[3].IsEnabled = isIdle && ViewModel.Tabs.Count > 1;
-			flyout.Items[4].IsEnabled = isIdle && tabIndex > 0;
-			flyout.Items[5].IsEnabled = isIdle && tabIndex >= 0 && tabIndex < ViewModel.Tabs.Count - 1;
-			flyout.Items[6].IsEnabled = isIdle && ViewModel.Tabs.Count > 1;
-			flyout.Items[8].IsEnabled = isIdle && ViewModel.CanReopenClosedTab;
+			flyout.Items[2].IsEnabled = isIdle && tabIndex >= 0 && ViewModel.Tabs.Count > 1;
+			flyout.Items[4].IsEnabled = isIdle && ViewModel.Tabs.Count > 1;
+			flyout.Items[5].IsEnabled = isIdle && tabIndex > 0;
+			flyout.Items[6].IsEnabled = isIdle && tabIndex >= 0 && tabIndex < ViewModel.Tabs.Count - 1;
+			flyout.Items[7].IsEnabled = isIdle && ViewModel.Tabs.Count > 1;
+			flyout.Items[9].IsEnabled = isIdle && ViewModel.CanReopenClosedTab;
 		}
 	}
 
@@ -3944,6 +3981,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (sender is MenuFlyoutItem { Tag: BrowserTabViewModel tab })
 		{
 			await DuplicateTabAsync(tab);
+		}
+	}
+
+	private async void MoveTabToNewWindowMenuItem_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is MenuFlyoutItem { Tag: BrowserTabViewModel tab })
+		{
+			await MoveTabToNewWindowAsync(tab);
 		}
 	}
 
@@ -3994,6 +4039,26 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			await ViewModel.DuplicateTabAsync(tab);
 			UpdateCommandStates();
+		}
+	}
+
+	private async Task MoveTabToNewWindowAsync(BrowserTabViewModel tab)
+	{
+		if (fileTransferCancellation is not null || isHistoryOperationRunning || isConnectingServer || ViewModel.Tabs.Count <= 1)
+		{
+			return;
+		}
+
+		try
+		{
+			if (!await ((App)Application.Current).MoveTabToNewWindowAsync(this, tab))
+			{
+				await ShowErrorAsync(GetResource("MoveTabToNewWindowErrorMessage"));
+			}
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+		{
+			await ShowErrorAsync(GetResource("MoveTabToNewWindowErrorMessage"));
 		}
 	}
 

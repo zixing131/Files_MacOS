@@ -127,6 +127,47 @@ public sealed class MainPageViewModel : ObservableObject
 		OnWorkspaceChanged();
 	}
 
+	public bool TryCaptureTabState(BrowserTabViewModel tab, out BrowserTabState state)
+	{
+		if (!Tabs.Contains(tab))
+		{
+			state = null!;
+			return false;
+		}
+
+		state = CaptureTabState(tab);
+		return true;
+	}
+
+	public bool DetachTabForTransfer(BrowserTabViewModel tab)
+	{
+		if (Tabs.Count <= 1)
+		{
+			return false;
+		}
+
+		int index = Tabs.IndexOf(tab);
+		if (index < 0)
+		{
+			return false;
+		}
+
+		bool wasActive = ReferenceEquals(ActiveTab, tab);
+		Tabs.RemoveAt(index);
+		tab.StateChanged -= Tab_StateChanged;
+		tab.Dispose();
+		if (wasActive)
+		{
+			ActiveTab = Tabs[Math.Clamp(index, 0, Tabs.Count - 1)];
+		}
+		else
+		{
+			OnWorkspaceChanged();
+		}
+
+		return true;
+	}
+
 	public async Task ToggleSplitViewAsync()
 	{
 		if (ActiveTab is not BrowserTabViewModel tab)

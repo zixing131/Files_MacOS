@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
 using Files.App.MacOS.Models;
 using Files.App.MacOS.Services;
+using Files.App.MacOS.ViewModels;
 
 namespace Files.App.MacOS;
 
@@ -158,6 +159,36 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	{
 		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
 		window?.Close();
+	}
+
+	internal async Task<bool> MoveTabToNewWindowAsync(MainPage sourcePage, BrowserTabViewModel tab)
+	{
+		if (!sourcePage.TryCaptureTabState(tab, out BrowserTabState state))
+		{
+			return false;
+		}
+
+		Window window = CreateWindow(initialWorkspace: new([state]));
+		MainPage destinationPage = windows[window];
+		try
+		{
+			await destinationPage.InitializationTask;
+			if (!sourcePage.DetachTabForTransfer(tab))
+			{
+				CloseWindow(destinationPage);
+				return false;
+			}
+
+			sourcePage.ScheduleSessionSave();
+			destinationPage.ScheduleSessionSave();
+			UpdateMainMenu(destinationPage);
+			return true;
+		}
+		catch
+		{
+			CloseWindow(destinationPage);
+			throw;
+		}
 	}
 
 	internal void UpdateMainMenu(MainPage page)

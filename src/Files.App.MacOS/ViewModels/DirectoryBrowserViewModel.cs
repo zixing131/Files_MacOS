@@ -36,6 +36,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	private CancellationTokenSource? searchCancellation;
 	private CancellationTokenSource? thumbnailCancellation;
 	private bool searchRefreshPending;
+	private volatile bool isDisposed;
 	private string itemCountStatus = string.Empty;
 	private IReadOnlyList<LocalFileSystemItem> sourceItems = [];
 
@@ -100,6 +101,11 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	public async Task NavigateAsync(string path, bool addToHistory = true)
 	{
+		if (isDisposed)
+		{
+			return;
+		}
+
 		if (string.IsNullOrWhiteSpace(path))
 		{
 			StatusText = GetResource("PathRequired");
@@ -139,6 +145,10 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		try
 		{
 			IReadOnlyList<LocalFileSystemItem> items = await directoryService.GetItemsAsync(fullPath, cancellation.Token);
+			if (isDisposed || cancellation.IsCancellationRequested)
+			{
+				return;
+			}
 
 			ReplaceItems(items);
 			StartThumbnailLoading(Items);
@@ -227,6 +237,11 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	public async Task SearchAsync(string query)
 	{
+		if (isDisposed)
+		{
+			return;
+		}
+
 		searchCancellation?.Cancel();
 		searchCancellation?.Dispose();
 		searchRefreshPending = false;
@@ -245,7 +260,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		bool searchCompleted = false;
 		var progress = new Progress<IReadOnlyList<LocalFileSystemItem>>(batch =>
 		{
-			if (searchCompleted ||
+			if (isDisposed || searchCompleted ||
 				!ReferenceEquals(searchCancellation, cancellation) ||
 				!string.Equals(rootPath, CurrentPath, StringComparison.Ordinal))
 			{
@@ -270,7 +285,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			FileSearchQuery searchQuery = FileSearchQuery.Parse(query.Trim());
 			IReadOnlyList<LocalFileSystemItem> results = await searchService.SearchAsync(rootPath, searchQuery, ShowHiddenFiles, progress, cancellation.Token);
 			searchCompleted = true;
-			if (!string.Equals(rootPath, CurrentPath, StringComparison.Ordinal))
+			if (isDisposed || cancellation.IsCancellationRequested || !string.Equals(rootPath, CurrentPath, StringComparison.Ordinal))
 			{
 				return;
 			}
@@ -301,7 +316,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			}
 		}
 
-		if (searchRefreshPending &&
+		if (!isDisposed && searchRefreshPending &&
 			ReferenceEquals(searchCancellation, cancellation) &&
 			!string.IsNullOrWhiteSpace(SearchText))
 		{
@@ -370,21 +385,35 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	public void Dispose()
 	{
+		if (isDisposed)
+		{
+			return;
+		}
+
+		isDisposed = true;
+		directoryChangeMonitor.Changed -= DirectoryChangeMonitor_Changed;
 		navigationCancellation?.Cancel();
 		navigationCancellation?.Dispose();
+		navigationCancellation = null;
 		searchCancellation?.Cancel();
 		searchCancellation?.Dispose();
+		searchCancellation = null;
 		thumbnailCancellation?.Cancel();
 		thumbnailCancellation?.Dispose();
-		directoryChangeMonitor.Changed -= DirectoryChangeMonitor_Changed;
+		thumbnailCancellation = null;
 		directoryChangeMonitor.Dispose();
 	}
 
 	private void DirectoryChangeMonitor_Changed(object? sender, EventArgs e)
 	{
+		if (isDisposed)
+		{
+			return;
+		}
+
 		dispatcherQueue.TryEnqueue(async () =>
 		{
-			if (IsFileOperationRunning)
+			if (isDisposed || IsFileOperationRunning)
 			{
 				return;
 			}
@@ -407,6 +436,11 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	private void StartThumbnailLoading(IReadOnlyList<LocalFileSystemItem> items)
 	{
+		if (isDisposed)
+		{
+			return;
+		}
+
 		thumbnailCancellation?.Cancel();
 		thumbnailCancellation?.Dispose();
 		var cancellation = new CancellationTokenSource();

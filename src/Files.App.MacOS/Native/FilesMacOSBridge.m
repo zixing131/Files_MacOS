@@ -427,6 +427,7 @@ __attribute__((visibility("default"))) void files_macos_install_main_menu(
 			files_add_menu_command(fileMenu, zh ? @"新建窗口" : @"New Window", @"n", NSEventModifierFlagCommand, 33);
 			files_add_menu_command(fileMenu, zh ? @"新建标签页" : @"New Tab", @"t", NSEventModifierFlagCommand, 2);
 			files_add_menu_command(fileMenu, zh ? @"复制标签页" : @"Duplicate Tab", @"k", NSEventModifierFlagCommand | NSEventModifierFlagShift, 37);
+			files_add_menu_command(fileMenu, zh ? @"将标签页移到新窗口" : @"Move Tab to New Window", @"", 0, 40);
 			files_add_menu_command(fileMenu, zh ? @"在新标签页中打开" : @"Open in New Tab", @"\r", NSEventModifierFlagCommand, 30);
 			files_add_menu_command(fileMenu, zh ? @"新建文件夹" : @"New Folder", @"n", NSEventModifierFlagCommand | NSEventModifierFlagShift, 3);
 			files_add_menu_command(fileMenu, zh ? @"打开文件夹…" : @"Open Folder…", @"o", NSEventModifierFlagCommand, 25);

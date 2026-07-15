@@ -497,4 +497,6 @@
   <data name="DuplicateTabMenuItem.Text" xml:space="preserve"><value>复制标签页</value></data>
   <data name="CloseTabsToLeftMenuItem.Text" xml:space="preserve"><value>关闭左侧标签页</value></data>
   <data name="CloseTabsToRightMenuItem.Text" xml:space="preserve"><value>关闭右侧标签页</value></data>
+  <data name="MoveTabToNewWindowMenuItem.Text" xml:space="preserve"><value>将标签页移到新窗口</value></data>
+  <data name="MoveTabToNewWindowErrorMessage" xml:space="preserve"><value>无法将标签页移到新窗口。</value></data>
 </root>
