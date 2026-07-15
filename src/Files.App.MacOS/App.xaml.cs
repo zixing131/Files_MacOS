@@ -31,9 +31,12 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	public App()
 	{
 		AppLanguageManager.Apply(AppLanguageManager.LoadPreference());
+		IsSymbolFontAvailable = MacOSNativeMethods.RegisterSymbolFont() != 0;
 		InitializeComponent();
 		RefreshSystemAccentColor();
 	}
+
+	internal bool IsSymbolFontAvailable { get; }
 
 	protected Window? MainWindow { get; private set; }
 

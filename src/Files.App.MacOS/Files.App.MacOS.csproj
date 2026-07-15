@@ -25,7 +25,7 @@
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationPublisher>Files Community</ApplicationPublisher>
     <Description>Files for macOS technical preview.</Description>
-    <UnoPlatformDefaultSymbolsFontFamily>ms-appx:///uno-fluentui-assets.ttf</UnoPlatformDefaultSymbolsFontFamily>
+    <UnoPlatformDefaultSymbolsFontFamily>Symbols</UnoPlatformDefaultSymbolsFontFamily>
 	<MacOSCodeSignIdentity Condition="'$(MacOSCodeSignIdentity)' == ''">-</MacOSCodeSignIdentity>
 	<MacOSCodeSignTimestampArgument Condition="'$(MacOSCodeSignTimestampArgument)' == ''">--timestamp=none</MacOSCodeSignTimestampArgument>
 	<MacOSCodeSignEntitlements Condition="'$(MacOSCodeSignEntitlements)' == '' and '$(MacOSCodeSignIdentity)' == '-'">$(MSBuildProjectDirectory)/Packaging/Files.AdHoc.entitlements</MacOSCodeSignEntitlements>
@@ -49,7 +49,7 @@
     Outputs="$(MacOSBridgeOutput)">
     <Error Condition="'$(MacOSBridgeArch)' == ''" Text="Unsupported macOS runtime identifier: $(RuntimeIdentifier)" />
     <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(MacOSBridgeOutput)'))" />
-    <Exec Command="xcrun clang -arch $(MacOSBridgeArch) -mmacosx-version-min=13.0 -dynamiclib -fobjc-arc -fblocks -framework AppKit -framework CoreServices -framework Foundation -framework NetFS -framework QuickLook -framework QuickLookUI -framework QuickLookThumbnailing -framework UniformTypeIdentifiers &quot;$(MacOSBridgeSource)&quot; -o &quot;$(MacOSBridgeOutput)&quot;" />
+    <Exec Command="xcrun clang -arch $(MacOSBridgeArch) -mmacosx-version-min=13.0 -dynamiclib -fobjc-arc -fblocks -framework AppKit -framework CoreServices -framework CoreText -framework Foundation -framework NetFS -framework QuickLook -framework QuickLookUI -framework QuickLookThumbnailing -framework UniformTypeIdentifiers &quot;$(MacOSBridgeSource)&quot; -o &quot;$(MacOSBridgeOutput)&quot;" />
   </Target>
 
   <Target
@@ -58,8 +58,6 @@
     Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' != ''">
     <MakeDir Directories="$(MacOSBridgeDestination)" />
     <Copy SourceFiles="$(MacOSBridgeOutput)" DestinationFolder="$(MacOSBridgeDestination)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(MacOSBridgeDestination)/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf" DestinationFolder="$(MacOSBridgeDestination)" SkipUnchangedFiles="true" />
-    <Exec Command="/bin/chmod 644 &quot;$(MacOSBridgeDestination)/uno-fluentui-assets.ttf&quot;" />
   </Target>
 
 	<Target
@@ -105,7 +103,6 @@
 		<Copy SourceFiles="$(MacOSBridgeOutput)" DestinationFolder="$(_MacOSExecutableDirectory)" />
 		<Copy SourceFiles="$(MSBuildProjectDirectory)/Packaging/Info.plist" DestinationFolder="$(_MacOSContentsDirectory)" />
 		<Exec Command="/bin/zsh -c 'for item in &quot;$(_MacOSRuntimeResourcesDirectory)&quot;/*(DN); do name=${item:t}; /bin/ln -s &quot;../Resources/Runtime/$name&quot; &quot;$(_MacOSExecutableDirectory)/$name&quot;; done'" />
-		<Exec Command="/bin/ln -s &quot;../Resources/Runtime/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf&quot; &quot;$(_MacOSExecutableDirectory)/uno-fluentui-assets.ttf&quot;" />
 		<Exec Command="/bin/zsh -c 'for library in &quot;$(_MacOSExecutableDirectory)&quot;/*.dylib(N); do name=${library:t}; /bin/ln -s &quot;../../MacOS/$name&quot; &quot;$(_MacOSRuntimeResourcesDirectory)/$name&quot;; done'" />
 
 		<Exec

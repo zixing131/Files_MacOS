@@ -1,5 +1,6 @@
 #import <AppKit/AppKit.h>
 #import <CoreServices/CoreServices.h>
+#import <CoreText/CoreText.h>
 #import <NetFS/NetFS.h>
 #import <QuickLook/QuickLook.h>
 #import <QuickLookUI/QuickLookUI.h>
@@ -68,6 +69,67 @@ typedef int (*FilesScrollWheelCallback)(void *context, double deltaX, double del
 static FilesQuickLookDataSource *quickLookDataSource;
 static NSSharingServicePicker *sharingServicePicker;
 static FilesMenuTarget *mainMenuTarget;
+
+static BOOL files_macos_symbol_font_has_required_glyphs(void)
+{
+	CTFontRef font = CTFontCreateWithName(CFSTR("Symbols"), 16, NULL);
+	if (font == NULL)
+	{
+		return NO;
+	}
+
+	UniChar characters[] = { 0xE001, 0xE70D };
+	CGGlyph glyphs[2] = { 0, 0 };
+	BOOL hasGlyphs = CTFontGetGlyphsForCharacters(font, characters, glyphs, 2) && glyphs[0] != 0 && glyphs[1] != 0;
+	CFRelease(font);
+	return hasGlyphs;
+}
+
+__attribute__((visibility("default"))) int files_macos_register_symbol_font(void)
+{
+	@autoreleasepool
+	{
+		NSMutableArray<NSURL *> *candidates = [NSMutableArray array];
+		NSURL *resourceURL = NSBundle.mainBundle.resourceURL;
+		if (resourceURL != nil)
+		{
+			[candidates addObject:[resourceURL URLByAppendingPathComponent:@"Runtime/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf"]];
+		}
+
+		NSString *executablePath = NSProcessInfo.processInfo.arguments.firstObject;
+		if (executablePath.length > 0)
+		{
+			NSURL *executableDirectory = [[NSURL fileURLWithPath:executablePath] URLByDeletingLastPathComponent];
+			[candidates addObject:[executableDirectory URLByAppendingPathComponent:@"Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf"]];
+		}
+
+		for (NSURL *url in candidates)
+		{
+			if (![NSFileManager.defaultManager fileExistsAtPath:url.path])
+			{
+				continue;
+			}
+
+			CFErrorRef error = NULL;
+			BOOL registered = CTFontManagerRegisterFontsForURL(
+				(__bridge CFURLRef)url,
+				kCTFontManagerScopeProcess,
+				&error);
+			BOOL alreadyRegistered = error != NULL && CFErrorGetCode(error) == kCTFontManagerErrorAlreadyRegistered;
+			if (error != NULL)
+			{
+				CFRelease(error);
+			}
+			if ((registered || alreadyRegistered) && files_macos_symbol_font_has_required_glyphs())
+			{
+				return 1;
+			}
+		}
+
+		return files_macos_symbol_font_has_required_glyphs() ? 1 : 0;
+	}
+}
+
 static id auxiliaryMouseMonitor;
 static FilesAuxiliaryMouseCallback auxiliaryMouseCallback;
 static FilesScrollWheelCallback scrollWheelCallback;
