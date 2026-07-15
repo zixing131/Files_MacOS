@@ -1353,7 +1353,7 @@ __attribute__((visibility("default"))) char *files_macos_read_file_clipboard(voi
 
 		NSDictionary *result = @{
 			@"paths": paths,
-			@"isCut": @([pasteboard stringForType:FilesCutPasteboardType] != nil),
+			@"isCut": [NSNumber numberWithBool:[pasteboard stringForType:FilesCutPasteboardType] != nil],
 			@"changeCount": @(pasteboard.changeCount),
 		};
 		NSError *jsonError = nil;
