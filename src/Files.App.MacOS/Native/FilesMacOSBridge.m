@@ -277,6 +277,35 @@ __attribute__((visibility("default"))) int files_macos_get_accessibility_display
 	}
 }
 
+__attribute__((visibility("default"))) int files_macos_announce_accessibility(const char *announcement, int highPriority)
+{
+	@autoreleasepool
+	{
+		if (announcement == NULL)
+		{
+			return 0;
+		}
+		NSString *text = [NSString stringWithUTF8String:announcement];
+		id element = NSApp.keyWindow ?: NSApp.mainWindow;
+		if (text.length == 0 || element == nil)
+		{
+			return 0;
+		}
+
+		NSAccessibilityPriorityLevel priority = highPriority != 0
+			? NSAccessibilityPriorityHigh
+			: NSAccessibilityPriorityMedium;
+		NSAccessibilityPostNotificationWithUserInfo(
+			element,
+			NSAccessibilityAnnouncementRequestedNotification,
+			@{
+				NSAccessibilityAnnouncementKey: text,
+				NSAccessibilityPriorityKey: @(priority),
+			});
+		return 1;
+	}
+}
+
 __attribute__((visibility("default"))) int files_macos_register_window(void *windowHandle, const char *identifier)
 {
 	if (windowHandle == NULL || identifier == NULL)

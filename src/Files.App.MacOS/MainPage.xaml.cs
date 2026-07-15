@@ -37,6 +37,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private CancellationTokenSource? fileTransferCancellation;
 	private CancellationTokenSource? searchInputCancellation;
 	private CancellationTokenSource? settingsSaveCancellation;
+	private CancellationTokenSource? accessibilityAnnouncementCancellation;
 	private readonly Stack<FileOperationHistoryEntry> undoHistory = new();
 	private readonly Stack<FileOperationHistoryEntry> redoHistory = new();
 	private AppSettings currentSettings = new();
@@ -57,6 +58,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private readonly WindowPlacementState? initialPlacement;
 	private readonly TaskCompletionSource initializationCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private string? lastRecordedRecentPath;
+	private long statusTextCallbackToken;
+	private long previewSelectionCallbackToken;
+	private bool accessibilityAnnouncementsRegistered;
+	private string? lastAccessibilityAnnouncement;
 
 	public MainPage()
 		: this(restoresWorkspace: true)
@@ -100,6 +105,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ConfigureAccessibleName(SecondaryGridItems, "SecondaryFilesAutomationName");
 		ConfigureAccessibleName(SecondaryDetailsItems, "SecondaryFilesAutomationName");
 		ConfigureAccessibleName(FileOperationProgressBar, "FileOperationProgressAutomationName");
+		ConfigureAccessibleName(StatusTextBlock, "StatusBarAutomationName");
+		ConfigureAccessibleName(PreviewSelectionSummary, "PreviewSelectionAutomationName");
+		statusTextCallbackToken = StatusTextBlock.RegisterPropertyChangedCallback(TextBlock.TextProperty, AccessibilityStatusText_PropertyChanged);
+		previewSelectionCallbackToken = PreviewSelectionSummary.RegisterPropertyChangedCallback(TextBlock.TextProperty, AccessibilityStatusText_PropertyChanged);
+		accessibilityAnnouncementsRegistered = true;
 		ConfigureCommandButtonAccessibility(
 			UndoButton,
 			RedoButton,
@@ -159,6 +169,38 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		divider.AddHandler(UIElement.PointerMovedEvent, moved, handledEventsToo: true);
 		divider.AddHandler(UIElement.PointerReleasedEvent, released, handledEventsToo: true);
 		divider.AddHandler(UIElement.PointerCaptureLostEvent, captureLost, handledEventsToo: true);
+	}
+
+	private void AccessibilityStatusText_PropertyChanged(DependencyObject sender, DependencyProperty property)
+	{
+		if (IsInitialized && sender is TextBlock { Text.Length: > 0 } textBlock)
+		{
+			ScheduleAccessibilityAnnouncement(textBlock.Text);
+		}
+	}
+
+	private async void ScheduleAccessibilityAnnouncement(string announcement)
+	{
+		if (string.Equals(announcement, lastAccessibilityAnnouncement, StringComparison.Ordinal))
+		{
+			return;
+		}
+
+		accessibilityAnnouncementCancellation?.Cancel();
+		accessibilityAnnouncementCancellation?.Dispose();
+		var cancellation = new CancellationTokenSource();
+		accessibilityAnnouncementCancellation = cancellation;
+		try
+		{
+			await Task.Delay(400, cancellation.Token);
+			if (!cancellation.IsCancellationRequested && MacOSAccessibilityAnnouncementService.Announce(announcement))
+			{
+				lastAccessibilityAnnouncement = announcement;
+			}
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
 	}
 
 	private DirectoryBrowserViewModel? Browser => ViewModel.ActiveBrowser;
@@ -351,6 +393,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			FileOperationProgressBar,
 			SidebarDivider,
 			SplitDivider,
+			StatusTextBlock,
+			PreviewSelectionSummary,
 		];
 		bool accessibilityLabels = accessibilityRegions.All(static element =>
 			!string.IsNullOrWhiteSpace(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(element))) &&
@@ -361,6 +405,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			CountNamedAutomationElements(PrimaryPaneBorder, realizedItemNames) > 0;
 		bool keyboardFocusNavigation = KeyboardAccelerators.Count(accelerator =>
 			accelerator.Key is Windows.System.VirtualKey.F6) == 2 && CycleFocus(reverse: false);
+		bool accessibilityAnnouncements = accessibilityAnnouncementsRegistered &&
+			MacOSAccessibilityAnnouncementService.Probe();
 		MacOSAccessibilityDisplayOptions nativeAccessibilityOptions = MacOSAccessibilityDisplayService.GetCurrentOptions();
 		MacOSAccessibilityDisplayOptions originalAccessibilityOptions = accessibilityDisplayOptions;
 		ApplyAccessibilityDisplayOptions(
@@ -410,11 +456,17 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool sidebarActiveSync = SidebarList.SelectedItem is SidebarLocation activeLocation &&
 			!activeLocation.IsHeader && IsSameOrDescendantPath(browser.CurrentPath, activeLocation.Path);
 		int initialSidebarLocationCount = ViewModel.Locations.Count;
-		bool initialLibrariesExpanded = ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Libraries" }).IsExpanded;
-		ViewModel.ToggleSidebarSection("Libraries");
+		SidebarLocation librariesHeader = ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Libraries" });
+		bool initialLibrariesExpanded = librariesHeader.IsExpanded;
+		SidebarList.SelectedItem = librariesHeader;
+		bool sidebarKeyboardActivation = ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Libraries" }).IsExpanded == initialLibrariesExpanded;
+		SidebarList.SelectedItem = null;
+		ToggleSidebarHeader(librariesHeader);
 		bool sidebarSectionChanged = ViewModel.Locations.Count != initialSidebarLocationCount &&
 			ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Libraries" }).IsExpanded != initialLibrariesExpanded;
-		ViewModel.ToggleSidebarSection("Libraries");
+		SidebarLocation changedLibrariesHeader = ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Libraries" });
+		sidebarKeyboardActivation &= sidebarSectionChanged && !string.IsNullOrWhiteSpace(changedLibrariesHeader.AccessibilityState);
+		ToggleSidebarHeader(changedLibrariesHeader);
 		bool sidebarSectionRoundtrip = sidebarSectionChanged && ViewModel.Locations.Count == initialSidebarLocationCount &&
 			ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Libraries" }).IsExpanded == initialLibrariesExpanded;
 		UpdateSidebarSelection();
@@ -537,9 +589,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"FILES_MACOS_PERF view={(browser.IsGridView ? "grid" : "details")} " +
 			$"items={browser.Items.Count} realized={realizedContainers} selection_roundtrip={selectionRoundtrip} " +
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
-			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
+			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} view_switch={viewModeRoundtrip} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -1022,6 +1074,15 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private async void MainPage_Unloaded(object sender, RoutedEventArgs e)
 	{
 		ViewModel.WorkspaceChanged -= ViewModel_WorkspaceChanged;
+		if (accessibilityAnnouncementsRegistered)
+		{
+			StatusTextBlock.UnregisterPropertyChangedCallback(TextBlock.TextProperty, statusTextCallbackToken);
+			PreviewSelectionSummary.UnregisterPropertyChangedCallback(TextBlock.TextProperty, previewSelectionCallbackToken);
+			accessibilityAnnouncementsRegistered = false;
+		}
+		accessibilityAnnouncementCancellation?.Cancel();
+		accessibilityAnnouncementCancellation?.Dispose();
+		accessibilityAnnouncementCancellation = null;
 		settingsSaveCancellation?.Cancel();
 		settingsSaveCancellation?.Dispose();
 		settingsSaveCancellation = null;
@@ -1373,19 +1434,6 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		if (SidebarList.SelectedItem is SidebarLocation { IsHeader: true } header)
 		{
-			isUpdatingSidebarSelection = true;
-			try
-			{
-				string[] collapsedSections = ViewModel.ToggleSidebarSection(header.SectionId);
-				currentSettings = currentSettings with { CollapsedSidebarSections = collapsedSections };
-				SidebarList.SelectedItem = null;
-			}
-			finally
-			{
-				isUpdatingSidebarSelection = false;
-			}
-			UpdateSidebarSelection();
-			ScheduleWorkspaceSave();
 			return;
 		}
 		if (SidebarList.SelectedItem is SidebarLocation location && Browser is not null)
@@ -1399,6 +1447,40 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				await Browser.NavigateAsync(location.Path);
 			}
 		}
+	}
+
+	private void SidebarList_ItemClick(object sender, ItemClickEventArgs e)
+	{
+		if (e.ClickedItem is SidebarLocation { IsHeader: true } header)
+		{
+			ToggleSidebarHeader(header);
+		}
+	}
+
+	private void SidebarList_KeyDown(object sender, KeyRoutedEventArgs e)
+	{
+		if (e.Key is VirtualKey.Enter or VirtualKey.Space && SidebarList.SelectedItem is SidebarLocation { IsHeader: true } header)
+		{
+			ToggleSidebarHeader(header);
+			e.Handled = true;
+		}
+	}
+
+	private void ToggleSidebarHeader(SidebarLocation header)
+	{
+		isUpdatingSidebarSelection = true;
+		try
+		{
+			string[] collapsedSections = ViewModel.ToggleSidebarSection(header.SectionId);
+			currentSettings = currentSettings with { CollapsedSidebarSections = collapsedSections };
+			SidebarList.SelectedItem = null;
+		}
+		finally
+		{
+			isUpdatingSidebarSelection = false;
+		}
+		UpdateSidebarSelection();
+		ScheduleWorkspaceSave();
 	}
 
 	private void UpdateSidebarSelection()

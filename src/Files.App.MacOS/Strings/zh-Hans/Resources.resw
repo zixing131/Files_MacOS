@@ -513,4 +513,8 @@
   <data name="FileOperationProgressAutomationName" xml:space="preserve"><value>文件操作进度</value></data>
   <data name="SidebarResizeTooltip" xml:space="preserve"><value>使用左右方向键调整侧边栏宽度</value></data>
   <data name="SplitResizeTooltip" xml:space="preserve"><value>使用左右方向键调整窗格宽度</value></data>
+  <data name="SidebarSectionExpandedHelpText" xml:space="preserve"><value>已展开。按 Return 或空格键折叠。</value></data>
+  <data name="SidebarSectionCollapsedHelpText" xml:space="preserve"><value>已折叠。按 Return 或空格键展开。</value></data>
+  <data name="StatusBarAutomationName" xml:space="preserve"><value>文件列表状态</value></data>
+  <data name="PreviewSelectionAutomationName" xml:space="preserve"><value>预览所选项目</value></data>
 </root>

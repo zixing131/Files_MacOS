@@ -643,7 +643,7 @@ public sealed class MainPageViewModel : ObservableObject
 		return result;
 	}
 
-	private static void AppendSection(
+	private void AppendSection(
 		List<SidebarLocation> target,
 		string sectionId,
 		string title,
@@ -655,7 +655,11 @@ public sealed class MainPageViewModel : ObservableObject
 			return;
 		}
 		bool isExpanded = !collapsedSections.Contains(sectionId);
-		target.Add(SidebarLocation.Header(title, sectionId, isExpanded));
+		target.Add(SidebarLocation.Header(
+			title,
+			sectionId,
+			isExpanded,
+			GetResource(isExpanded ? "SidebarSectionExpandedHelpText" : "SidebarSectionCollapsedHelpText")));
 		if (isExpanded)
 		{
 			target.AddRange(items.Select(item => item with { SectionId = sectionId }));

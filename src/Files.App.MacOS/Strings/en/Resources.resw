@@ -513,4 +513,8 @@
   <data name="FileOperationProgressAutomationName" xml:space="preserve"><value>File operation progress</value></data>
   <data name="SidebarResizeTooltip" xml:space="preserve"><value>Resize sidebar with Left or Right Arrow</value></data>
   <data name="SplitResizeTooltip" xml:space="preserve"><value>Resize panes with Left or Right Arrow</value></data>
+  <data name="SidebarSectionExpandedHelpText" xml:space="preserve"><value>Expanded. Press Return or Space to collapse.</value></data>
+  <data name="SidebarSectionCollapsedHelpText" xml:space="preserve"><value>Collapsed. Press Return or Space to expand.</value></data>
+  <data name="StatusBarAutomationName" xml:space="preserve"><value>File list status</value></data>
+  <data name="PreviewSelectionAutomationName" xml:space="preserve"><value>Preview selection</value></data>
 </root>
