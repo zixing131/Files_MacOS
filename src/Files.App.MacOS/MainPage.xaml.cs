@@ -19,6 +19,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private const double MinimumSidebarWidth = 180;
 	private const double MaximumSidebarWidth = 420;
 	private const double KeyboardResizeStep = 16;
+	private const long TypeSelectResetMilliseconds = 900;
 	private const string HomeBreadcrumbIconData = "M7.07934 1.22258C7.60474 0.797737 8.35525 0.797737 8.88065 1.22258L15.4689 6.55068C16.5623 7.43475 15.9402 9.20232 14.5276 9.20232H14.25V13.75C14.25 14.7165 13.4665 15.5 12.5 15.5H10.5C9.5335 15.5 8.75 14.7165 8.75 13.75V11.25C8.75 10.8358 8.41421 10.5 8 10.5C7.58579 10.5 7.25 10.8358 7.25 11.25V13.75C7.25 14.7165 6.4665 15.5 5.5 15.5H3.5C2.5335 15.5 1.75 14.7165 1.75 13.75V9.20232H1.43239C0.0198307 9.20232 -0.602245 7.43475 0.491105 6.55068L7.07934 1.22258ZM8.25178 2.0001C8.09322 1.87188 7.86677 1.87188 7.70821 2.0001L1.11996 7.3282C0.756928 7.62179 0.963431 8.20232 1.43239 8.20232H2.75V13.75C2.75 14.1642 3.08579 14.5 3.5 14.5H5.5C5.91421 14.5 6.25 14.1642 6.25 13.75V11.25C6.25 10.2835 7.0335 9.5 8 9.5C8.9665 9.5 9.75 10.2835 9.75 11.25V13.75C9.75 14.1642 10.0858 14.5 10.5 14.5H12.5C12.9142 14.5 13.25 14.1642 13.25 13.75V8.20232H14.5276C14.9966 8.20232 15.2031 7.62179 14.84 7.3282L8.25178 2.0001Z";
 	private MainPageViewModel ViewModel { get; } = new();
 	private IFileOperationService FileOperationService { get; } = new LocalFileOperationService();
@@ -69,6 +70,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private string? lastAccessibilityAnnouncement;
 	private long lastContentWheelTimestamp;
 	private double contentWheelAcceleration = 1;
+	private DirectoryBrowserViewModel? typeSelectBrowser;
+	private string typeSelectPrefix = string.Empty;
+	private long lastTypeSelectTimestamp;
 
 	public MainPage()
 		: this(restoresWorkspace: true)
@@ -719,6 +723,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			mergeBaseline with { RecentPaths = ["requested-recent"] });
 		bool multiWindowSettingsMerge = mergedConcurrentSettings.FavoritePaths is ["newer-favorite"] &&
 			mergedConcurrentSettings.RecentPaths is ["requested-recent"] && mergedConcurrentSettings.ReverseTabScrollDirection;
+		LocalFileSystemItem[] typeSelectItems =
+		[
+			new("/Aardvark", "Aardvark", true, false, null, DateTimeOffset.MinValue),
+			new("/Alpha", "Alpha", true, false, null, DateTimeOffset.MinValue),
+			new("/Beta", "Beta", true, false, null, DateTimeOffset.MinValue),
+		];
+		bool typeSelect = FindTypeSelectMatch(typeSelectItems, "a", -1) == 0 &&
+			FindTypeSelectMatch(typeSelectItems, "a", 0) == 1 &&
+			FindTypeSelectMatch(typeSelectItems, "a", 1) == 0 &&
+			FindTypeSelectMatch(typeSelectItems, "al", -1) == 1;
 		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool securityPropertiesRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip, bool duplicateRoundtrip, bool newTabRoundtrip, bool tabLabelsRoundtrip, bool tabHistoryRoundtrip, bool tabManagementRoundtrip, bool symbolicLinkRoundtrip) = await RunFileMutationDiagnosticsAsync();
 
 		using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
@@ -728,7 +742,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} sidebar_eject_buttons={renderedEjectButtons} sidebar_header_spacing={sidebarHeaderSpacing} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} tab_icon_layout={tabIconLayout} breadcrumb_home_icon={breadcrumbHomeIcon} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} dynamic_labels={dynamicCommandLabels} item_context_compact={compactItemContextMenu} background_context_menu={backgroundContextMenu} item_context_hit_targets={itemContextHitTargets} item_context_targets={itemContextTargets} alias_app_thumbnail={aliasApplicationThumbnail} thumbnail_double_buffer={thumbnailDoubleBuffer} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} type_select={typeSelect} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -3921,9 +3935,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void Items_KeyDown(object sender, KeyRoutedEventArgs e)
 	{
-		if (GetBrowserForItemsControl(sender) is DirectoryBrowserViewModel browser)
+		if (GetBrowserForItemsControl(sender) is not DirectoryBrowserViewModel browser)
 		{
-			ActivateBrowser(browser, sender as FrameworkElement);
+			return;
+		}
+		ActivateBrowser(browser, sender as FrameworkElement);
+
+		if (TryTypeSelect(browser, sender as FrameworkElement, e.Key))
+		{
+			e.Handled = true;
+			return;
 		}
 
 		if (e.Key is not VirtualKey.Space || selectedItems is not [LocalFileSystemItem item])
@@ -3940,6 +3961,129 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			await ShowErrorAsync(GetResource("QuickLookErrorMessage"));
 		}
+	}
+
+	private bool TryTypeSelect(DirectoryBrowserViewModel browser, FrameworkElement? control, VirtualKey key)
+	{
+		string? character = GetTypeSelectCharacter(key);
+		if (character is null || control is null || IsCommandModifierDown())
+		{
+			return false;
+		}
+
+		long timestamp = Environment.TickCount64;
+		bool continuesPrevious = ReferenceEquals(typeSelectBrowser, browser) &&
+			timestamp - lastTypeSelectTimestamp is >= 0 and <= TypeSelectResetMilliseconds;
+		bool cyclesSingleCharacter = continuesPrevious &&
+			typeSelectPrefix.Length is 1 &&
+			string.Equals(typeSelectPrefix, character, StringComparison.CurrentCultureIgnoreCase);
+		typeSelectPrefix = continuesPrevious && !cyclesSingleCharacter
+			? typeSelectPrefix + character
+			: character;
+		typeSelectBrowser = browser;
+		lastTypeSelectTimestamp = timestamp;
+
+		int selectedIndex = GetSelectedItemIndex(browser, control);
+		int matchIndex = FindTypeSelectMatch(browser.Items, typeSelectPrefix, cyclesSingleCharacter ? selectedIndex : -1);
+		if (matchIndex < 0)
+		{
+			return true;
+		}
+
+		SelectAndRevealItem(browser, control, matchIndex);
+		return true;
+	}
+
+	private static string? GetTypeSelectCharacter(VirtualKey key)
+	{
+		int value = (int)key;
+		if (value is >= (int)VirtualKey.A and <= (int)VirtualKey.Z)
+		{
+			return ((char)('a' + value - (int)VirtualKey.A)).ToString();
+		}
+		if (value is >= (int)VirtualKey.Number0 and <= (int)VirtualKey.Number9)
+		{
+			return ((char)('0' + value - (int)VirtualKey.Number0)).ToString();
+		}
+		return null;
+	}
+
+	private static bool IsCommandModifierDown()
+	{
+		return IsKeyDown(VirtualKey.Control) ||
+			IsKeyDown(VirtualKey.Menu) ||
+			IsKeyDown(VirtualKey.LeftWindows) ||
+			IsKeyDown(VirtualKey.RightWindows);
+	}
+
+	private static bool IsKeyDown(VirtualKey key) =>
+		Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(key)
+			.HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+	private static int GetSelectedItemIndex(DirectoryBrowserViewModel browser, FrameworkElement control)
+	{
+		LocalFileSystemItem? selectedItem = control switch
+		{
+			ItemsView view => view.SelectedItems.OfType<LocalFileSystemItem>().FirstOrDefault(),
+			ListViewBase list => list.SelectedItems.OfType<LocalFileSystemItem>().FirstOrDefault(),
+			_ => null,
+		};
+		return selectedItem is null ? -1 : browser.Items.IndexOf(selectedItem);
+	}
+
+	private static int FindTypeSelectMatch(
+		IReadOnlyList<LocalFileSystemItem> items,
+		string prefix,
+		int startAfterIndex)
+	{
+		for (int offset = 1; offset <= items.Count; offset++)
+		{
+			int index = (startAfterIndex + offset) % items.Count;
+			if (items[index].Name.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase))
+			{
+				return index;
+			}
+		}
+		return -1;
+	}
+
+	private void SelectAndRevealItem(DirectoryBrowserViewModel browser, FrameworkElement control, int index)
+	{
+		LocalFileSystemItem item = browser.Items[index];
+		if (control is ItemsView view)
+		{
+			view.DeselectAll();
+			view.Select(index);
+			RevealGridItem(view, index);
+		}
+		else if (control is ListViewBase list)
+		{
+			list.SelectedItems.Clear();
+			list.SelectedItem = item;
+			list.ScrollIntoView(item);
+		}
+		ActivateBrowser(browser, control);
+	}
+
+	private static void RevealGridItem(ItemsView view, int index)
+	{
+		ScrollView? scrollView = view.ScrollView ?? FindVisualDescendant<ScrollView>(view);
+		if (scrollView is null || view.Layout is not UniformGridLayout layout)
+		{
+			return;
+		}
+
+		double columnExtent = Math.Max(1, layout.MinItemWidth + layout.MinColumnSpacing);
+		int columnCount = Math.Max(1, (int)Math.Floor((scrollView.ViewportWidth + layout.MinColumnSpacing) / columnExtent));
+		double rowExtent = Math.Max(1, layout.MinItemHeight + layout.MinRowSpacing);
+		double targetOffset = Math.Clamp(
+			(index / columnCount) * rowExtent,
+			0,
+			Math.Max(0, scrollView.ExtentHeight - scrollView.ViewportHeight));
+		scrollView.ScrollTo(
+			scrollView.HorizontalOffset,
+			targetOffset,
+			new ScrollingScrollOptions(ScrollingAnimationMode.Disabled, ScrollingSnapPointsMode.Ignore));
 	}
 
 	private async void NewButton_Click(object sender, RoutedEventArgs e)
@@ -5573,7 +5717,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			: ViewModel.ActiveTab?.Browser;
 		if (browser is not null)
 		{
-			ActivateBrowser(browser, GetVisibleItemsControl(browser));
+			FrameworkElement control = GetVisibleItemsControl(browser);
+			ActivateBrowser(browser, control);
+			control.Focus(FocusState.Pointer);
 		}
 	}
 
