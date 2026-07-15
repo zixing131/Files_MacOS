@@ -159,6 +159,9 @@ internal static partial class MacOSNativeMethods
 		out nint output,
 		out nuint outputLength);
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_create_alias_file", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial int CreateAliasFile(string targetPath, string aliasPath);
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_free")]
 	internal static partial void Free(nint pointer);
 }

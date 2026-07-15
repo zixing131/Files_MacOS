@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.App.MacOS.Models;
 using Files.App.MacOS.Services;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage.Streams;
@@ -25,6 +26,7 @@ public enum FileSortDirection
 
 public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDisposable
 {
+	private const int MaximumThumbnailCacheEntries = 256;
 	private readonly IDirectoryService directoryService;
 	private readonly IFileSearchService searchService;
 	private readonly IMacOSWorkspaceService workspaceService;
@@ -33,6 +35,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	private readonly Stack<string> backStack = new();
 	private readonly Stack<string> forwardStack = new();
 	private readonly ResourceLoader resources = ResourceLoader.GetForViewIndependentUse();
+	private readonly object thumbnailCacheLock = new();
+	private readonly Dictionary<ThumbnailCacheKey, ImageSource> thumbnailCache = [];
+	private readonly Queue<ThumbnailCacheKey> thumbnailCacheOrder = [];
 	private CancellationTokenSource? navigationCancellation;
 	private CancellationTokenSource? searchCancellation;
 	private CancellationTokenSource? thumbnailCancellation;
@@ -40,6 +45,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	private volatile bool isDisposed;
 	private string itemCountStatus = string.Empty;
 	private IReadOnlyList<LocalFileSystemItem> sourceItems = [];
+	private readonly record struct ThumbnailCacheKey(string Path, DateTimeOffset Modified, long? Size);
 
 	public DirectoryBrowserViewModel(
 		IDirectoryService directoryService,
@@ -335,7 +341,10 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	private void ReplaceItems(IEnumerable<LocalFileSystemItem> items)
 	{
-		sourceItems = items.ToArray();
+		LocalFileSystemItem[] replacementItems = items.ToArray();
+		ReuseExistingThumbnails(sourceItems, replacementItems);
+		RestoreCachedThumbnails(replacementItems);
+		sourceItems = replacementItems;
 		PrepareAccessibilityNames(sourceItems);
 		ApplyView();
 		UpdateEmptyState();
@@ -436,6 +445,11 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		thumbnailCancellation?.Cancel();
 		thumbnailCancellation?.Dispose();
 		thumbnailCancellation = null;
+		lock (thumbnailCacheLock)
+		{
+			thumbnailCache.Clear();
+			thumbnailCacheOrder.Clear();
+		}
 		directoryChangeMonitor.Dispose();
 	}
 
@@ -528,6 +542,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			var bitmap = new BitmapImage();
 			await bitmap.SetSourceAsync(stream);
 			cancellationToken.ThrowIfCancellationRequested();
+			CacheThumbnail(item, bitmap);
 			item.Thumbnail = bitmap;
 		}
 		finally
@@ -535,6 +550,69 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			concurrency.Release();
 		}
 	}
+
+	internal static int ReuseExistingThumbnails(
+		IReadOnlyList<LocalFileSystemItem> existingItems,
+		IReadOnlyList<LocalFileSystemItem> replacementItems)
+	{
+		var existingThumbnails = new Dictionary<string, ImageSource>(StringComparer.Ordinal);
+		foreach (LocalFileSystemItem item in existingItems)
+		{
+			if (item.Thumbnail is ImageSource thumbnail)
+			{
+				existingThumbnails.TryAdd(item.Path, thumbnail);
+			}
+		}
+		int reusedCount = 0;
+		foreach (LocalFileSystemItem item in replacementItems)
+		{
+			if (existingThumbnails.TryGetValue(item.Path, out ImageSource? thumbnail))
+			{
+				item.Thumbnail = thumbnail;
+				reusedCount++;
+			}
+		}
+
+		return reusedCount;
+	}
+
+	private void RestoreCachedThumbnails(IReadOnlyList<LocalFileSystemItem> items)
+	{
+		lock (thumbnailCacheLock)
+		{
+			foreach (LocalFileSystemItem item in items)
+			{
+				if (item.Thumbnail is null && thumbnailCache.TryGetValue(CreateThumbnailCacheKey(item), out ImageSource? thumbnail))
+				{
+					item.Thumbnail = thumbnail;
+				}
+			}
+		}
+	}
+
+	private void CacheThumbnail(LocalFileSystemItem item, ImageSource thumbnail)
+	{
+		ThumbnailCacheKey key = CreateThumbnailCacheKey(item);
+		lock (thumbnailCacheLock)
+		{
+			if (thumbnailCache.TryAdd(key, thumbnail))
+			{
+				thumbnailCacheOrder.Enqueue(key);
+			}
+			else
+			{
+				thumbnailCache[key] = thumbnail;
+			}
+
+			while (thumbnailCache.Count > MaximumThumbnailCacheEntries && thumbnailCacheOrder.TryDequeue(out ThumbnailCacheKey oldestKey))
+			{
+				thumbnailCache.Remove(oldestKey);
+			}
+		}
+	}
+
+	private static ThumbnailCacheKey CreateThumbnailCacheKey(LocalFileSystemItem item) =>
+		new(item.Path, item.Modified, item.Size);
 
 	private string GetResource(string name)
 	{

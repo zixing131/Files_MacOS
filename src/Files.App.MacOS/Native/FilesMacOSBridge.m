@@ -1967,6 +1967,98 @@ __attribute__((visibility("default"))) char *files_macos_share_files(const char 
 	}
 }
 
+static NSURL *files_macos_resolve_alias_url(NSURL *url, BOOL *wasAlias)
+{
+	*wasAlias = NO;
+	NSNumber *isAlias = nil;
+	NSError *resourceError = nil;
+	if (![url getResourceValue:&isAlias forKey:NSURLIsAliasFileKey error:&resourceError] || !isAlias.boolValue)
+	{
+		return url;
+	}
+
+	*wasAlias = YES;
+	NSError *resolutionError = nil;
+	NSURL *resolvedURL = [NSURL
+		URLByResolvingAliasFileAtURL:url
+		options:NSURLBookmarkResolutionWithoutUI | NSURLBookmarkResolutionWithoutMounting
+		error:&resolutionError];
+	return resolvedURL ?: url;
+}
+
+static NSData *files_macos_png_for_file_icon(NSURL *url, double width, double height, double scale)
+{
+	NSImage *icon = [[NSWorkspace sharedWorkspace] iconForFile:url.path];
+	if (icon == nil)
+	{
+		return nil;
+	}
+
+	NSInteger pixelsWide = MAX(1, (NSInteger)ceil(width * scale));
+	NSInteger pixelsHigh = MAX(1, (NSInteger)ceil(height * scale));
+	NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc]
+		initWithBitmapDataPlanes:NULL
+		pixelsWide:pixelsWide
+		pixelsHigh:pixelsHigh
+		bitsPerSample:8
+		samplesPerPixel:4
+		hasAlpha:YES
+		isPlanar:NO
+		colorSpaceName:NSCalibratedRGBColorSpace
+		bitmapFormat:0
+		bytesPerRow:0
+		bitsPerPixel:0];
+	if (bitmap == nil)
+	{
+		return nil;
+	}
+
+	bitmap.size = NSMakeSize(width, height);
+	NSGraphicsContext *context = [NSGraphicsContext graphicsContextWithBitmapImageRep:bitmap];
+	if (context == nil)
+	{
+		return nil;
+	}
+	[NSGraphicsContext saveGraphicsState];
+	[NSGraphicsContext setCurrentContext:context];
+	context.imageInterpolation = NSImageInterpolationHigh;
+	[icon
+		drawInRect:NSMakeRect(0, 0, width, height)
+		fromRect:NSZeroRect
+		operation:NSCompositingOperationCopy
+		fraction:1.0];
+	[context flushGraphics];
+	[NSGraphicsContext restoreGraphicsState];
+	return [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+}
+
+__attribute__((visibility("default"))) int files_macos_create_alias_file(const char *targetPath, const char *aliasPath)
+{
+	@autoreleasepool
+	{
+		NSURL *targetURL = files_url_from_path(targetPath);
+		NSURL *aliasURL = files_url_from_path(aliasPath);
+		if (targetURL == nil || aliasURL == nil)
+		{
+			return 0;
+		}
+
+		NSError *bookmarkError = nil;
+		NSData *bookmarkData = [targetURL
+			bookmarkDataWithOptions:NSURLBookmarkCreationSuitableForBookmarkFile
+			includingResourceValuesForKeys:nil
+			relativeToURL:nil
+			error:&bookmarkError];
+		if (bookmarkData == nil)
+		{
+			return 0;
+		}
+
+		NSError *writeError = nil;
+		return [NSURL writeBookmarkData:bookmarkData toURL:aliasURL options:0 error:&writeError] ? 1 : 0;
+	}
+}
+
 __attribute__((visibility("default"))) int files_macos_generate_thumbnail(
 	const char *path,
 	double width,
@@ -1990,10 +2082,30 @@ __attribute__((visibility("default"))) int files_macos_generate_thumbnail(
 			return 0;
 		}
 
+		BOOL wasAlias = NO;
+		NSURL *previewURL = files_macos_resolve_alias_url(url, &wasAlias);
+		BOOL isApplication = [previewURL.pathExtension caseInsensitiveCompare:@"app"] == NSOrderedSame;
+		NSData *iconData = wasAlias || isApplication
+			? files_macos_png_for_file_icon(previewURL, width, height, scale)
+			: nil;
+		if (iconData.length > 0)
+		{
+			unsigned char *buffer = malloc(iconData.length);
+			if (buffer == NULL)
+			{
+				return 0;
+			}
+
+			memcpy(buffer, iconData.bytes, iconData.length);
+			*output = buffer;
+			*outputLength = iconData.length;
+			return 1;
+		}
+
 		dispatch_semaphore_t completion = dispatch_semaphore_create(0);
 		__block NSData *pngData = nil;
 		QLThumbnailGenerationRequest *request = [[QLThumbnailGenerationRequest alloc]
-			initWithFileAtURL:url
+			initWithFileAtURL:previewURL
 			size:NSMakeSize(width, height)
 			scale:scale
 			representationTypes:QLThumbnailGenerationRequestRepresentationTypeAll];

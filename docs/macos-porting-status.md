@@ -39,7 +39,7 @@ Started on 2026-07-14.
 | macOS native integration | In progress | Open, Finder reveal, Quick Look, system thumbnails, Trash, FSEvents, native folder picking and persisted security-scoped access grants are bridged; broader Finder extensions remain |
 | Native bridge arm64/x64 | Passed | Both dylibs build with the expected Mach-O architecture and exported C ABI |
 | Native `.app` packaging | Passed locally | Self-contained arm64 and x64 Release bundles include branded `.icns`, standard plist metadata, embedded .NET runtime, hardened-runtime entitlements and ordered nested-code signing; both bundles pass strict verification and launch on Apple Silicon (x64 via Rosetta) |
-| Quick Look thumbnails | Passed | Native smoke test generated a PNG thumbnail from the repository screenshot |
+| Quick Look thumbnails and application icons | Passed native/runtime checks | Native Quick Look generates document/image PNG previews, while Finder Alias files resolve without UI or volume mounting before `NSWorkspace` renders the target icon. Direct `.app` bundles and aliases to system applications produce the same high-resolution transparent PNG instead of a generic terminal-document thumbnail. Refresh uses a 256-entry decoded-image back buffer and transfers the currently displayed image to same-path replacement items before collection publication, so async regeneration swaps atomically without flashing the fallback glyph |
 | System Trash | Passed native/history smoke tests | The native bridge returns Finder's authoritative resulting URL; uniquely named temporary files passed move, undo, redo, partial-batch recovery and cleanup checks |
 | Managed copy/move engine | Passed initial smoke tests | Recursive copy, relative symbolic links, keep-both naming, replace, skip, move and cancellation cleanup were exercised in an isolated temporary tree |
 | File coordination | Passed isolated transaction smoke tests | Root copy operations coordinate source reads and destination writes; moves coordinate both write URLs; system-provided paths feed the existing staging/commit transaction, with callback failures and cancellation preserving rollback behavior |
@@ -134,7 +134,7 @@ Started on 2026-07-14.
 - Debounced atomic workspace persistence for tab selection, pane paths, active pane, split ratios, grid/details view and sorting, with missing-path fallback during restore.
 - Search history plus named saved searches that retain both query and root folder, exposed through the integrated search menu.
 - System sharing through `NSSharingServicePicker` and a unified right-click command menu.
-- Asynchronous Quick Look thumbnails in grid and details layouts with bounded concurrency and a glyph fallback.
+- Asynchronous Quick Look thumbnails in grid and details layouts with bounded concurrency, a 256-image decoded back buffer and a glyph fallback. Refresh/search batches reuse the currently displayed same-path image before publishing replacement items, then atomically swap fully decoded updates; Finder Alias entries resolve to their targets for preview, and application bundles/aliases use the target application's high-resolution `NSWorkspace` icon.
 - Debounced per-tab native FSEvents monitoring for automatic refresh after local changes, including recursive live-search refresh.
 - Copy-safe file URL drops from Finder/other apps into the active folder, routed through the same conflict and progress engine.
 - A Files-style New menu for folders and text documents, with extension-aware conflict naming.
