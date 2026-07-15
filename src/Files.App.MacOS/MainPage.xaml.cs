@@ -84,6 +84,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		InitializeComponent();
 		DataContext = ViewModel;
 		AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), handledEventsToo: true);
+		RegisterContentWheelHandler(GridItems);
+		RegisterContentWheelHandler(DetailsItems);
+		RegisterContentWheelHandler(SecondaryGridItems);
+		RegisterContentWheelHandler(SecondaryDetailsItems);
 		RegisterDividerPointerHandlers(SidebarDivider, SidebarDivider_PointerPressed, SidebarDivider_PointerMoved, SidebarDivider_PointerReleased, SidebarDivider_PointerCaptureLost);
 		RegisterDividerPointerHandlers(SplitDivider, SplitDivider_PointerPressed, SplitDivider_PointerMoved, SplitDivider_PointerReleased, SplitDivider_PointerCaptureLost);
 		MoreSelectionSubItem.Text = GetResource("MoreSelectionSubItem/Text");
@@ -5199,14 +5203,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				scrollView.ScrollTo(
 					scrollView.HorizontalOffset,
 					targetOffset,
-					new ScrollingScrollOptions(ScrollingAnimationMode.Enabled, ScrollingSnapPointsMode.Ignore));
+					new ScrollingScrollOptions(ScrollingAnimationMode.Disabled, ScrollingSnapPointsMode.Ignore));
 				e.Handled = true;
 			}
 		}
 		else if (FindVisualDescendant<ScrollViewer>(control) is ScrollViewer scrollViewer && scrollViewer.ScrollableHeight > 0)
 		{
 			double targetOffset = Math.Clamp(scrollViewer.VerticalOffset + distance, 0, scrollViewer.ScrollableHeight);
-			scrollViewer.ChangeView(null, targetOffset, null, disableAnimation: false);
+			scrollViewer.ChangeView(null, targetOffset, null, disableAnimation: true);
 			e.Handled = true;
 		}
 	}
@@ -5215,12 +5219,20 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		long timestamp = Environment.TickCount64;
 		long elapsed = timestamp - lastContentWheelTimestamp;
-		contentWheelAcceleration = elapsed is > 0 and < 90
-			? Math.Min(4, contentWheelAcceleration + (90 - elapsed) / 45d)
+		contentWheelAcceleration = elapsed is > 0 and < 150
+			? Math.Min(8, contentWheelAcceleration * 1.35 + (150 - elapsed) / 90d)
 			: 1;
 		lastContentWheelTimestamp = timestamp;
-		double wheelSteps = Math.Clamp(Math.Abs(delta) / 120d, 0.25, 3);
-		return -Math.Sign(delta) * 72 * wheelSteps * contentWheelAcceleration;
+		double wheelSteps = Math.Clamp(Math.Abs(delta) / 120d, 0.35, 3);
+		return -Math.Sign(delta) * 104 * wheelSteps * contentWheelAcceleration;
+	}
+
+	private void RegisterContentWheelHandler(UIElement element)
+	{
+		element.AddHandler(
+			UIElement.PointerWheelChangedEvent,
+			new PointerEventHandler(Items_PointerWheelChanged),
+			handledEventsToo: true);
 	}
 
 	private bool SelectRelativeTab(int offset, bool wrap)

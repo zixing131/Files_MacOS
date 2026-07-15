@@ -558,7 +558,6 @@
 							IsItemInvokedEnabled="True"
 							ItemInvoked="GridItems_ItemInvoked"
 							KeyDown="Items_KeyDown"
-							PointerWheelChanged="Items_PointerWheelChanged"
 							SelectionChanged="GridItems_SelectionChanged"
 							SelectionMode="Extended"
 							Visibility="{Binding ActiveTab.Browser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -625,7 +624,6 @@
 								ItemsSource="{Binding ActiveTab.Browser.Items}"
 								DoubleTapped="Items_DoubleTapped"
 								KeyDown="Items_KeyDown"
-								PointerWheelChanged="Items_PointerWheelChanged"
 								SelectionChanged="Items_SelectionChanged"
 								SelectionMode="Extended">
 								<ListView.ItemsPanel>
@@ -743,7 +741,6 @@
 								IsItemInvokedEnabled="True"
 								ItemInvoked="GridItems_ItemInvoked"
 								KeyDown="Items_KeyDown"
-								PointerWheelChanged="Items_PointerWheelChanged"
 								SelectionChanged="GridItems_SelectionChanged"
 								SelectionMode="Extended"
 								Visibility="{Binding ActiveTab.SecondaryBrowser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -802,7 +799,6 @@
 									ItemsSource="{Binding ActiveTab.SecondaryBrowser.Items}"
 									DoubleTapped="Items_DoubleTapped"
 									KeyDown="Items_KeyDown"
-									PointerWheelChanged="Items_PointerWheelChanged"
 									SelectionChanged="Items_SelectionChanged"
 									SelectionMode="Extended">
 									<ListView.ItemsPanel>
