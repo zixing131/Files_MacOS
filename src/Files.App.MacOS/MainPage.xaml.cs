@@ -51,8 +51,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private bool isUpdatingSelection;
 	private bool isUpdatingSidebarSelection;
 	private bool isEditingAddress;
-	private bool isPointerOverPrimaryGrid;
-	private bool isPointerOverSecondaryGrid;
+	private bool isPointerOverPrimaryPane;
+	private bool isPointerOverSecondaryPane;
 	private bool isSidebarOpen = true;
 	private double sidebarWidth = 228;
 	private bool isPreviewPaneOpen;
@@ -91,10 +91,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		RegisterContentWheelHandler(DetailsItems);
 		RegisterContentWheelHandler(SecondaryGridItems);
 		RegisterContentWheelHandler(SecondaryDetailsItems);
-		GridItems.PointerEntered += (_, _) => SetGridPointerState(isPrimary: true, isPointerOver: true);
-		GridItems.PointerExited += (_, _) => SetGridPointerState(isPrimary: true, isPointerOver: false);
-		SecondaryGridItems.PointerEntered += (_, _) => SetGridPointerState(isPrimary: false, isPointerOver: true);
-		SecondaryGridItems.PointerExited += (_, _) => SetGridPointerState(isPrimary: false, isPointerOver: false);
+		PrimaryPaneBorder.PointerEntered += (_, _) => SetPanePointerState(isPrimary: true, isPointerOver: true);
+		PrimaryPaneBorder.PointerExited += (_, _) => SetPanePointerState(isPrimary: true, isPointerOver: false);
+		SecondaryPaneBorder.PointerEntered += (_, _) => SetPanePointerState(isPrimary: false, isPointerOver: true);
+		SecondaryPaneBorder.PointerExited += (_, _) => SetPanePointerState(isPrimary: false, isPointerOver: false);
 		PrimaryPaneBorder.AddHandler(UIElement.RightTappedEvent, new RightTappedEventHandler(PrimaryPane_RightTapped), handledEventsToo: true);
 		SecondaryPaneBorder.AddHandler(UIElement.RightTappedEvent, new RightTappedEventHandler(SecondaryPane_RightTapped), handledEventsToo: true);
 		RegisterDividerPointerHandlers(SidebarDivider, SidebarDivider_PointerPressed, SidebarDivider_PointerMoved, SidebarDivider_PointerReleased, SidebarDivider_PointerCaptureLost);
@@ -1631,9 +1631,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	internal bool HandleNativeScrollWheel(double deltaX, double deltaY, bool hasPreciseDeltas)
 	{
 		BrowserTabViewModel? activeTab = ViewModel.ActiveTab;
-		(DirectoryBrowserViewModel? browser, ItemsView? view) = isPointerOverPrimaryGrid && activeTab?.Browser is { IsGridView: true } primaryBrowser
+		(DirectoryBrowserViewModel? browser, ItemsView? view) = isPointerOverPrimaryPane && activeTab?.Browser is { IsGridView: true } primaryBrowser
 			? (primaryBrowser, GridItems)
-			: isPointerOverSecondaryGrid && activeTab?.SecondaryBrowser is { IsGridView: true } secondaryBrowser
+			: isPointerOverSecondaryPane && activeTab?.SecondaryBrowser is { IsGridView: true } secondaryBrowser
 				? (secondaryBrowser, SecondaryGridItems)
 				: (null, null);
 		if (browser is null || view is null)
@@ -1659,17 +1659,17 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		return true;
 	}
 
-	private void SetGridPointerState(bool isPrimary, bool isPointerOver)
+	private void SetPanePointerState(bool isPrimary, bool isPointerOver)
 	{
 		if (isPrimary)
 		{
-			isPointerOverPrimaryGrid = isPointerOver;
+			isPointerOverPrimaryPane = isPointerOver;
 		}
 		else
 		{
-			isPointerOverSecondaryGrid = isPointerOver;
+			isPointerOverSecondaryPane = isPointerOver;
 		}
-		MacOSAuxiliaryMouseService.SetGridScrollCapture(isPointerOverPrimaryGrid || isPointerOverSecondaryGrid);
+		MacOSAuxiliaryMouseService.SetGridScrollCapture(isPointerOverPrimaryPane || isPointerOverSecondaryPane);
 	}
 
 	private async void UpButton_Click(object sender, RoutedEventArgs e)
