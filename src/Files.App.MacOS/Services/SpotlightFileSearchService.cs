@@ -121,14 +121,19 @@ public sealed class SpotlightFileSearchService(IFileSearchService? fallback = nu
 				{
 					continue;
 				}
+				if (MacOSFilePackage.IsInsidePackage(fullPath, rootPath))
+				{
+					continue;
+				}
 
 				System.IO.FileAttributes attributes = File.GetAttributes(fullPath);
 				bool isDirectory = attributes.HasFlag(System.IO.FileAttributes.Directory);
 				FileSystemInfo info = isDirectory ? new DirectoryInfo(fullPath) : new FileInfo(fullPath);
+				bool isPackage = isDirectory && MacOSFilePackage.IsPackage(info);
 				IReadOnlyList<string>? finderTags = query.RequiresFinderTags
 					? MacOSFinderTagService.GetTags(fullPath)
 					: null;
-				if (!query.MatchesMetadata(info, isDirectory, finderTags))
+				if (!query.MatchesMetadata(info, isDirectory && !isPackage, finderTags))
 				{
 					continue;
 				}
@@ -145,7 +150,8 @@ public sealed class SpotlightFileSearchService(IFileSearchService? fallback = nu
 					isDirectory,
 					isHidden,
 					info is FileInfo fileInfo ? fileInfo.Length : null,
-					info.LastWriteTimeUtc));
+					info.LastWriteTimeUtc,
+					isPackage));
 			}
 			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{

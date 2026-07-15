@@ -57,6 +57,7 @@ public sealed class LocalFileSearchService : IFileSearchService
 					System.IO.FileAttributes attributes = File.GetAttributes(itemPath);
 					bool isDirectory = attributes.HasFlag(System.IO.FileAttributes.Directory);
 					FileSystemInfo info = isDirectory ? new DirectoryInfo(itemPath) : new FileInfo(itemPath);
+					bool isPackage = isDirectory && MacOSFilePackage.IsPackage(info);
 					bool isHidden = attributes.HasFlag(System.IO.FileAttributes.Hidden) || info.Name.StartsWith('.');
 					if (!includeHidden && isHidden)
 					{
@@ -68,7 +69,7 @@ public sealed class LocalFileSearchService : IFileSearchService
 					IReadOnlyList<string>? finderTags = query.RequiresFinderTags
 						? MacOSFinderTagService.GetTags(itemPath)
 						: null;
-					bool metadataMatches = query.MatchesMetadata(info, isDirectory, finderTags);
+					bool metadataMatches = query.MatchesMetadata(info, isDirectory && !isPackage, finderTags);
 					bool matches = metadataMatches &&
 						(contentTerms.Count is 0 ||
 						(!isDirectory &&
@@ -83,7 +84,8 @@ public sealed class LocalFileSearchService : IFileSearchService
 							isDirectory,
 							isHidden,
 							info is FileInfo fileInfo ? fileInfo.Length : null,
-							info.LastWriteTimeUtc);
+							info.LastWriteTimeUtc,
+							isPackage);
 						results.Add(item);
 						pendingResults.Add(item);
 						if (pendingResults.Count >= 32)
@@ -92,7 +94,7 @@ public sealed class LocalFileSearchService : IFileSearchService
 						}
 					}
 
-					if (isDirectory && linkTarget is null)
+					if (isDirectory && !isPackage && linkTarget is null)
 					{
 						SearchDirectory(itemPath, query, includeHidden, results, pendingResults, progress, cancellationToken, isRoot: false);
 					}

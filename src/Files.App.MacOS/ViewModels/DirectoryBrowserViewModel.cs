@@ -346,6 +346,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		string separator = GetResource("ItemAutomationSeparator");
 		string folderType = GetResource("FolderItemAutomationType");
 		string fileType = GetResource("FileItemAutomationType");
+		string packageType = GetResource("PackageItemAutomationType");
 		string hiddenState = GetResource("HiddenItemAutomationState");
 		string sizeFormat = GetResource("ItemSizeAutomationFormat");
 		string modifiedFormat = GetResource("ItemModifiedAutomationFormat");
@@ -354,7 +355,8 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		foreach (LocalFileSystemItem item in items)
 		{
 			builder.Clear();
-			builder.Append(item.Name).Append(separator).Append(item.IsDirectory ? folderType : fileType);
+			string itemType = item.IsPackage ? packageType : item.IsDirectory ? folderType : fileType;
+			builder.Append(item.Name).Append(separator).Append(itemType);
 			if (item.IsHidden)
 			{
 				builder.Append(separator).Append(hiddenState);
@@ -377,7 +379,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		IEnumerable<LocalFileSystemItem> visibleItems = ShowHiddenFiles
 			? sourceItems
 			: sourceItems.Where(static item => !item.IsHidden);
-		IOrderedEnumerable<LocalFileSystemItem> orderedItems = visibleItems.OrderByDescending(static item => item.IsDirectory);
+		IOrderedEnumerable<LocalFileSystemItem> orderedItems = visibleItems.OrderByDescending(static item => item.IsNavigableDirectory);
 		orderedItems = (SortField, SortDirection) switch
 		{
 			(FileSortField.Modified, FileSortDirection.Ascending) => orderedItems.ThenBy(static item => item.Modified),

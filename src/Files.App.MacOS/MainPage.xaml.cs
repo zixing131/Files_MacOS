@@ -94,6 +94,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ConfigureIconButton(GridViewStatusButton, "GridViewTooltip");
 		ConfigureIconButton(DetailsViewStatusButton, "DetailsViewTooltip");
 		ConfigureIconButton(SearchOptionsButton, "SearchOptionsTooltip");
+		ConfigureIconButton(MoreCommandsButton, "MoreCommandsTooltip");
 		ConfigureIconButton(SidebarDivider, "SidebarResizeTooltip");
 		ConfigureIconButton(SplitDivider, "SplitResizeTooltip");
 		ConfigureAccessibleName(Tabs, "TabStripAutomationName");
@@ -377,9 +378,17 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ClosePreviewPaneButton,
 			GridViewStatusButton,
 			DetailsViewStatusButton,
+			MoreCommandsButton,
 		];
 		bool navigationIcons = navigationIconButtons.All(static button => button.Content is PathIcon { Data: not null }) &&
 			navigationIconButtons.All(static button => !string.IsNullOrWhiteSpace(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(button)));
+		Button[] primaryNavigationButtons = [ToggleSidebarButton, BackButton, ForwardButton, UpButton, RefreshButton];
+		double refreshRight = RefreshButton.TransformToVisual(AddressToolbarGrid).TransformPoint(default).X + RefreshButton.ActualWidth;
+		double addressLeft = AddressBarBorder.TransformToVisual(AddressToolbarGrid).TransformPoint(default).X;
+		bool navigationIconLayout = primaryNavigationButtons.All(static button =>
+			button.ActualWidth >= 40 && button.ActualHeight >= 34 &&
+			button.Content is PathIcon { ActualWidth: >= 20, ActualHeight: >= 20 }) &&
+			addressLeft - refreshRight >= 6;
 		DependencyObject[] accessibilityRegions =
 		[
 			Tabs,
@@ -406,9 +415,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			CountNamedAutomationElements(PrimaryPaneBorder, realizedItemNames) > 0;
 		string folderAutomationType = GetResource("FolderItemAutomationType");
 		string fileAutomationType = GetResource("FileItemAutomationType");
+		string packageAutomationType = GetResource("PackageItemAutomationType");
 		bool itemAccessibility = accessibilitySampleItems.All(item =>
 			item.AccessibilityName.Contains(item.Name, StringComparison.Ordinal) &&
-			item.AccessibilityName.Contains(item.IsDirectory ? folderAutomationType : fileAutomationType, StringComparison.Ordinal) &&
+			item.AccessibilityName.Contains(item.IsPackage ? packageAutomationType : item.IsDirectory ? folderAutomationType : fileAutomationType, StringComparison.Ordinal) &&
 			item.AccessibilityName.Contains(item.ModifiedText, StringComparison.Ordinal));
 		var accessibilitySearchSample = new LocalFileSystemItem(
 			Path.Combine(Path.GetTempPath(), ".files-accessibility-sample.txt"),
@@ -459,6 +469,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			splitViewLabel == expectedSplitViewLabel &&
 			MoreSelectionSubItem.Text == GetResource("MoreSelectionSubItem/Text") &&
 			MoreArchiveSubItem.Text == GetResource("MoreArchiveSubItem/Text");
+		bool packageSemantics = await RunPackageSemanticsDiagnosticsAsync();
 		FileSortField initialSortField = browser.SortField;
 		FileSortDirection initialSortDirection = browser.SortDirection;
 		FileSortField diagnosticSortField = initialSortField is FileSortField.Modified ? FileSortField.Size : FileSortField.Modified;
@@ -531,6 +542,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		int renderedSidebarLabels = CountRenderedTextBlocks(renderedSidebarPage.SidebarList, sidebarLabelNames);
 		int renderedSidebarIcons = CountRenderedPathIcons(renderedSidebarPage.SidebarList);
 		bool sidebarIcons = renderedSidebarIcons == renderedSidebarLabels && renderedSidebarIcons > 0;
+		bool sidebarHeaderSpacing = AreSidebarHeadersSeparated(renderedSidebarPage.SidebarList);
 		using System.Text.Json.JsonDocument menuDescription = System.Text.Json.JsonDocument.Parse(MainMenuService.Describe());
 		bool nativeMenuInstalled = menuDescription.RootElement.GetProperty("installed").GetBoolean() &&
 			menuDescription.RootElement.GetProperty("rootCount").GetInt32() >= 6 &&
@@ -638,8 +650,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"FILES_MACOS_PERF view={(browser.IsGridView ? "grid" : "details")} " +
 			$"items={browser.Items.Count} realized={realizedContainers} selection_roundtrip={selectionRoundtrip} " +
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
-			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
-			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} dynamic_labels={dynamicCommandLabels} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
+			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} sidebar_header_spacing={sidebarHeaderSpacing} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
+			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} dynamic_labels={dynamicCommandLabels} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
 			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
@@ -652,6 +664,57 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		Console.WriteLine(
 			$"FILES_MACOS_SELECTION items={browser.Items.Count} selected={selectedCount} " +
 			$"inverted_count={selectedItems.Count} elapsed_ms={selectionTimer.Elapsed.TotalMilliseconds:F1}");
+	}
+
+	private async Task<bool> RunPackageSemanticsDiagnosticsAsync()
+	{
+		string root = Path.Combine(Path.GetTempPath(), $"files-macos-package-diagnostics-{Guid.NewGuid():N}");
+		try
+		{
+			string packagePath = Path.Combine(root, "Sample.app");
+			string internalPath = Path.Combine(packagePath, "Contents", "Resources", "package-internal-marker.txt");
+			Directory.CreateDirectory(Path.GetDirectoryName(internalPath)!);
+			Directory.CreateDirectory(Path.Combine(root, "Ordinary Folder"));
+			await File.WriteAllTextAsync(internalPath, "package-internal-marker");
+
+			IReadOnlyList<LocalFileSystemItem> items = await new LocalDirectoryService().GetItemsAsync(root, CancellationToken.None);
+			LocalFileSystemItem? package = items.SingleOrDefault(static item => item.Name == "Sample.app");
+			if (package is not { IsDirectory: true, IsPackage: true, IsNavigableDirectory: false })
+			{
+				return false;
+			}
+
+			var search = new LocalFileSearchService();
+			IReadOnlyList<LocalFileSystemItem> packageResults = await search.SearchAsync(
+				root,
+				FileSearchQuery.Parse("ext:app"),
+				includeHidden: true);
+			IReadOnlyList<LocalFileSystemItem> folderResults = await search.SearchAsync(
+				root,
+				FileSearchQuery.Parse("kind:folder"),
+				includeHidden: true);
+			IReadOnlyList<LocalFileSystemItem> nestedResults = await search.SearchAsync(
+				root,
+				FileSearchQuery.Parse("package-internal-marker"),
+				includeHidden: true);
+
+			Browser?.PrepareAccessibilityNames([package]);
+			var iconConverter = new Converters.FileSystemItemToIconConverter();
+			return packageResults is [{ IsPackage: true, Name: "Sample.app" }] &&
+				folderResults.Any(static item => item.Name == "Ordinary Folder") &&
+				folderResults.All(static item => !item.IsPackage) &&
+				nestedResults.Count is 0 &&
+				MacOSFilePackage.IsInsidePackage(internalPath, root) &&
+				package.AccessibilityName.Contains(GetResource("PackageItemAutomationType"), StringComparison.Ordinal) &&
+				iconConverter.Convert(package, typeof(Geometry), null!, string.Empty) is Geometry;
+		}
+		finally
+		{
+			if (Directory.Exists(root))
+			{
+				Directory.Delete(root, recursive: true);
+			}
+		}
 	}
 
 	private async Task<(bool PermanentDelete, bool MetadataEdit, bool SecurityProperties, bool OpenWith, bool RecentLocations, bool Duplicate, bool NewTab, bool TabLabels, bool TabHistory, bool TabManagement, bool SymbolicLink)> RunFileMutationDiagnosticsAsync()
@@ -1025,6 +1088,32 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		return count;
 	}
 
+	private static bool AreSidebarHeadersSeparated(DependencyObject root)
+	{
+		bool foundHeader = false;
+		bool hasSpacing = true;
+		Inspect(root);
+		return foundHeader && hasSpacing;
+
+		void Inspect(DependencyObject element)
+		{
+			if (element is Grid { DataContext: SidebarLocation { IsHeader: true } } grid &&
+				FindVisualDescendant<PathIcon>(grid) is PathIcon { ActualWidth: > 0 } icon &&
+				FindVisualDescendant<TextBlock>(grid) is TextBlock { ActualWidth: > 0 } label)
+			{
+				foundHeader = true;
+				double iconRight = icon.TransformToVisual(grid).TransformPoint(default).X + icon.ActualWidth;
+				double labelLeft = label.TransformToVisual(grid).TransformPoint(default).X;
+				hasSpacing &= labelLeft - iconRight >= 6;
+			}
+
+			for (int index = 0; index < VisualTreeHelper.GetChildrenCount(element); index++)
+			{
+				Inspect(VisualTreeHelper.GetChild(element, index));
+			}
+		}
+	}
+
 	private static int CountNamedAutomationElements(DependencyObject root, IReadOnlySet<string> names)
 	{
 		string name = Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(root);
@@ -1177,8 +1266,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			MacOSMenuCommand.NextTab or MacOSMenuCommand.PreviousTab => isIdle && ViewModel.Tabs.Count > 1,
 			MacOSMenuCommand.Properties or MacOSMenuCommand.MoveToTrash or MacOSMenuCommand.DeletePermanently or MacOSMenuCommand.Rename or
 				MacOSMenuCommand.Cut or MacOSMenuCommand.Copy or MacOSMenuCommand.CopyPath => isIdle && selectedItems.Count > 0,
-			MacOSMenuCommand.OpenWith => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: false }],
-			MacOSMenuCommand.OpenInNewTab => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: true }],
+			MacOSMenuCommand.OpenWith => isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: false }],
+			MacOSMenuCommand.OpenInNewTab => isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }],
 			MacOSMenuCommand.Duplicate => isIdle && CanDuplicateSelection(),
 			MacOSMenuCommand.CreateSymbolicLink => isIdle && selectedItems.Count > 0,
 			MacOSMenuCommand.Paste => PasteButton.IsEnabled,
@@ -1713,7 +1802,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		try
 		{
-			if (item.IsDirectory)
+			if (item.IsNavigableDirectory)
 			{
 				await browser.NavigateAsync(item.Path);
 			}
@@ -1738,7 +1827,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async Task ShowOpenWithDialogAsync()
 	{
-		if (selectedItems is not [LocalFileSystemItem { IsDirectory: false } item] || fileTransferCancellation is not null)
+		if (selectedItems is not [LocalFileSystemItem { IsNavigableDirectory: false } item] || fileTransferCancellation is not null)
 		{
 			return;
 		}
@@ -1807,7 +1896,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async Task OpenInNewTabAsync()
 	{
-		if (selectedItems is [LocalFileSystemItem { IsDirectory: true } item] && fileTransferCancellation is null)
+		if (selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true } item] && fileTransferCancellation is null)
 		{
 			await ViewModel.NewTabAsync(item.Path);
 		}
@@ -1815,7 +1904,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void OpenInNewTabAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
 	{
-		if (!IsTextInputFocused() && selectedItems is [LocalFileSystemItem { IsDirectory: true }] && fileTransferCancellation is null)
+		if (!IsTextInputFocused() && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }] && fileTransferCancellation is null)
 		{
 			args.Handled = true;
 			await OpenInNewTabAsync();
@@ -2016,7 +2105,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		string GetDuplicateName(LocalFileSystemItem item)
 		{
-			if (item.IsDirectory)
+			if (item.IsNavigableDirectory)
 			{
 				return string.Format(GetResource("DuplicateNameFormat"), item.Name);
 			}
@@ -2054,7 +2143,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		string GetLinkName(LocalFileSystemItem item)
 		{
-			if (item.IsDirectory)
+			if (item.IsNavigableDirectory)
 			{
 				return string.Format(GetResource("SymbolicLinkNameFormat"), item.Name);
 			}
@@ -2510,7 +2599,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ArchiveButton.IsEnabled = isIdle && selectedItems.Count > 0;
 		SelectionButton.IsEnabled = isIdle;
 		CopyPathMenuItem.IsEnabled = isIdle && selectedItems.Count > 0;
-		FavoriteButton.IsEnabled = isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: true }];
+		FavoriteButton.IsEnabled = isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }];
 		SettingsButton.IsEnabled = isIdle;
 		ConnectServerButton.IsEnabled = isIdle;
 		ClearRecentButton.IsEnabled = isIdle;
@@ -2796,7 +2885,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			switch (action)
 			{
 				case "Open" when selectedItems is [LocalFileSystemItem item]:
-					if (item.IsDirectory)
+					if (item.IsNavigableDirectory)
 					{
 						await Browser.NavigateAsync(item.Path);
 					}
@@ -2880,15 +2969,15 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			item.IsEnabled = item.Tag switch
 			{
 				"Open" or "Preview" or "Reveal" => isIdle && selectedItems.Count is 1,
-				"OpenWith" => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: false }],
-				"OpenInNewTab" => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: true }],
+				"OpenWith" => isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: false }],
+				"OpenInNewTab" => isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }],
 				"Terminal" => isIdle && selectedItems.Count > 0,
 				"Duplicate" => isIdle && CanDuplicateSelection(),
 				"CreateSymbolicLink" => isIdle && selectedItems.Count > 0,
 				"Cut" or "Copy" or "CopyPath" or "Rename" or "Share" or "Delete" or
 					"PermanentDelete" or "Properties" or "Compress" => isIdle && selectedItems.Count > 0,
 				"Extract" => isIdle && selectedItems is [LocalFileSystemItem archive] && IsZipArchive(archive),
-				"Favorite" => isIdle && selectedItems is [LocalFileSystemItem { IsDirectory: true }],
+				"Favorite" => isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }],
 				_ => item.IsEnabled,
 			};
 		}
@@ -2902,7 +2991,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		string path = selectedItems is [LocalFileSystemItem item]
-			? item.IsDirectory ? item.Path : Path.GetDirectoryName(item.Path) ?? Browser.CurrentPath
+			? item.IsNavigableDirectory ? item.Path : Path.GetDirectoryName(item.Path) ?? Browser.CurrentPath
 			: Browser.CurrentPath;
 		try
 		{
@@ -2916,7 +3005,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void FavoriteButton_Click(object sender, RoutedEventArgs e)
 	{
-		if (selectedItems is not [LocalFileSystemItem { IsDirectory: true } item])
+		if (selectedItems is not [LocalFileSystemItem { IsNavigableDirectory: true } item])
 		{
 			return;
 		}

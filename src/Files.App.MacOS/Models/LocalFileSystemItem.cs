@@ -10,7 +10,8 @@ public sealed partial class LocalFileSystemItem(
 	bool isDirectory,
 	bool isHidden,
 	long? size,
-	DateTimeOffset modified) : ObservableObject
+	DateTimeOffset modified,
+	bool isPackage = false) : ObservableObject
 {
 	public string Path { get; } = path;
 
@@ -19,6 +20,10 @@ public sealed partial class LocalFileSystemItem(
 	public string AccessibilityName { get; internal set; } = name;
 
 	public bool IsDirectory { get; } = isDirectory;
+
+	public bool IsPackage { get; } = isPackage;
+
+	public bool IsNavigableDirectory => IsDirectory && !IsPackage;
 
 	public bool IsHidden { get; } = isHidden;
 

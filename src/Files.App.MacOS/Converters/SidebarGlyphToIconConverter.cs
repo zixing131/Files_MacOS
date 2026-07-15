@@ -8,8 +8,8 @@ public sealed class SidebarGlyphToIconConverter : IValueConverter
 {
 	private static readonly IReadOnlyDictionary<string, string> IconData = new Dictionary<string, string>(StringComparer.Ordinal)
 	{
-		["⌄"] = "M3,6 L8,11 L13,6 L15,8 L8,15 L1,8 Z",
-		["›"] = "M5,2 L12,9 L5,16 L7,18 L16,9 L7,0 Z",
+		["⌄"] = "M2,4 H14 L8,11 Z",
+		["›"] = "M4,2 L11,8 L4,14 Z",
 		["⌂"] = "M2,9 L10,2 L18,9 V18 H12 V12 H8 V18 H2 Z",
 		["▣"] = "M2,3 H18 V15 H11 V17 H15 V19 H5 V17 H9 V15 H2 Z M4,5 V13 H16 V5 Z",
 		["↓"] = "M9,2 H11 V12 L15,8 L17,10 L10,17 L3,10 L5,8 L9,12 Z",

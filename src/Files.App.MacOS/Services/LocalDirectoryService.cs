@@ -22,6 +22,7 @@ public sealed class LocalDirectoryService : IDirectoryService
 				{
 					System.IO.FileAttributes attributes = info.Attributes;
 					bool isDirectory = attributes.HasFlag(System.IO.FileAttributes.Directory);
+					bool isPackage = isDirectory && MacOSFilePackage.IsPackage(info);
 					bool isHidden = attributes.HasFlag(System.IO.FileAttributes.Hidden) || info.Name.StartsWith('.');
 					long? size = info is FileInfo fileInfo ? fileInfo.Length : null;
 
@@ -31,7 +32,8 @@ public sealed class LocalDirectoryService : IDirectoryService
 						isDirectory,
 						isHidden,
 						size,
-						info.LastWriteTimeUtc));
+						info.LastWriteTimeUtc,
+						isPackage));
 				}
 				catch (IOException)
 				{

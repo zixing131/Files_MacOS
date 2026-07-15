@@ -482,6 +482,7 @@
   <data name="PreviewPaneMultipleFormat" xml:space="preserve"><value>{0} items selected</value></data>
   <data name="PreviewItemErrorMessage" xml:space="preserve"><value>The selected item couldn't be previewed.</value></data>
   <data name="MoreCommandsButton.Content" xml:space="preserve"><value>•••</value></data>
+  <data name="MoreCommandsTooltip" xml:space="preserve"><value>More commands</value></data>
   <data name="MoreSelectionSubItem.Text" xml:space="preserve"><value>Selection</value></data>
   <data name="MoreArchiveSubItem.Text" xml:space="preserve"><value>Archive</value></data>
   <data name="EmptyFolderHeading.Text" xml:space="preserve"><value>This folder is empty</value></data>
@@ -523,6 +524,7 @@
   <data name="ItemAutomationSeparator" xml:space="preserve"><value>, </value></data>
   <data name="FolderItemAutomationType" xml:space="preserve"><value>Folder</value></data>
   <data name="FileItemAutomationType" xml:space="preserve"><value>File</value></data>
+  <data name="PackageItemAutomationType" xml:space="preserve"><value>Package</value></data>
   <data name="HiddenItemAutomationState" xml:space="preserve"><value>Hidden</value></data>
   <data name="ItemSizeAutomationFormat" xml:space="preserve"><value>Size {0}</value></data>
   <data name="ItemModifiedAutomationFormat" xml:space="preserve"><value>Modified {0}</value></data>
