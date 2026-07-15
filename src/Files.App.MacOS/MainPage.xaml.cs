@@ -4197,16 +4197,22 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			Header = GetResource("ShowHiddenFilesSetting"),
 			IsOn = currentSettings.ShowHiddenFiles,
+			OnContent = GetResource("ToggleOnText"),
+			OffContent = GetResource("ToggleOffText"),
 		};
 		var defaultGridToggle = new ToggleSwitch
 		{
 			Header = GetResource("DefaultGridViewSetting"),
 			IsOn = currentSettings.UseGridViewForNewTabs,
+			OnContent = GetResource("ToggleOnText"),
+			OffContent = GetResource("ToggleOffText"),
 		};
 		var reverseTabScrollToggle = new ToggleSwitch
 		{
 			Header = GetResource("ReverseTabScrollDirectionSetting"),
 			IsOn = currentSettings.ReverseTabScrollDirection,
+			OnContent = GetResource("ToggleOnText"),
+			OffContent = GetResource("ToggleOffText"),
 		};
 		var content = new StackPanel
 		{
