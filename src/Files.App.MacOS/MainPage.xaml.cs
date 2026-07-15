@@ -3106,6 +3106,57 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			list.SelectedItem = item;
 		}
 		ActivateBrowser(browser, control);
+		MenuFlyout flyout = CreateItemContextFlyout();
+		PrepareItemContextFlyout(flyout);
+		flyout.ShowAt((FrameworkElement)sender);
+		e.Handled = true;
+	}
+
+	private MenuFlyout CreateItemContextFlyout()
+	{
+		var flyout = new MenuFlyout();
+		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenItem/Text", "Open"));
+		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenInNewTabItem/Text", "OpenInNewTab"));
+		flyout.Items.Add(CreateItemContextMenuItem("ContextPreviewItem/Text", "Preview"));
+		flyout.Items.Add(new MenuFlyoutSeparator());
+		flyout.Items.Add(CreateItemContextMenuItem("ContextCutItem/Text", "Cut"));
+		flyout.Items.Add(CreateItemContextMenuItem("ContextCopyItem/Text", "Copy"));
+		flyout.Items.Add(CreateItemContextMenuItem("ContextRenameItem/Text", "Rename"));
+		flyout.Items.Add(CreateItemContextMenuItem("ContextDeleteItem/Text", "Delete"));
+		flyout.Items.Add(new MenuFlyoutSeparator());
+		flyout.Items.Add(CreateItemContextMenuItem("ContextPropertiesItem/Text", "Properties"));
+
+		var moreActions = new MenuFlyoutSubItem
+		{
+			Text = GetResource("ContextMoreActionsSubItem/Text"),
+			Tag = "MoreActions",
+		};
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextOpenWithItem/Text", "OpenWith"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextRevealItem/Text", "Reveal"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextTerminalItem/Text", "Terminal"));
+		moreActions.Items.Add(new MenuFlyoutSeparator());
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextDuplicateItem/Text", "Duplicate"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextCreateSymbolicLinkItem/Text", "CreateSymbolicLink"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextCopyPathItem/Text", "CopyPath"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextShareItem/Text", "Share"));
+		moreActions.Items.Add(new MenuFlyoutSeparator());
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextCompressItem/Text", "Compress"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextExtractItem/Text", "Extract"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextFavoriteItem/Text", "Favorite"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextPermanentDeleteItem/Text", "PermanentDelete"));
+		flyout.Items.Add(moreActions);
+		return flyout;
+	}
+
+	private MenuFlyoutItem CreateItemContextMenuItem(string resourceKey, string action)
+	{
+		var item = new MenuFlyoutItem
+		{
+			Text = GetResource(resourceKey),
+			Tag = action,
+		};
+		item.Click += ContextAction_Click;
+		return item;
 	}
 
 	private async void ContextAction_Click(object sender, RoutedEventArgs e)
@@ -3197,7 +3248,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			return;
 		}
+		PrepareItemContextFlyout(flyout);
+	}
 
+	private void PrepareItemContextFlyout(MenuFlyout flyout)
+	{
 		bool isIdle = fileTransferCancellation is null && !isHistoryOperationRunning && !isConnectingServer;
 		bool isSingleFile = selectedItems is [LocalFileSystemItem { IsNavigableDirectory: false }];
 		bool isSingleFolder = selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }];
@@ -3308,11 +3363,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private static int CountItemContextTargets(DependencyObject root)
 	{
-		int count = root is FrameworkElement
-		{
-			DataContext: LocalFileSystemItem,
-			ContextFlyout: MenuFlyout,
-		} ? 1 : 0;
+		int count = root is FrameworkElement { DataContext: LocalFileSystemItem } element &&
+			!string.IsNullOrEmpty(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(element)) ? 1 : 0;
 		for (int index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
 		{
 			count += CountItemContextTargets(VisualTreeHelper.GetChild(root, index));
