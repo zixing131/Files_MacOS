@@ -19,7 +19,7 @@
 			<MenuFlyoutItem x:Uid="ContextCutItem" Click="ContextAction_Click" Tag="Cut" />
 			<MenuFlyoutItem x:Uid="ContextCopyItem" Click="ContextAction_Click" Tag="Copy" />
 			<MenuFlyoutItem x:Uid="ContextRenameItem" Click="ContextAction_Click" Tag="Rename" />
-			<MenuFlyoutItem x:Uid="ContextDeleteItem" Click="ContextAction_Click" Tag="Delete" />
+			<MenuFlyoutItem x:Uid="ContextDeleteItem" Click="ContextAction_Click" Tag="MoveToTrash" />
 			<MenuFlyoutSeparator />
 			<MenuFlyoutItem x:Uid="ContextPropertiesItem" Click="ContextAction_Click" Tag="Properties" />
 			<MenuFlyoutSubItem Tag="MoreActions">

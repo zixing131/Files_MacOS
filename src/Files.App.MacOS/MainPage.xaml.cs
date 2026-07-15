@@ -497,7 +497,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			.ToArray();
 		string[] expectedItemContextActions =
 		[
-			"Open", "OpenInNewTab", "Preview", "Cut", "Copy", "Rename", "Delete", "Properties",
+			"Open", "OpenInNewTab", "Preview", "Cut", "Copy", "Rename", "MoveToTrash", "Properties",
 			"OpenWith", "Reveal", "Terminal", "Duplicate", "CreateSymbolicLink", "CopyPath", "Share",
 			"Compress", "Extract", "Favorite", "PermanentDelete",
 		];
@@ -3238,7 +3238,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		flyout.Items.Add(CreateItemContextMenuItem("ContextCutItem/Text", "Cut"));
 		flyout.Items.Add(CreateItemContextMenuItem("ContextCopyItem/Text", "Copy"));
 		flyout.Items.Add(CreateItemContextMenuItem("ContextRenameItem/Text", "Rename"));
-		flyout.Items.Add(CreateItemContextMenuItem("ContextDeleteItem/Text", "Delete"));
+		flyout.Items.Add(CreateItemContextMenuItem("ContextDeleteItem/Text", "MoveToTrash"));
 		flyout.Items.Add(new MenuFlyoutSeparator());
 		flyout.Items.Add(CreateItemContextMenuItem("ContextPropertiesItem/Text", "Properties"));
 
@@ -3333,6 +3333,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 					ShareButton_Click(sender, e);
 					break;
 				case "Delete":
+				case "MoveToTrash":
 					DeleteButton_Click(sender, e);
 					break;
 				case "PermanentDelete":
@@ -3390,7 +3391,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				"Terminal" => isIdle && selectedItems.Count > 0,
 				"Duplicate" => isIdle && CanDuplicateSelection(),
 				"CreateSymbolicLink" => isIdle && selectedItems.Count > 0,
-				"Cut" or "Copy" or "CopyPath" or "Rename" or "Share" or "Delete" or
+				"Cut" or "Copy" or "CopyPath" or "Rename" or "Share" or "Delete" or "MoveToTrash" or
 					"PermanentDelete" or "Properties" or "Compress" => isIdle && selectedItems.Count > 0,
 				"Extract" => isIdle && selectedItems is [LocalFileSystemItem archive] && IsZipArchive(archive),
 				"Favorite" => isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }],
