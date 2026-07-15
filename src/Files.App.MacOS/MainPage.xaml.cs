@@ -1601,6 +1601,26 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
+	internal async void HandleAuxiliaryMouseButton(int buttonNumber)
+	{
+		switch (buttonNumber)
+		{
+			case 2 when fileTransferCancellation is null:
+				BrowserTabViewModel? hoveredTab = ViewModel.Tabs.FirstOrDefault(static tab => tab.IsPointerOver);
+				if (hoveredTab is not null)
+				{
+					ViewModel.CloseTab(hoveredTab);
+				}
+				break;
+			case 3 when Browser?.CanGoBack is true:
+				await Browser.GoBackAsync();
+				break;
+			case 4 when Browser?.CanGoForward is true:
+				await Browser.GoForwardAsync();
+				break;
+		}
+	}
+
 	private async void UpButton_Click(object sender, RoutedEventArgs e)
 	{
 		if (Browser is not null)

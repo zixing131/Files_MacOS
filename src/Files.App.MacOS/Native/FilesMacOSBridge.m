@@ -38,6 +38,7 @@
 
 typedef void (*FilesMenuCommandCallback)(void *context, int command);
 typedef int (*FilesMenuValidationCallback)(void *context, int command);
+typedef void (*FilesAuxiliaryMouseCallback)(void *context, int buttonNumber);
 
 @interface FilesMenuTarget : NSObject <NSMenuItemValidation>
 @property(nonatomic, assign) FilesMenuCommandCallback executeCallback;
@@ -66,6 +67,9 @@ typedef int (*FilesMenuValidationCallback)(void *context, int command);
 static FilesQuickLookDataSource *quickLookDataSource;
 static NSSharingServicePicker *sharingServicePicker;
 static FilesMenuTarget *mainMenuTarget;
+static id auxiliaryMouseMonitor;
+static FilesAuxiliaryMouseCallback auxiliaryMouseCallback;
+static void *auxiliaryMouseCallbackContext;
 static atomic_bool mainMenuInstalled;
 static atomic_int mainMenuRootCount;
 static atomic_int mainMenuCommandCount;
@@ -76,6 +80,48 @@ static NSString *const FilesMetadataItemContentTypeTreeKey = @"kMDItemContentTyp
 static NSString *const FilesMetadataItemFSSizeKey = @"kMDItemFSSize";
 static NSString *const FilesMetadataItemFSContentChangeDateKey = @"kMDItemFSContentChangeDate";
 static NSString *const FilesMetadataItemUserTagsKey = @"kMDItemUserTags";
+
+__attribute__((visibility("default"))) void files_macos_install_auxiliary_mouse_handler(
+	FilesAuxiliaryMouseCallback callback,
+	void *callbackContext)
+{
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (auxiliaryMouseMonitor != nil)
+		{
+			[NSEvent removeMonitor:auxiliaryMouseMonitor];
+			auxiliaryMouseMonitor = nil;
+		}
+		auxiliaryMouseCallback = callback;
+		auxiliaryMouseCallbackContext = callbackContext;
+		if (callback == NULL)
+		{
+			return;
+		}
+
+		auxiliaryMouseMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskOtherMouseDown handler:^NSEvent *(NSEvent *event) {
+			NSInteger buttonNumber = event.buttonNumber;
+			if (buttonNumber >= 2 && buttonNumber <= 4 && auxiliaryMouseCallback != NULL)
+			{
+				auxiliaryMouseCallback(auxiliaryMouseCallbackContext, (int)buttonNumber);
+				return nil;
+			}
+			return event;
+		}];
+	});
+}
+
+__attribute__((visibility("default"))) void files_macos_uninstall_auxiliary_mouse_handler(void)
+{
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (auxiliaryMouseMonitor != nil)
+		{
+			[NSEvent removeMonitor:auxiliaryMouseMonitor];
+			auxiliaryMouseMonitor = nil;
+		}
+		auxiliaryMouseCallback = NULL;
+		auxiliaryMouseCallbackContext = NULL;
+	});
+}
 
 typedef struct
 {

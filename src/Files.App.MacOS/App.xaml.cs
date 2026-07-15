@@ -16,6 +16,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	private readonly Dictionary<Window, WindowPlacementState?> pendingWindowPlacements = [];
 	private readonly Dictionary<Window, WindowPlacementState?> lastKnownWindowPlacements = [];
 	private readonly MacOSMainMenuService mainMenuService = new();
+	private MacOSAuxiliaryMouseService? auxiliaryMouseService;
 	private MainPage? activePage;
 	private WorkspaceState? lastClosedWorkspace;
 	private WindowPlacementState? lastClosedWindowPlacement;
@@ -73,6 +74,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 				page.DispatcherQueue);
 			isMainMenuInstalled = true;
 		}
+		auxiliaryMouseService ??= new(page.DispatcherQueue, buttonNumber => activePage?.HandleAuxiliaryMouseButton(buttonNumber));
 
 		activePage = page;
 		window.Activate();

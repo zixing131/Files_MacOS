@@ -31,6 +31,14 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_uninstall_main_menu")]
 	internal static partial void UninstallMainMenu();
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_install_auxiliary_mouse_handler")]
+	internal static unsafe partial void InstallAuxiliaryMouseHandler(
+		delegate* unmanaged[Cdecl]<nint, int, void> callback,
+		nint context);
+
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_uninstall_auxiliary_mouse_handler")]
+	internal static partial void UninstallAuxiliaryMouseHandler();
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_describe_main_menu")]
 	internal static partial nint DescribeMainMenu();
 
