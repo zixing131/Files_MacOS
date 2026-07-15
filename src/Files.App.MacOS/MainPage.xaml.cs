@@ -88,6 +88,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		RegisterContentWheelHandler(DetailsItems);
 		RegisterContentWheelHandler(SecondaryGridItems);
 		RegisterContentWheelHandler(SecondaryDetailsItems);
+		PrimaryPaneBorder.AddHandler(UIElement.RightTappedEvent, new RightTappedEventHandler(PrimaryPane_RightTapped), handledEventsToo: true);
+		SecondaryPaneBorder.AddHandler(UIElement.RightTappedEvent, new RightTappedEventHandler(SecondaryPane_RightTapped), handledEventsToo: true);
 		RegisterDividerPointerHandlers(SidebarDivider, SidebarDivider_PointerPressed, SidebarDivider_PointerMoved, SidebarDivider_PointerReleased, SidebarDivider_PointerCaptureLost);
 		RegisterDividerPointerHandlers(SplitDivider, SplitDivider_PointerPressed, SplitDivider_PointerMoved, SplitDivider_PointerReleased, SplitDivider_PointerCaptureLost);
 		MoreSelectionSubItem.Text = GetResource("MoreSelectionSubItem/Text");
@@ -3110,6 +3112,50 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		PrepareItemContextFlyout(flyout);
 		flyout.ShowAt((FrameworkElement)sender);
 		e.Handled = true;
+	}
+
+	private void PrimaryPane_RightTapped(object sender, RightTappedRoutedEventArgs e) =>
+		ShowBackgroundContextMenu(e, ViewModel.ActiveTab?.Browser, PrimaryPaneBorder, PrimaryBackgroundContextFlyout);
+
+	private void SecondaryPane_RightTapped(object sender, RightTappedRoutedEventArgs e) =>
+		ShowBackgroundContextMenu(e, ViewModel.ActiveTab?.SecondaryBrowser, SecondaryPaneBorder, SecondaryBackgroundContextFlyout);
+
+	private void ShowBackgroundContextMenu(
+		RightTappedRoutedEventArgs e,
+		DirectoryBrowserViewModel? browser,
+		FrameworkElement pane,
+		MenuFlyout flyout)
+	{
+		if (browser is null || HasFileItemAncestor(e.OriginalSource as DependencyObject, pane))
+		{
+			return;
+		}
+
+		FrameworkElement control = GetVisibleItemsControl(browser);
+		ActivateBrowser(browser, control);
+		if (control is ItemsView itemsView)
+		{
+			itemsView.DeselectAll();
+		}
+		else if (control is ListViewBase listView)
+		{
+			listView.SelectedItems.Clear();
+		}
+		PrepareBackgroundContextMenu(flyout, browser);
+		flyout.ShowAt(pane, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = e.GetPosition(pane) });
+		e.Handled = true;
+	}
+
+	private static bool HasFileItemAncestor(DependencyObject? source, DependencyObject pane)
+	{
+		for (DependencyObject? current = source; current is not null && !ReferenceEquals(current, pane); current = VisualTreeHelper.GetParent(current))
+		{
+			if (current is FrameworkElement { DataContext: LocalFileSystemItem })
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private MenuFlyout CreateItemContextFlyout()
