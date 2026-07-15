@@ -390,7 +390,7 @@
 								<Button x:Name="CopyButton" Click="CopyButton_Click" IsEnabled="False" Style="{StaticResource ToolbarButtonStyle}">
 									<controls:CommandLabel x:Uid="CopyButton" IconData="M3,3 H13 V6 H17 V17 H7 V14 H3 Z M5,5 V12 H7 V6 H11 V5 Z M9,8 V15 H15 V8 Z" />
 								</Button>
-								<Button x:Name="PasteButton" Click="PasteButton_Click" IsEnabled="False" Style="{StaticResource ToolbarButtonStyle}">
+								<Button x:Name="PasteButton" MinWidth="76" Click="PasteButton_Click" IsEnabled="False" Style="{StaticResource ToolbarButtonStyle}">
 									<controls:CommandLabel x:Uid="PasteButton" IconData="m5.5,14h-3c-.28,0-.5-.22-.5-.5V2.5c0-.28.22-.5.5-.5h1.59c.21.58.76,1,1.41,1h3c.65,0,1.21-.42,1.41-1h1.59c.28,0,.5.22.5.5v1c0,.28.22.5.5.5s.5-.22.5-.5v-1c0-.83-.67-1.5-1.5-1.5h-1.59C9.71.42,9.15,0,8.5,0h-3C4.85,0,4.29.42,4.09,1h-1.59c-.83,0-1.5.67-1.5,1.5v11c0,.83.67,1.5,1.5,1.5h3c.28,0,.5-.22.5-.5s-.22-.5-.5-.5Zm0-13h3c.28,0,.5.22.5.5s-.22.5-.5.5h-3c-.28,0-.5-.22-.5-.5s.22-.5.5-.5Zm8,4h-5c-.83,0-1.5.67-1.5,1.5v8c0,.83.67,1.5,1.5,1.5h5c.83,0,1.5-.67,1.5-1.5V6.5c0-.83-.67-1.5-1.5-1.5Zm.5,9.5c0,.28-.22.5-.5.5h-5c-.28,0-.5-.22-.5-.5V6.5c0-.28.22-.5.5-.5h5c.28,0,.5.22.5.5v8Z" />
 								</Button>
 								<Border x:Name="EditCommandSeparator" Width="1" Height="20" Margin="4,0" Background="{ThemeResource FilesCardBorderBrush}" />
@@ -439,7 +439,7 @@
 							</StackPanel>
 						</ScrollViewer>
 						<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
-							<Button x:Name="MoreCommandsButton" Style="{StaticResource ToolbarButtonStyle}" Visibility="Collapsed">
+							<Button x:Name="MoreCommandsButton" Margin="6,0,0,0" Style="{StaticResource ToolbarButtonStyle}" Visibility="Collapsed">
 								<Button.Flyout>
 									<MenuFlyout Opening="MoreCommandsFlyout_Opening">
 										<MenuFlyoutItem x:Name="MoreRenameItem" x:Uid="ContextRenameItem" Click="ContextAction_Click" Tag="Rename" Visibility="Collapsed" />
