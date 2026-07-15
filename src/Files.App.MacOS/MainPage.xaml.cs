@@ -4274,7 +4274,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		var customLocationList = new StackPanel { Spacing = 4 };
 		foreach (string favoritePath in currentSettings.FavoritePaths ?? [])
 		{
-			var toggle = new CheckBox { Content = favoritePath, IsChecked = true, Tag = favoritePath };
+			var toggle = new CheckBox
+			{
+				Content = new TextBlock { Text = favoritePath, TextWrapping = TextWrapping.Wrap, MaxWidth = 330 },
+				IsChecked = true,
+				Tag = favoritePath,
+			};
 			customLocationToggles.Add(toggle);
 			customLocationList.Children.Add(toggle);
 		}
@@ -4292,7 +4297,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				return;
 			}
-			var toggle = new CheckBox { Content = grant.Path, IsChecked = true, Tag = grant.Path };
+			var toggle = new CheckBox
+			{
+				Content = new TextBlock { Text = grant.Path, TextWrapping = TextWrapping.Wrap, MaxWidth = 330 },
+				IsChecked = true,
+				Tag = grant.Path,
+			};
 			customLocationToggles.Add(toggle);
 			customLocationList.Children.Add(toggle);
 			pendingLocationGrants.Add(grant);
@@ -4354,6 +4364,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		};
 		if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
 		{
+			foreach (FolderAccessGrant pendingGrant in pendingLocationGrants)
+			{
+				AccessGrantService.Revoke(pendingGrant.Path);
+			}
 			return;
 		}
 
@@ -4410,6 +4424,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 		{
+			foreach (FolderAccessGrant pendingGrant in pendingLocationGrants)
+			{
+				AccessGrantService.Revoke(pendingGrant.Path);
+			}
 			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("SaveSettingsErrorMessage") : ex.Message);
 		}
 	}

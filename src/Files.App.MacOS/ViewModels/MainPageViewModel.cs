@@ -520,7 +520,7 @@ public sealed class MainPageViewModel : ObservableObject
 		SidebarLocationOption[] defaultLocations = GetDefaultSidebarLocations();
 		var hiddenLocations = (settings.HiddenDefaultSidebarLocations ?? []).ToHashSet(StringComparer.Ordinal);
 		List<SidebarLocation> pinnedLocations = defaultLocations
-			.Where(static location => location.Id is "Home" or "Applications" or "Shared" or "ICloud")
+			.Where(static location => location.Id is "Home" or "Applications" or "Shared" or "ICloud" or "Trash")
 			.Where(location => !hiddenLocations.Contains(location.Id))
 			.Select(static location => new SidebarLocation(location.Name, location.Path, location.Glyph))
 			.ToList();
@@ -631,6 +631,7 @@ public sealed class MainPageViewModel : ObservableObject
 			new SidebarLocationOption("Applications", GetResource("ApplicationsFolderDisplayName"), "/Applications", "A"),
 			new SidebarLocationOption("Shared", GetResource("SidebarSharedLocationName"), "/Users/Shared", "S"),
 			new SidebarLocationOption("ICloud", GetResource("SidebarICloudLocationName"), Path.Combine(home, "Library/Mobile Documents/com~apple~CloudDocs"), "☁"),
+			new SidebarLocationOption("Trash", GetResource("SidebarTrashLocationName"), Path.Combine(home, ".Trash"), "T"),
 			new SidebarLocationOption("Desktop", GetResource("SidebarDesktopButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "▣"),
 			new SidebarLocationOption("Downloads", GetResource("SidebarDownloadsButton/Content"), Path.Combine(home, "Downloads"), "↓"),
 			new SidebarLocationOption("Documents", GetResource("SidebarDocumentsButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "▤"),

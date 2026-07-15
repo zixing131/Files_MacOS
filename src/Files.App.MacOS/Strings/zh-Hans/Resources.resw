@@ -410,6 +410,7 @@
   <data name="CustomSidebarLocationsSettingLabel" xml:space="preserve"><value>自定义位置</value></data>
   <data name="AddSidebarLocationButtonText" xml:space="preserve"><value>添加文件夹…</value></data>
   <data name="TerminalSettingLabel" xml:space="preserve"><value>默认终端</value></data>
+  <data name="SidebarTrashLocationName" xml:space="preserve"><value>废纸篓</value></data>
   <data name="DropCopyCaption" xml:space="preserve"><value>复制到此文件夹</value></data>
   <data name="DropItemsErrorMessage" xml:space="preserve"><value>无法复制拖入的项目。</value></data>
   <data name="NewFolderMenuItem.Text" xml:space="preserve"><value>文件夹</value></data>

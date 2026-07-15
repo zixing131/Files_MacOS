@@ -749,7 +749,7 @@
 										<ItemContainer Width="116" Height="108" AutomationProperties.Name="{Binding AccessibilityName}" ContextFlyout="{StaticResource ItemContextFlyout}" RightTapped="Item_RightTapped">
 										<Grid CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" RowDefinitions="72,*" ToolTipService.ToolTip="{Binding Path}">
 											<Grid Width="64" Height="64" HorizontalAlignment="Center">
-													<PathIcon Width="44" Height="44" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+											<PathIcon Width="44" Height="44" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 											</Grid>
 											<TextBlock Grid.Row="1" HorizontalAlignment="Center" MaxLines="2" Text="{Binding Name}" TextAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" />
@@ -802,7 +802,7 @@
 										<DataTemplate>
 											<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,140,90" ContextFlyout="{StaticResource ItemContextFlyout}" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 												<Grid Grid.Column="0" Width="24" Height="24">
-														<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+												<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 													<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 												</Grid>
 												<StackPanel Grid.Column="1" VerticalAlignment="Center">
