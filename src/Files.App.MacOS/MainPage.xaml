@@ -628,11 +628,12 @@
 							Visibility="{Binding ActiveTab.Browser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}"
 							RowDefinitions="36,*">
 							<Border
+								x:Name="PrimaryDetailsHeader"
 								Grid.Row="0"
 								Background="{ThemeResource FilesSubtleBrush}"
 								BorderBrush="{ThemeResource FilesCardBorderBrush}"
 								BorderThickness="0,0,0,1"
-								ContextFlyout="{StaticResource DetailColumnsFlyout}">
+								RightTapped="DetailsHeader_RightTapped">
 								<Grid Padding="8,0" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 									<Button x:Name="PrimaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
 										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="PrimaryNameSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
@@ -827,11 +828,12 @@
 								Visibility="{Binding ActiveTab.SecondaryBrowser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}"
 								RowDefinitions="36,*">
 								<Border
+									x:Name="SecondaryDetailsHeader"
 									Grid.Row="0"
 									Background="{ThemeResource FilesSubtleBrush}"
 									BorderBrush="{ThemeResource FilesCardBorderBrush}"
 									BorderThickness="0,0,0,1"
-									ContextFlyout="{StaticResource DetailColumnsFlyout}">
+									RightTapped="DetailsHeader_RightTapped">
 									<Grid Padding="8,0" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 										<Button x:Name="SecondaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
 											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="SecondaryNameSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>

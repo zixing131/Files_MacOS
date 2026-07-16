@@ -616,6 +616,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			PrimaryKindHeaderButton.Visibility is Visibility.Visible &&
 			PrimaryModifiedHeaderButton.Visibility is Visibility.Collapsed &&
 			PrimarySizeHeaderButton.Visibility is Visibility.Collapsed &&
+			PrimaryDetailsHeader.ContextFlyout is null && SecondaryDetailsHeader.ContextFlyout is null &&
 			DetailColumnState.Capture() is ["Created", "Kind"];
 		DetailColumnState.Apply(originalDetailColumns);
 		RootLayout.UpdateLayout();
@@ -6086,6 +6087,19 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			DetailColumnState.Apply(previousColumns);
 			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("SaveSettingsErrorMessage") : ex.Message);
 		}
+	}
+
+	private void DetailsHeader_RightTapped(object sender, RightTappedRoutedEventArgs e)
+	{
+		if (sender is not FrameworkElement header || Resources["DetailColumnsFlyout"] is not MenuFlyout flyout)
+		{
+			return;
+		}
+
+		e.Handled = true;
+		flyout.ShowAt(
+			header,
+			new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = e.GetPosition(header) });
 	}
 
 	private void DetailsHeaderButton_Click(object sender, RoutedEventArgs e)
