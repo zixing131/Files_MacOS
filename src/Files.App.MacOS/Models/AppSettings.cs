@@ -48,7 +48,8 @@ public sealed record AppSettings(
 	string[]? HiddenDefaultSidebarLocations = null,
 	TerminalPreference Terminal = TerminalPreference.Terminal,
 	bool ConfirmMoveToTrash = true,
-	int SchemaVersion = 14);
+	string[]? DetailColumns = null,
+	int SchemaVersion = 15);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 

@@ -70,6 +70,12 @@ public sealed partial class LocalFileSystemItem(
 
 	public string ModifiedText => Modified.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
 
+	public string CreatedText => Created.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+
+	public string LastOpenedText => LastOpened.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+
+	public string AddedText => Added.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+
 	public string SizeText => IsDirectory || Size is null ? string.Empty : FormatSize(Size.Value);
 
 	public static string FormatSize(long value)

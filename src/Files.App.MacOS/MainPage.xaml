@@ -4,11 +4,13 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:converters="using:Files.App.MacOS.Converters"
 	xmlns:controls="using:Files.App.MacOS.Controls"
+	xmlns:models="using:Files.App.MacOS.Models"
 	xmlns:viewmodels="using:Files.App.MacOS.ViewModels"
 	Background="{ThemeResource FilesBackgroundBrush}"
 	KeyboardAcceleratorPlacementMode="Hidden">
 
 	<Page.Resources>
+		<models:DetailColumnVisibilityState x:Key="DetailColumnVisibilityState" />
 		<converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 		<converters:FileSystemItemToIconConverter x:Key="FileSystemItemToIconConverter" />
 		<converters:SidebarGlyphToIconConverter x:Key="SidebarGlyphToIconConverter" />
@@ -38,6 +40,20 @@
 				<MenuFlyoutItem x:Uid="ContextFavoriteItem" Click="ContextAction_Click" Tag="Favorite" />
 				<MenuFlyoutItem x:Uid="ContextPermanentDeleteItem" Click="ContextAction_Click" Tag="PermanentDelete" />
 			</MenuFlyoutSubItem>
+		</MenuFlyout>
+		<MenuFlyout x:Key="DetailColumnsFlyout">
+			<ToggleMenuFlyoutItem x:Uid="SortNameItem" IsChecked="True" IsEnabled="False" />
+			<ToggleMenuFlyoutItem x:Uid="SortModifiedItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Modified" />
+			<ToggleMenuFlyoutItem x:Uid="SortCreatedItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Created" />
+			<ToggleMenuFlyoutItem x:Uid="SortLastOpenedItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="LastOpened" />
+			<ToggleMenuFlyoutItem x:Uid="SortAddedItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowAdded, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Added" />
+			<ToggleMenuFlyoutItem x:Uid="SortSizeItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowSize, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Size" />
+			<ToggleMenuFlyoutItem x:Uid="SortKindItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowKind, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Kind" />
+			<ToggleMenuFlyoutItem x:Uid="SortLastModifiedByItem" IsEnabled="False" />
+			<ToggleMenuFlyoutItem x:Uid="SortSharedByItem" IsEnabled="False" />
+			<ToggleMenuFlyoutItem x:Uid="SortVersionItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowVersion, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Version" />
+			<ToggleMenuFlyoutItem x:Uid="SortCommentsItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowComments, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Comments" />
+			<ToggleMenuFlyoutItem x:Uid="SortTagsItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowTags, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Tags" />
 		</MenuFlyout>
 	</Page.Resources>
 	<Page.KeyboardAccelerators>
@@ -615,17 +631,25 @@
 								Grid.Row="0"
 								Background="{ThemeResource FilesSubtleBrush}"
 								BorderBrush="{ThemeResource FilesCardBorderBrush}"
-								BorderThickness="0,0,0,1">
-								<Grid Padding="8,0" ColumnDefinitions="28,*,180,100">
+								BorderThickness="0,0,0,1"
+								ContextFlyout="{StaticResource DetailColumnsFlyout}">
+								<Grid Padding="8,0" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 									<Button x:Name="PrimaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
 										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="PrimaryNameSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 									</Button>
-									<Button x:Name="PrimaryModifiedHeaderButton" Grid.Column="2" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Modified">
+									<Button x:Name="PrimaryModifiedHeaderButton" Grid.Column="2" Width="150" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Modified" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}">
 										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="ModifiedColumn" /><PathIcon x:Name="PrimaryModifiedSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 									</Button>
-									<Button x:Name="PrimarySizeHeaderButton" Grid.Column="3" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Size">
+									<Button x:Name="PrimaryCreatedHeaderButton" Grid.Column="3" Width="150" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Created" Visibility="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortCreatedItem" /><PathIcon x:Name="PrimaryCreatedSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+									<Button x:Name="PrimaryLastOpenedHeaderButton" Grid.Column="4" Width="160" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="LastOpened" Visibility="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortLastOpenedItem" /><PathIcon x:Name="PrimaryLastOpenedSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+									<Button x:Name="PrimaryAddedHeaderButton" Grid.Column="5" Width="150" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Added" Visibility="{Binding ShowAdded, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortAddedItem" /><PathIcon x:Name="PrimaryAddedSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+									<Button x:Name="PrimarySizeHeaderButton" Grid.Column="6" Width="100" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Size" Visibility="{Binding ShowSize, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}">
 										<StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SizeColumn" /><PathIcon x:Name="PrimarySizeSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 									</Button>
+									<Button x:Name="PrimaryKindHeaderButton" Grid.Column="7" Width="130" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Kind" Visibility="{Binding ShowKind, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortKindItem" /><PathIcon x:Name="PrimaryKindSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+									<Button x:Name="PrimaryVersionHeaderButton" Grid.Column="8" Width="100" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Version" Visibility="{Binding ShowVersion, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortVersionItem" /><PathIcon x:Name="PrimaryVersionSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+									<Button x:Name="PrimaryCommentsHeaderButton" Grid.Column="9" Width="160" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Comments" Visibility="{Binding ShowComments, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortCommentsItem" /><PathIcon x:Name="PrimaryCommentsSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+									<Button x:Name="PrimaryTagsHeaderButton" Grid.Column="10" Width="140" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Tags" Visibility="{Binding ShowTags, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortTagsItem" /><PathIcon x:Name="PrimaryTagsSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
 								</Grid>
 							</Border>
 							<ListView
@@ -648,7 +672,7 @@
 								</ListView.ItemsPanel>
 								<ListView.ItemTemplate>
 									<DataTemplate>
-										<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,180,100" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+										<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 											<Grid Grid.Column="0" Width="24" Height="24">
 												<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
@@ -662,8 +686,15 @@
 													TextTrimming="CharacterEllipsis"
 													Visibility="{Binding IsSearchResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
 											</StackPanel>
-											<TextBlock Grid.Column="2" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-											<TextBlock Grid.Column="3" Text="{Binding SizeText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+											<TextBlock Grid.Column="2" Width="150" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											<TextBlock Grid.Column="3" Width="150" Text="{Binding CreatedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											<TextBlock Grid.Column="4" Width="160" Text="{Binding LastOpenedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											<TextBlock Grid.Column="5" Width="150" Text="{Binding AddedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowAdded, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											<TextBlock Grid.Column="6" Width="100" Text="{Binding SizeText}" HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="{Binding ShowSize, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											<TextBlock Grid.Column="7" Width="130" Text="{Binding Kind}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowKind, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											<TextBlock Grid.Column="8" Width="100" Text="{Binding Version}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowVersion, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											<TextBlock Grid.Column="9" Width="160" Text="{Binding Comments}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowComments, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											<TextBlock Grid.Column="10" Width="140" Text="{Binding TagsText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowTags, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 										</Grid>
 									</DataTemplate>
 								</ListView.ItemTemplate>
@@ -799,17 +830,25 @@
 									Grid.Row="0"
 									Background="{ThemeResource FilesSubtleBrush}"
 									BorderBrush="{ThemeResource FilesCardBorderBrush}"
-									BorderThickness="0,0,0,1">
-									<Grid Padding="8,0" ColumnDefinitions="28,*,140,90">
+									BorderThickness="0,0,0,1"
+									ContextFlyout="{StaticResource DetailColumnsFlyout}">
+									<Grid Padding="8,0" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 										<Button x:Name="SecondaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
 											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="SecondaryNameSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 										</Button>
-										<Button x:Name="SecondaryModifiedHeaderButton" Grid.Column="2" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Modified">
+										<Button x:Name="SecondaryModifiedHeaderButton" Grid.Column="2" Width="150" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Modified" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}">
 											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="ModifiedColumn" /><PathIcon x:Name="SecondaryModifiedSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 										</Button>
-										<Button x:Name="SecondarySizeHeaderButton" Grid.Column="3" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Size">
+										<Button x:Name="SecondaryCreatedHeaderButton" Grid.Column="3" Width="150" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Created" Visibility="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortCreatedItem" /><PathIcon x:Name="SecondaryCreatedSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+										<Button x:Name="SecondaryLastOpenedHeaderButton" Grid.Column="4" Width="160" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="LastOpened" Visibility="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortLastOpenedItem" /><PathIcon x:Name="SecondaryLastOpenedSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+										<Button x:Name="SecondaryAddedHeaderButton" Grid.Column="5" Width="150" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Added" Visibility="{Binding ShowAdded, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortAddedItem" /><PathIcon x:Name="SecondaryAddedSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+										<Button x:Name="SecondarySizeHeaderButton" Grid.Column="6" Width="100" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Size" Visibility="{Binding ShowSize, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}">
 											<StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SizeColumn" /><PathIcon x:Name="SecondarySizeSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 										</Button>
+										<Button x:Name="SecondaryKindHeaderButton" Grid.Column="7" Width="130" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Kind" Visibility="{Binding ShowKind, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortKindItem" /><PathIcon x:Name="SecondaryKindSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+										<Button x:Name="SecondaryVersionHeaderButton" Grid.Column="8" Width="100" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Version" Visibility="{Binding ShowVersion, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortVersionItem" /><PathIcon x:Name="SecondaryVersionSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+										<Button x:Name="SecondaryCommentsHeaderButton" Grid.Column="9" Width="160" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Comments" Visibility="{Binding ShowComments, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortCommentsItem" /><PathIcon x:Name="SecondaryCommentsSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
+										<Button x:Name="SecondaryTagsHeaderButton" Grid.Column="10" Width="140" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Tags" Visibility="{Binding ShowTags, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="SortTagsItem" /><PathIcon x:Name="SecondaryTagsSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel></Button>
 									</Grid>
 								</Border>
 								<ListView
@@ -832,7 +871,7 @@
 									</ListView.ItemsPanel>
 									<ListView.ItemTemplate>
 										<DataTemplate>
-											<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,140,90" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+											<Grid MinHeight="36" Padding="8,4" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 												<Grid Grid.Column="0" Width="24" Height="24">
 												<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 													<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
@@ -846,8 +885,15 @@
 														TextTrimming="CharacterEllipsis"
 														Visibility="{Binding IsSearchResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
 												</StackPanel>
-												<TextBlock Grid.Column="2" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-												<TextBlock Grid.Column="3" Text="{Binding SizeText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+												<TextBlock Grid.Column="2" Width="150" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												<TextBlock Grid.Column="3" Width="150" Text="{Binding CreatedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												<TextBlock Grid.Column="4" Width="160" Text="{Binding LastOpenedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												<TextBlock Grid.Column="5" Width="150" Text="{Binding AddedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowAdded, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												<TextBlock Grid.Column="6" Width="100" Text="{Binding SizeText}" HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="{Binding ShowSize, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												<TextBlock Grid.Column="7" Width="130" Text="{Binding Kind}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowKind, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												<TextBlock Grid.Column="8" Width="100" Text="{Binding Version}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowVersion, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												<TextBlock Grid.Column="9" Width="160" Text="{Binding Comments}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowComments, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												<TextBlock Grid.Column="10" Width="140" Text="{Binding TagsText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowTags, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 											</Grid>
 										</DataTemplate>
 									</ListView.ItemTemplate>

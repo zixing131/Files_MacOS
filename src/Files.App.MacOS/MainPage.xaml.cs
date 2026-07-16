@@ -34,6 +34,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private IMacOSWorkspaceService WorkspaceService { get; } = new MacOSWorkspaceService();
 	private IMacOSAccessGrantService AccessGrantService { get; } = new MacOSAccessGrantService();
 	private MacOSMainMenuService MainMenuService => ((App)Application.Current).MainMenuService;
+	private DetailColumnVisibilityState DetailColumnState =>
+		(DetailColumnVisibilityState)Resources["DetailColumnVisibilityState"];
 	private readonly ResourceLoader resourceLoader = ResourceLoader.GetForViewIndependentUse();
 	private static readonly SemaphoreSlim SettingsSaveLock = new(1, 1);
 	private IReadOnlyList<LocalFileSystemItem> selectedItems = [];
@@ -246,6 +248,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			currentSettings.AccessGrants ?? []);
 		currentSettings = AccessGrantSettingsMapper.Apply(currentSettings, restoredGrants);
 		persistedSettingsBaseline = currentSettings;
+		DetailColumnState.Apply(currentSettings.DetailColumns);
 		isSidebarOpen = currentSettings.IsSidebarOpen;
 		sidebarWidth = currentSettings.SidebarWidth;
 		isPreviewPaneOpen = currentSettings.IsPreviewPaneOpen;
@@ -580,10 +583,24 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				PrimaryNameHeaderButton,
 				PrimaryModifiedHeaderButton,
+				PrimaryCreatedHeaderButton,
+				PrimaryLastOpenedHeaderButton,
+				PrimaryAddedHeaderButton,
 				PrimarySizeHeaderButton,
+				PrimaryKindHeaderButton,
+				PrimaryVersionHeaderButton,
+				PrimaryCommentsHeaderButton,
+				PrimaryTagsHeaderButton,
 				SecondaryNameHeaderButton,
 				SecondaryModifiedHeaderButton,
+				SecondaryCreatedHeaderButton,
+				SecondaryLastOpenedHeaderButton,
+				SecondaryAddedHeaderButton,
 				SecondarySizeHeaderButton,
+				SecondaryKindHeaderButton,
+				SecondaryVersionHeaderButton,
+				SecondaryCommentsHeaderButton,
+				SecondaryTagsHeaderButton,
 			}.All(static button => !string.IsNullOrWhiteSpace(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(button)));
 		browser.SetSort(initialSortField, initialSortDirection);
 		UpdateSortHeaderVisuals();
@@ -592,6 +609,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool viewChanged = browser.IsGridView != initialGridView;
 		SetViewMode(browser, initialGridView);
 		bool viewModeRoundtrip = viewChanged && browser.IsGridView == initialGridView;
+		string[] originalDetailColumns = DetailColumnState.Capture();
+		DetailColumnState.Apply(["Created", "Kind"]);
+		RootLayout.UpdateLayout();
+		bool detailColumnCustomization = PrimaryCreatedHeaderButton.Visibility is Visibility.Visible &&
+			PrimaryKindHeaderButton.Visibility is Visibility.Visible &&
+			PrimaryModifiedHeaderButton.Visibility is Visibility.Collapsed &&
+			PrimarySizeHeaderButton.Visibility is Visibility.Collapsed &&
+			DetailColumnState.Capture() is ["Created", "Kind"];
+		DetailColumnState.Apply(originalDetailColumns);
+		RootLayout.UpdateLayout();
 		UpdateSidebarSelection();
 		bool sidebarActiveSync = SidebarList.SelectedItem is SidebarLocation activeLocation &&
 			!activeLocation.IsHeader && IsSameOrDescendantPath(browser.CurrentPath, activeLocation.Path);
@@ -744,7 +771,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} sidebar_eject_buttons={renderedEjectButtons} sidebar_header_spacing={sidebarHeaderSpacing} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} tab_icon_layout={tabIconLayout} breadcrumb_home_icon={breadcrumbHomeIcon} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} symbol_font={app.IsSymbolFontAvailable} dynamic_labels={dynamicCommandLabels} item_context_compact={compactItemContextMenu} background_context_menu={backgroundContextMenu} item_context_hit_targets={itemContextHitTargets} item_context_targets={itemContextTargets} alias_app_thumbnail={aliasApplicationThumbnail} thumbnail_double_buffer={thumbnailDoubleBuffer} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} type_select={typeSelect} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} detail_columns={detailColumnCustomization} type_select={typeSelect} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -1010,7 +1037,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
 			recentLocations &= restoredSettings is
 			{
-				SchemaVersion: 14,
+				SchemaVersion: 15,
 				RecentPaths: [var restoredRecentPath],
 				CollapsedSidebarSections: ["Recent"],
 				AdditionalWindowWorkspaces: [{ Tabs: [{ SplitRatio: 0.8 }] }],
@@ -1019,6 +1046,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				AdditionalWindowPlacements: [{ Width: 800, Height: 600 }],
 				ReverseTabScrollDirection: true,
 				ConfirmMoveToTrash: true,
+				DetailColumns: ["Modified", "Size"],
 			} && restoredRecentPath == root;
 			string originalGrantPath = Path.Combine(root, "old-grant");
 			string restoredGrantPath = Path.Combine(root, "restored-grant");
@@ -6040,6 +6068,26 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		AnnounceSortState(Browser);
 	}
 
+	private async void DetailColumnMenuItem_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is not ToggleMenuFlyoutItem { Tag: string column } toggle)
+		{
+			return;
+		}
+
+		string[] previousColumns = DetailColumnState.Capture();
+		DetailColumnState.SetVisible(column, toggle.IsChecked);
+		try
+		{
+			await PersistSettingsAsync(currentSettings with { DetailColumns = DetailColumnState.Capture() });
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			DetailColumnState.Apply(previousColumns);
+			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("SaveSettingsErrorMessage") : ex.Message);
+		}
+	}
+
 	private void DetailsHeaderButton_Click(object sender, RoutedEventArgs e)
 	{
 		if (sender is not Button { Tag: string value } button || !Enum.TryParse(value, out FileSortField field))
@@ -6082,12 +6130,26 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ViewModel.ActiveTab?.Browser,
 			(PrimaryNameHeaderButton, PrimaryNameSortIndicator, FileSortField.Name, "NameColumn/Text"),
 			(PrimaryModifiedHeaderButton, PrimaryModifiedSortIndicator, FileSortField.Modified, "ModifiedColumn/Text"),
-			(PrimarySizeHeaderButton, PrimarySizeSortIndicator, FileSortField.Size, "SizeColumn/Text"));
+			(PrimaryCreatedHeaderButton, PrimaryCreatedSortIndicator, FileSortField.Created, "SortCreatedItem/Text"),
+			(PrimaryLastOpenedHeaderButton, PrimaryLastOpenedSortIndicator, FileSortField.LastOpened, "SortLastOpenedItem/Text"),
+			(PrimaryAddedHeaderButton, PrimaryAddedSortIndicator, FileSortField.Added, "SortAddedItem/Text"),
+			(PrimarySizeHeaderButton, PrimarySizeSortIndicator, FileSortField.Size, "SizeColumn/Text"),
+			(PrimaryKindHeaderButton, PrimaryKindSortIndicator, FileSortField.Kind, "SortKindItem/Text"),
+			(PrimaryVersionHeaderButton, PrimaryVersionSortIndicator, FileSortField.Version, "SortVersionItem/Text"),
+			(PrimaryCommentsHeaderButton, PrimaryCommentsSortIndicator, FileSortField.Comments, "SortCommentsItem/Text"),
+			(PrimaryTagsHeaderButton, PrimaryTagsSortIndicator, FileSortField.Tags, "SortTagsItem/Text"));
 		SetSortIndicators(
 			ViewModel.ActiveTab?.SecondaryBrowser,
 			(SecondaryNameHeaderButton, SecondaryNameSortIndicator, FileSortField.Name, "NameColumn/Text"),
 			(SecondaryModifiedHeaderButton, SecondaryModifiedSortIndicator, FileSortField.Modified, "ModifiedColumn/Text"),
-			(SecondarySizeHeaderButton, SecondarySizeSortIndicator, FileSortField.Size, "SizeColumn/Text"));
+			(SecondaryCreatedHeaderButton, SecondaryCreatedSortIndicator, FileSortField.Created, "SortCreatedItem/Text"),
+			(SecondaryLastOpenedHeaderButton, SecondaryLastOpenedSortIndicator, FileSortField.LastOpened, "SortLastOpenedItem/Text"),
+			(SecondaryAddedHeaderButton, SecondaryAddedSortIndicator, FileSortField.Added, "SortAddedItem/Text"),
+			(SecondarySizeHeaderButton, SecondarySizeSortIndicator, FileSortField.Size, "SizeColumn/Text"),
+			(SecondaryKindHeaderButton, SecondaryKindSortIndicator, FileSortField.Kind, "SortKindItem/Text"),
+			(SecondaryVersionHeaderButton, SecondaryVersionSortIndicator, FileSortField.Version, "SortVersionItem/Text"),
+			(SecondaryCommentsHeaderButton, SecondaryCommentsSortIndicator, FileSortField.Comments, "SortCommentsItem/Text"),
+			(SecondaryTagsHeaderButton, SecondaryTagsSortIndicator, FileSortField.Tags, "SortTagsItem/Text"));
 	}
 
 	private void SetSortIndicators(
@@ -6326,7 +6388,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				WindowPlacement = windowSession.PrimaryWindowPlacement,
 				AdditionalWindowPlacements = windowSession.AdditionalWindowPlacements,
 				SidebarWidth = mergedSettings.SidebarWidth,
-				SchemaVersion = 14,
+				SchemaVersion = 15,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;
@@ -6348,6 +6410,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			UseGridViewForNewTabs = requested.UseGridViewForNewTabs != baseline.UseGridViewForNewTabs ? requested.UseGridViewForNewTabs : latest.UseGridViewForNewTabs,
 			ReverseTabScrollDirection = requested.ReverseTabScrollDirection != baseline.ReverseTabScrollDirection ? requested.ReverseTabScrollDirection : latest.ReverseTabScrollDirection,
 			ConfirmMoveToTrash = requested.ConfirmMoveToTrash != baseline.ConfirmMoveToTrash ? requested.ConfirmMoveToTrash : latest.ConfirmMoveToTrash,
+			DetailColumns = HasSequenceChanged(requested.DetailColumns, baseline.DetailColumns, StringComparer.Ordinal) ? requested.DetailColumns : latest.DetailColumns,
 			FavoritePaths = HasSequenceChanged(requested.FavoritePaths, baseline.FavoritePaths, StringComparer.OrdinalIgnoreCase) ? requested.FavoritePaths : latest.FavoritePaths,
 			RecentPaths = HasSequenceChanged(requested.RecentPaths, baseline.RecentPaths, StringComparer.Ordinal) ? requested.RecentPaths : latest.RecentPaths,
 			RecentServers = HasSequenceChanged(requested.RecentServers, baseline.RecentServers, StringComparer.OrdinalIgnoreCase) ? requested.RecentServers : latest.RecentServers,

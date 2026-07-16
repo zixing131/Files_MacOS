@@ -90,6 +90,11 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 		string[] hiddenDefaultSidebarLocations = NormalizeStrings(settings.HiddenDefaultSidebarLocations, 12, StringComparer.Ordinal)
 			.Where(static id => id is "Home" or "Applications" or "Downloads" or "Documents" or "Desktop" or "Pictures" or "Music" or "Movies" or "Shared" or "ICloud" or "Trash")
 			.ToArray();
+		string[] detailColumns = settings.DetailColumns is null
+			? ["Modified", "Size"]
+			: NormalizeStrings(settings.DetailColumns, 9, StringComparer.Ordinal)
+				.Where(static column => column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
+				.ToArray();
 		SavedSearch[] savedSearches = (settings.SavedSearches ?? [])
 			.Where(static search => search is not null &&
 				!string.IsNullOrWhiteSpace(search.Name) &&
@@ -130,6 +135,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			SearchHistory = searchHistory,
 			CollapsedSidebarSections = collapsedSidebarSections,
 			HiddenDefaultSidebarLocations = hiddenDefaultSidebarLocations,
+			DetailColumns = detailColumns,
 			SavedSearches = savedSearches,
 			Workspace = workspace,
 			AdditionalWindowWorkspaces = additionalWindowWorkspaces,
@@ -140,7 +146,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
 			ConfirmMoveToTrash = settings.SchemaVersion < 14 || settings.ConfirmMoveToTrash,
-			SchemaVersion = 14,
+			SchemaVersion = 15,
 		};
 	}
 
