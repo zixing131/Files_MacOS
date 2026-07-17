@@ -247,7 +247,7 @@
 						Background="Transparent"
 						BorderThickness="0"
 						Height="34"
-						Padding="12,0"
+						Padding="12,8,12,0"
 						VerticalAlignment="Center"
 						VerticalContentAlignment="Center"
 						KeyDown="AddressBox_KeyDown"

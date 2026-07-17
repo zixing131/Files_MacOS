@@ -1923,14 +1923,50 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (e.Key is VirtualKey.Enter && Browser is not null)
 		{
 			e.Handled = true;
-			await Browser.NavigateAsync(AddressBox.Text);
-			EndAddressEdit();
+			await NavigateFromAddressAsync(Browser, AddressBox.Text);
 		}
 		else if (e.Key is VirtualKey.Escape)
 		{
 			e.Handled = true;
 			EndAddressEdit();
 		}
+	}
+
+	private async Task NavigateFromAddressAsync(DirectoryBrowserViewModel browser, string address)
+	{
+		string navigationPath = address;
+		string? revealPath = null;
+		try
+		{
+			string fullPath = Path.GetFullPath(address.Trim());
+			bool isPackage = Directory.Exists(fullPath) && MacOSFilePackage.IsPackage(new DirectoryInfo(fullPath));
+			if (File.Exists(fullPath) || isPackage)
+			{
+				revealPath = fullPath;
+				navigationPath = Path.GetDirectoryName(fullPath) ?? browser.CurrentPath;
+			}
+		}
+		catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+		{
+		}
+
+		await browser.NavigateAsync(navigationPath);
+		EndAddressEdit();
+		if (revealPath is null || !string.Equals(browser.CurrentPath, navigationPath, StringComparison.OrdinalIgnoreCase))
+		{
+			return;
+		}
+		string itemPath = revealPath;
+
+		DispatcherQueue.TryEnqueue(() =>
+		{
+			int index = Enumerable.Range(0, browser.Items.Count)
+				.FirstOrDefault(index => string.Equals(browser.Items[index].Path, itemPath, StringComparison.OrdinalIgnoreCase), -1);
+			if (index >= 0)
+			{
+				SelectAndRevealItem(browser, GetVisibleItemsControl(browser), index);
+			}
+		});
 	}
 
 	private void AddressAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
