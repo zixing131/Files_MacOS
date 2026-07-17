@@ -18,6 +18,9 @@
 #import <string.h>
 #import <sys/stat.h>
 #import <sys/acl.h>
+#import <sys/xattr.h>
+
+static const char *FilesTrashOriginalPathAttribute = "io.filesmacos.original-path";
 
 @interface FilesQuickLookDataSource : NSObject <QLPreviewPanelDataSource>
 @property(nonatomic, strong) NSURL *url;
@@ -1378,6 +1381,64 @@ __attribute__((visibility("default"))) int files_macos_open_url(const char *url)
 	}
 }
 
+__attribute__((visibility("default"))) int files_macos_full_disk_access_status(void)
+{
+	@autoreleasepool
+	{
+		NSString *home = NSHomeDirectory();
+		NSArray<NSDictionary<NSString *, id> *> *probes = @[
+			@{ @"path": [home stringByAppendingPathComponent:@"Library/Application Support/com.apple.TCC/TCC.db"], @"directory": @NO },
+			@{ @"path": [home stringByAppendingPathComponent:@"Library/Safari/History.db"], @"directory": @NO },
+			@{ @"path": [home stringByAppendingPathComponent:@"Library/Messages/chat.db"], @"directory": @NO },
+			@{ @"path": [home stringByAppendingPathComponent:@"Library/Mail"], @"directory": @YES },
+		];
+		BOOL foundProbe = NO;
+		for (NSDictionary<NSString *, id> *probe in probes)
+		{
+			NSString *path = probe[@"path"];
+			BOOL isDirectory = [probe[@"directory"] boolValue];
+			if (![[NSFileManager defaultManager] fileExistsAtPath:path])
+			{
+				continue;
+			}
+
+			foundProbe = YES;
+			NSError *error = nil;
+			if (isDirectory)
+			{
+				if ([[NSFileManager defaultManager] contentsOfDirectoryAtPath:path error:&error] != nil)
+				{
+					return 1;
+				}
+			}
+			else
+			{
+				NSFileHandle *handle = [NSFileHandle fileHandleForReadingFromURL:[NSURL fileURLWithPath:path] error:&error];
+				if (handle != nil)
+				{
+					[handle closeFile];
+					return 1;
+				}
+			}
+			if (error.code == NSFileReadNoPermissionError ||
+				([error.domain isEqualToString:NSPOSIXErrorDomain] && (error.code == EACCES || error.code == EPERM)))
+			{
+				return 0;
+			}
+		}
+		return foundProbe ? 0 : -1;
+	}
+}
+
+__attribute__((visibility("default"))) int files_macos_open_full_disk_access_settings(void)
+{
+	@autoreleasepool
+	{
+		NSURL *url = [NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"];
+		return url != nil && [[NSWorkspace sharedWorkspace] openURL:url] ? 1 : 0;
+	}
+}
+
 __attribute__((visibility("default"))) int files_macos_eject_volume(const char *path)
 {
 	@autoreleasepool
@@ -1584,12 +1645,61 @@ __attribute__((visibility("default"))) char *files_macos_move_to_trash_with_resu
 			trashItemAtURL:url
 			resultingItemURL:&resultingURL
 			error:&operationError];
+		if (succeeded && resultingURL != nil)
+		{
+			NSData *originalPath = [url.path dataUsingEncoding:NSUTF8StringEncoding];
+			setxattr(resultingURL.fileSystemRepresentation, FilesTrashOriginalPathAttribute,
+				originalPath.bytes, originalPath.length, 0, 0);
+		}
 		return files_copy_json(@{
 			@"success": @(succeeded),
 			@"originalPath": url.path ?: @"",
 			@"trashPath": resultingURL.path ?: @"",
 			@"error": operationError.localizedDescription ?: @""
 		});
+	}
+}
+
+__attribute__((visibility("default"))) char *files_macos_restore_from_trash(const char *path)
+{
+	@autoreleasepool
+	{
+		NSURL *trashURL = files_url_from_path(path);
+		if (trashURL == nil)
+		{
+			return strdup("Invalid Trash item URL.");
+		}
+
+		ssize_t length = getxattr(trashURL.fileSystemRepresentation, FilesTrashOriginalPathAttribute, NULL, 0, 0, 0);
+		if (length <= 0)
+		{
+			return strdup("The original location for this item is unavailable.");
+		}
+		NSMutableData *data = [NSMutableData dataWithLength:(NSUInteger)length];
+		if (getxattr(trashURL.fileSystemRepresentation, FilesTrashOriginalPathAttribute,
+			data.mutableBytes, data.length, 0, 0) != length)
+		{
+			return strdup("The original location for this item couldn't be read.");
+		}
+
+		NSString *originalPath = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+		NSURL *originalURL = originalPath.length == 0 ? nil : [NSURL fileURLWithPath:originalPath];
+		if (originalURL == nil || [[NSFileManager defaultManager] fileExistsAtPath:originalURL.path])
+		{
+			return strdup("An item already exists at the original location.");
+		}
+		if (![[NSFileManager defaultManager] fileExistsAtPath:originalURL.URLByDeletingLastPathComponent.path])
+		{
+			return strdup("The original folder no longer exists.");
+		}
+
+		NSError *error = nil;
+		if (![[NSFileManager defaultManager] moveItemAtURL:trashURL toURL:originalURL error:&error])
+		{
+			return files_copy_error(error);
+		}
+		removexattr(originalURL.fileSystemRepresentation, FilesTrashOriginalPathAttribute, 0);
+		return NULL;
 	}
 }
 
@@ -2389,6 +2499,50 @@ __attribute__((visibility("default"))) char *files_macos_share_files(const char 
 
 			sharingServicePicker = [[NSSharingServicePicker alloc] initWithItems:urls];
 			[sharingServicePicker showRelativeToRect:view.bounds ofView:view preferredEdge:NSRectEdgeMaxY];
+		});
+		return result;
+	}
+}
+
+__attribute__((visibility("default"))) char *files_macos_share_files_via_airdrop(const char *pathsJson)
+{
+	@autoreleasepool
+	{
+		if (pathsJson == NULL)
+		{
+			return strdup("Invalid AirDrop data.");
+		}
+
+		NSData *jsonData = [[NSData alloc] initWithBytes:pathsJson length:strlen(pathsJson)];
+		id value = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:nil];
+		if (![value isKindOfClass:NSArray.class])
+		{
+			return strdup("Invalid AirDrop data.");
+		}
+
+		NSMutableArray<NSURL *> *urls = [NSMutableArray array];
+		for (id pathValue in (NSArray *)value)
+		{
+			if (![pathValue isKindOfClass:NSString.class])
+			{
+				return strdup("Invalid AirDrop path.");
+			}
+			[urls addObject:[NSURL fileURLWithPath:pathValue]];
+		}
+		if (urls.count == 0)
+		{
+			return strdup("No files were selected for AirDrop.");
+		}
+
+		__block char *result = NULL;
+		dispatch_sync(dispatch_get_main_queue(), ^{
+			NSSharingService *service = [NSSharingService sharingServiceNamed:NSSharingServiceNameSendViaAirDrop];
+			if (service == nil || ![service canPerformWithItems:urls])
+			{
+				result = strdup("AirDrop isn't available for the selected items.");
+				return;
+			}
+			[service performWithItems:urls];
 		});
 		return result;
 	}

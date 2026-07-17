@@ -21,6 +21,20 @@ The bundles are written beside their publish directories:
 - `src/Files.App.MacOS/bin/Release/net10.0-desktop/osx-arm64/Files.app`
 - `src/Files.App.MacOS/bin/Release/net10.0-desktop/osx-x64/Files.app`
 
+Patch releases use a three-part semantic version such as `0.1.1`, `0.1.2` or `0.1.10`. Update `Version` and `ApplicationDisplayVersion` together, and increase the numeric `ApplicationVersion` for every published build. A release can also override them without editing the project:
+
+```shell
+dotnet publish src/Files.App.MacOS/Files.App.MacOS.csproj \
+  -f net10.0-desktop \
+  -c Release \
+  -r osx-arm64 \
+  -p:Version=0.1.2 \
+  -p:ApplicationDisplayVersion=0.1.2 \
+  -p:ApplicationVersion=10102
+```
+
+Release bundles omit managed symbols and .NET diagnostic payloads. Keep symbols as separate CI artifacts when crash symbolication is required; do not copy them back into the distributed app.
+
 Local builds use an ad-hoc signature and `Files.AdHoc.entitlements`. The local entitlement disables library validation because separately ad-hoc-signed .NET runtime libraries do not share a Team ID. It must not be used for Developer ID distribution.
 
 ## Developer ID packages

@@ -667,15 +667,14 @@ public sealed class MainPageViewModel : ObservableObject
 				"Trash",
 				GetResource("SidebarTrashLocationName"),
 				Path.Combine(home, ".Trash"),
-				"T",
-				new Uri(Path.Combine(home, ".Trash")).AbsoluteUri),
+				"T"),
 			new SidebarLocationOption("Desktop", GetResource("SidebarDesktopButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "▣"),
 			new SidebarLocationOption("Downloads", GetResource("SidebarDownloadsButton/Content"), Path.Combine(home, "Downloads"), "↓"),
 			new SidebarLocationOption("Documents", GetResource("SidebarDocumentsButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "▤"),
 			new SidebarLocationOption("Pictures", GetResource("SidebarPicturesButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "▧"),
 			new SidebarLocationOption("Music", GetResource("SidebarMusicButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "♫"),
 			new SidebarLocationOption("Movies", GetResource("SidebarMoviesButton/Content"), Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "▶"),
-		}.Where(static location => !string.IsNullOrWhiteSpace(location.ExternalUrl) || Directory.Exists(location.Path)).ToArray();
+		}.Where(static location => location.Id is "Trash" || !string.IsNullOrWhiteSpace(location.ExternalUrl) || Directory.Exists(location.Path)).ToArray();
 	}
 
 	public string[] ToggleSidebarSection(string sectionId)

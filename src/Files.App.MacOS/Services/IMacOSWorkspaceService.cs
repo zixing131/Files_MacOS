@@ -24,9 +24,13 @@ public interface IMacOSWorkspaceService
 
 	Task<IReadOnlyList<TrashedItemResult>> MoveToTrashAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
 
+	Task RestoreFromTrashAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
+
 	Task PreviewAsync(string path, CancellationToken cancellationToken = default);
 
 	Task ShareAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
+
+	Task ShareViaAirDropAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
 
 	Task<byte[]?> GetThumbnailPngAsync(string path, int width, int height, double scale, CancellationToken cancellationToken = default);
 }

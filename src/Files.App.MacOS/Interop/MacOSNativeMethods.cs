@@ -107,6 +107,12 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_open_url", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int OpenUrl(string url);
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_full_disk_access_status")]
+	internal static partial int GetFullDiskAccessStatus();
+
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_open_full_disk_access_settings")]
+	internal static partial int OpenFullDiskAccessSettings();
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_eject_volume", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int EjectVolume(string path);
 
@@ -121,6 +127,9 @@ internal static partial class MacOSNativeMethods
 
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_move_to_trash_with_result", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial nint MoveToTrashWithResult(string path);
+
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_restore_from_trash", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial nint RestoreFromTrash(string path);
 
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_preview_path", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int PreviewPath(string path);
@@ -179,6 +188,9 @@ internal static partial class MacOSNativeMethods
 
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_share_files", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial nint ShareFiles(string pathsJson);
+
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_share_files_via_airdrop", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial nint ShareFilesViaAirDrop(string pathsJson);
 
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_generate_thumbnail", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int GenerateThumbnail(

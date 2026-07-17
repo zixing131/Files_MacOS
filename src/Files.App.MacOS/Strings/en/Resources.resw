@@ -565,4 +565,19 @@
   <data name="ItemSizeAutomationFormat" xml:space="preserve"><value>Size {0}</value></data>
   <data name="ItemModifiedAutomationFormat" xml:space="preserve"><value>Modified {0}</value></data>
   <data name="ItemLocationAutomationFormat" xml:space="preserve"><value>Location {0}</value></data>
+  <data name="FullDiskAccessDialogTitle" xml:space="preserve"><value>Allow full disk access</value></data>
+  <data name="FullDiskAccessDialogMessage" xml:space="preserve"><value>Files_MacOS needs Full Disk Access to browse protected folders, the Trash, backups, and files managed by other apps. Access is already enabled when this message doesn't appear.</value></data>
+  <data name="OpenPrivacySettingsButtonText" xml:space="preserve"><value>Open System Settings</value></data>
+  <data name="LaterButtonText" xml:space="preserve"><value>Later</value></data>
+  <data name="ContextAirDropItem.Text" xml:space="preserve"><value>Share via AirDrop</value></data>
+  <data name="AirDropItemsErrorMessage" xml:space="preserve"><value>The selected items couldn't be shared with AirDrop.</value></data>
+  <data name="ContextPutBackItem.Text" xml:space="preserve"><value>Put Back</value></data>
+  <data name="PutBackCompletedFormat" xml:space="preserve"><value>Restored {0} item(s) to their original locations.</value></data>
+  <data name="PutBackErrorMessage" xml:space="preserve"><value>The selected items couldn't be restored. Put Back is available for items moved to Trash by Files_MacOS.</value></data>
+  <data name="BackgroundEmptyTrashItem.Text" xml:space="preserve"><value>Empty Trash…</value></data>
+  <data name="EmptyTrashDialogTitle" xml:space="preserve"><value>Empty Trash?</value></data>
+  <data name="EmptyTrashDialogMessageFormat" xml:space="preserve"><value>The {0} item(s) in the Trash will be permanently deleted. This action can't be undone.</value></data>
+  <data name="EmptyTrashButtonText" xml:space="preserve"><value>Empty Trash</value></data>
+  <data name="EmptyTrashCompletedMessage" xml:space="preserve"><value>Trash emptied.</value></data>
+  <data name="EmptyTrashErrorMessage" xml:space="preserve"><value>The Trash couldn't be emptied.</value></data>
 </root>

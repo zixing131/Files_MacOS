@@ -282,9 +282,35 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			ScheduleWorkspaceSave();
 		}
+		if (restoresWorkspace && !string.Equals(Environment.GetEnvironmentVariable("FILES_MACOS_PERF_DIAGNOSTICS"), "1", StringComparison.Ordinal))
+		{
+			DispatcherQueue.TryEnqueue(async () => await EnsureFullDiskAccessAsync());
+		}
 		if (restoresWorkspace && string.Equals(Environment.GetEnvironmentVariable("FILES_MACOS_PERF_DIAGNOSTICS"), "1", StringComparison.Ordinal))
 		{
 			_ = ReportPerformanceDiagnosticsWithErrorReportingAsync();
+		}
+	}
+
+	private async Task EnsureFullDiskAccessAsync()
+	{
+		if (MacOSPrivacyService.GetFullDiskAccessStatus() is not FullDiskAccessStatus.Denied || !MacOSPrivacyService.TryBeginPrompt())
+		{
+			return;
+		}
+
+		var dialog = new ContentDialog
+		{
+			Title = GetResource("FullDiskAccessDialogTitle"),
+			Content = GetResource("FullDiskAccessDialogMessage"),
+			PrimaryButtonText = GetResource("OpenPrivacySettingsButtonText"),
+			CloseButtonText = GetResource("LaterButtonText"),
+			DefaultButton = ContentDialogButton.Primary,
+			XamlRoot = XamlRoot,
+		};
+		if (await dialog.ShowAsync() is ContentDialogResult.Primary)
+		{
+			MacOSPrivacyService.OpenFullDiskAccessSettings();
 		}
 	}
 
@@ -536,16 +562,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			.ToArray();
 		string[] expectedItemContextActions =
 		[
-			"Open", "OpenInNewTab", "Preview", "Cut", "Copy", "Rename", "MoveToTrash", "Properties",
+			"Open", "OpenInNewTab", "Preview", "PutBack", "Cut", "Copy", "Rename", "MoveToTrash", "Properties",
 			"OpenWith", "Reveal", "Terminal", "Duplicate", "CreateSymbolicLink", "CopyPath", "Share",
-			"Compress", "Extract", "Favorite", "PermanentDelete",
+			"AirDrop", "Compress", "Extract", "Favorite", "PermanentDelete",
 		];
-		bool compactItemContextMenu = itemContextFlyout.Items.Count <= 12 &&
+		bool compactItemContextMenu = itemContextFlyout.Items.Count <= 13 &&
 			expectedItemContextActions.All(itemContextActions.Contains);
 		string[] expectedBackgroundActions =
 		[
 			"NewFolder", "NewTextFile", "Paste", "Terminal", "Refresh", "Name", "Modified", "Size",
-			"Ascending", "Descending", "Grid", "Details",
+			"Ascending", "Descending", "Grid", "Details", "EmptyTrash",
 		];
 		bool backgroundContextMenu =
 			expectedBackgroundActions.All(GetMenuActionTags(PrimaryBackgroundContextFlyout).Contains) &&
@@ -1676,6 +1702,69 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (Browser is not null)
 		{
 			await Browser.GoBackAsync();
+		}
+	}
+
+	private async void BackAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && Browser is not null)
+		{
+			args.Handled = true;
+			await Browser.GoBackAsync();
+		}
+	}
+
+	private async void ForwardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && Browser is not null)
+		{
+			args.Handled = true;
+			await Browser.GoForwardAsync();
+		}
+	}
+
+	private async void UpAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && Browser is not null)
+		{
+			args.Handled = true;
+			await Browser.GoUpAsync();
+		}
+	}
+
+	private async void RefreshAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && Browser is not null)
+		{
+			args.Handled = true;
+			await Browser.RefreshAsync();
+		}
+	}
+
+	private void RenameAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && selectedItems.Count > 0)
+		{
+			args.Handled = true;
+			RenameButton_Click(RenameButton, new RoutedEventArgs());
+		}
+	}
+
+	private void NewFolderAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && Browser is not null && !IsTrashPath(Browser.CurrentPath))
+		{
+			args.Handled = true;
+			NewButton_Click(NewCommandButton, new RoutedEventArgs());
+		}
+	}
+
+	private async void OpenSelectionAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!IsTextInputFocused() && Browser is not null && selectedItems is [LocalFileSystemItem item])
+		{
+			args.Handled = true;
+			await OpenItemAsync(Browser, item);
 		}
 	}
 
@@ -3416,6 +3505,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenWithItem/Text", "OpenWith"));
 		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenInNewTabItem/Text", "OpenInNewTab"));
 		flyout.Items.Add(CreateItemContextMenuItem("ContextPreviewItem/Text", "Preview"));
+		flyout.Items.Add(CreateItemContextMenuItem("ContextPutBackItem/Text", "PutBack"));
 		flyout.Items.Add(new MenuFlyoutSeparator());
 		flyout.Items.Add(CreateItemContextMenuItem("ContextCutItem/Text", "Cut"));
 		flyout.Items.Add(CreateItemContextMenuItem("ContextCopyItem/Text", "Copy"));
@@ -3436,6 +3526,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		moreActions.Items.Add(CreateItemContextMenuItem("ContextCreateSymbolicLinkItem/Text", "CreateSymbolicLink"));
 		moreActions.Items.Add(CreateItemContextMenuItem("ContextCopyPathItem/Text", "CopyPath"));
 		moreActions.Items.Add(CreateItemContextMenuItem("ContextShareItem/Text", "Share"));
+		moreActions.Items.Add(CreateItemContextMenuItem("ContextAirDropItem/Text", "AirDrop"));
 		moreActions.Items.Add(new MenuFlyoutSeparator());
 		moreActions.Items.Add(CreateItemContextMenuItem("ContextCompressItem/Text", "Compress"));
 		moreActions.Items.Add(CreateItemContextMenuItem("ContextExtractItem/Text", "Extract"));
@@ -3513,6 +3604,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				case "Share":
 					ShareButton_Click(sender, e);
 					break;
+				case "AirDrop":
+					await ShareViaAirDropAsync();
+					break;
+				case "PutBack":
+					await PutBackSelectedItemsAsync();
+					break;
 				case "Delete":
 				case "MoveToTrash":
 					DeleteButton_Click(sender, e);
@@ -3555,10 +3652,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool isSingleFile = selectedItems is [LocalFileSystemItem { IsNavigableDirectory: false }];
 		bool isSingleFolder = selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }];
 		bool isSingleZip = selectedItems is [LocalFileSystemItem selectedArchive] && IsZipArchive(selectedArchive);
+		bool isTrash = Browser is not null && IsTrashPath(Browser.CurrentPath);
 		foreach (MenuFlyoutItem item in EnumerateMenuFlyoutItems(flyout.Items).OfType<MenuFlyoutItem>())
 		{
 			item.Visibility = item.Tag switch
 			{
+				"PutBack" => isTrash ? Visibility.Visible : Visibility.Collapsed,
+				"MoveToTrash" => isTrash ? Visibility.Collapsed : Visibility.Visible,
 				"OpenWith" => isSingleFile ? Visibility.Visible : Visibility.Collapsed,
 				"OpenInNewTab" or "Favorite" => isSingleFolder ? Visibility.Visible : Visibility.Collapsed,
 				"Extract" => isSingleZip ? Visibility.Visible : Visibility.Collapsed,
@@ -3572,7 +3672,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				"Terminal" => isIdle && selectedItems.Count > 0,
 				"Duplicate" => isIdle && CanDuplicateSelection(),
 				"CreateSymbolicLink" => isIdle && selectedItems.Count > 0,
-				"Cut" or "Copy" or "CopyPath" or "Rename" or "Share" or "Delete" or "MoveToTrash" or
+				"PutBack" => isIdle && isTrash && selectedItems.Count > 0,
+				"Cut" or "Copy" or "CopyPath" or "Rename" or "Share" or "AirDrop" or "Delete" or "MoveToTrash" or
 					"PermanentDelete" or "Properties" or "Compress" => isIdle && selectedItems.Count > 0,
 				"Extract" => isIdle && selectedItems is [LocalFileSystemItem archive] && IsZipArchive(archive),
 				"Favorite" => isIdle && selectedItems is [LocalFileSystemItem { IsNavigableDirectory: true }],
@@ -3606,8 +3707,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ActivateBrowser(browser, control);
 
 		bool isIdle = fileTransferCancellation is null && !isHistoryOperationRunning && !isConnectingServer;
+		bool isTrash = IsTrashPath(browser.CurrentPath);
 		foreach (MenuFlyoutItemBase item in EnumerateMenuFlyoutItems(flyout.Items))
 		{
+			if (item is MenuFlyoutSubItem { Tag: "New" } newSubItem)
+			{
+				newSubItem.Visibility = isTrash ? Visibility.Collapsed : Visibility.Visible;
+			}
 			if (item is ToggleMenuFlyoutItem { Tag: string option } toggle)
 			{
 				toggle.IsChecked = option switch
@@ -3632,9 +3738,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}
 			else if (item is MenuFlyoutItem { Tag: string action } command)
 			{
+				command.Visibility = action switch
+				{
+					"Paste" => isTrash ? Visibility.Collapsed : Visibility.Visible,
+					"EmptyTrash" => isTrash ? Visibility.Visible : Visibility.Collapsed,
+					_ => Visibility.Visible,
+				};
 				command.IsEnabled = action switch
 				{
 					"NewFolder" or "NewTextFile" or "Paste" or "Terminal" or "Refresh" => isIdle,
+					"EmptyTrash" => isIdle && browser.Items.Count > 0,
 					_ => command.IsEnabled,
 				};
 			}
@@ -4586,6 +4699,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			return;
 		}
+		if (IsTrashPath(Browser.CurrentPath))
+		{
+			await DeletePermanentlyAsync();
+			return;
+		}
 
 		if (currentSettings.ConfirmMoveToTrash)
 		{
@@ -4623,6 +4741,66 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		finally
 		{
 			await Browser.RefreshAsync();
+		}
+	}
+
+	private async Task PutBackSelectedItemsAsync()
+	{
+		if (Browser is not DirectoryBrowserViewModel browser || !IsTrashPath(browser.CurrentPath) || selectedItems.Count is 0)
+		{
+			return;
+		}
+
+		IReadOnlyList<LocalFileSystemItem> items = selectedItems;
+		try
+		{
+			await WorkspaceService.RestoreFromTrashAsync(items.Select(static item => item.Path).ToArray());
+			browser.StatusText = string.Format(GetResource("PutBackCompletedFormat"), items.Count);
+		}
+		catch (IOException ex)
+		{
+			await ShowErrorAsync(string.IsNullOrWhiteSpace(ex.Message) ? GetResource("PutBackErrorMessage") : ex.Message);
+		}
+		finally
+		{
+			await browser.RefreshAsync();
+		}
+	}
+
+	private async void EmptyTrashButton_Click(object sender, RoutedEventArgs e)
+	{
+		if (Browser is not DirectoryBrowserViewModel browser || !IsTrashPath(browser.CurrentPath) || browser.Items.Count is 0)
+		{
+			return;
+		}
+
+		IReadOnlyList<LocalFileSystemItem> items = browser.Items.ToArray();
+		var dialog = new ContentDialog
+		{
+			Title = GetResource("EmptyTrashDialogTitle"),
+			Content = string.Format(GetResource("EmptyTrashDialogMessageFormat"), items.Count),
+			PrimaryButtonText = GetResource("EmptyTrashButtonText"),
+			CloseButtonText = GetResource("CancelButtonText"),
+			DefaultButton = ContentDialogButton.Close,
+			XamlRoot = XamlRoot,
+		};
+		if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
+		{
+			return;
+		}
+
+		try
+		{
+			await FileOperationService.DeletePermanentlyAsync(items.Select(static item => item.Path).ToArray());
+			browser.StatusText = GetResource("EmptyTrashCompletedMessage");
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			await ShowErrorAsync(string.IsNullOrWhiteSpace(ex.Message) ? GetResource("EmptyTrashErrorMessage") : ex.Message);
+		}
+		finally
+		{
+			await browser.RefreshAsync();
 		}
 	}
 
@@ -4755,6 +4933,32 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("ShareItemsErrorMessage") : ex.Message);
 		}
+	}
+
+	private async Task ShareViaAirDropAsync()
+	{
+		if (selectedItems.Count is 0)
+		{
+			return;
+		}
+
+		try
+		{
+			await WorkspaceService.ShareViaAirDropAsync(selectedItems.Select(static item => item.Path).ToArray());
+		}
+		catch (IOException ex)
+		{
+			await ShowErrorAsync(string.IsNullOrWhiteSpace(ex.Message) ? GetResource("AirDropItemsErrorMessage") : ex.Message);
+		}
+	}
+
+	private static bool IsTrashPath(string path)
+	{
+		string trashPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Trash");
+		return string.Equals(
+			Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)),
+			Path.TrimEndingDirectorySeparator(Path.GetFullPath(trashPath)),
+			StringComparison.Ordinal);
 	}
 
 	private async void SettingsButton_Click(object sender, RoutedEventArgs e)

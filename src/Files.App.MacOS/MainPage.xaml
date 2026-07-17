@@ -19,6 +19,7 @@
 			<MenuFlyoutItem x:Uid="ContextOpenWithItem" Click="ContextAction_Click" Tag="OpenWith" />
 			<MenuFlyoutItem x:Uid="ContextOpenInNewTabItem" Click="ContextAction_Click" Tag="OpenInNewTab" />
 			<MenuFlyoutItem x:Uid="ContextPreviewItem" Click="ContextAction_Click" Tag="Preview" />
+			<MenuFlyoutItem x:Uid="ContextPutBackItem" Click="ContextAction_Click" Tag="PutBack" />
 			<MenuFlyoutSeparator />
 			<MenuFlyoutItem x:Uid="ContextCutItem" Click="ContextAction_Click" Tag="Cut" />
 			<MenuFlyoutItem x:Uid="ContextCopyItem" Click="ContextAction_Click" Tag="Copy" />
@@ -34,6 +35,7 @@
 				<MenuFlyoutItem x:Uid="ContextCreateSymbolicLinkItem" Click="ContextAction_Click" Tag="CreateSymbolicLink" />
 				<MenuFlyoutItem x:Uid="ContextCopyPathItem" Click="ContextAction_Click" Tag="CopyPath" />
 				<MenuFlyoutItem x:Uid="ContextShareItem" Click="ContextAction_Click" Tag="Share" />
+				<MenuFlyoutItem x:Uid="ContextAirDropItem" Click="ContextAction_Click" Tag="AirDrop" />
 				<MenuFlyoutSeparator />
 				<MenuFlyoutItem x:Uid="ContextCompressItem" Click="ContextAction_Click" Tag="Compress" />
 				<MenuFlyoutItem x:Uid="ContextExtractItem" Click="ContextAction_Click" Tag="Extract" />
@@ -71,9 +73,17 @@
 		<KeyboardAccelerator Key="Number7" Modifiers="Control" Invoked="SelectNumberedTabAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Number8" Modifiers="Control" Invoked="SelectNumberedTabAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Number9" Modifiers="Control" Invoked="SelectNumberedTabAccelerator_Invoked" />
-		<KeyboardAccelerator Key="Back" Invoked="MoveToTrashAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Back" Invoked="BackAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Delete" Invoked="MoveToTrashAccelerator_Invoked" />
 		<KeyboardAccelerator Key="Delete" Modifiers="Shift" Invoked="PermanentDeleteAccelerator_Invoked" />
+		<KeyboardAccelerator Key="F2" Invoked="RenameAccelerator_Invoked" />
+		<KeyboardAccelerator Key="F5" Invoked="RefreshAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Enter" Invoked="OpenSelectionAccelerator_Invoked" />
+		<KeyboardAccelerator Key="N" Modifiers="Control,Shift" Invoked="NewFolderAccelerator_Invoked" />
+		<KeyboardAccelerator Key="N" Modifiers="Windows,Shift" Invoked="NewFolderAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Left" Modifiers="Menu" Invoked="BackAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Right" Modifiers="Menu" Invoked="ForwardAccelerator_Invoked" />
+		<KeyboardAccelerator Key="Up" Modifiers="Menu" Invoked="UpAccelerator_Invoked" />
 		<KeyboardAccelerator Key="F6" Invoked="CycleFocusAccelerator_Invoked" />
 		<KeyboardAccelerator Key="F6" Modifiers="Shift" Invoked="CycleFocusAccelerator_Invoked" />
 		<!--  Uno maps the macOS Command key to the WinUI Windows modifier.  -->
@@ -555,6 +565,7 @@
 							<MenuFlyoutSeparator />
 							<MenuFlyoutItem x:Uid="BackgroundTerminalItem" Click="TerminalButton_Click" Tag="Terminal" />
 							<MenuFlyoutItem x:Uid="BackgroundRefreshItem" Click="RefreshButton_Click" Tag="Refresh" />
+							<MenuFlyoutItem x:Uid="BackgroundEmptyTrashItem" Click="EmptyTrashButton_Click" Tag="EmptyTrash" />
 							<MenuFlyoutSeparator />
 							<MenuFlyoutSubItem Tag="Sort">
 								<ToggleMenuFlyoutItem x:Uid="SortNameItem" Click="SortFieldMenuItem_Click" Tag="Name" />
@@ -763,6 +774,7 @@
 								<MenuFlyoutSeparator />
 								<MenuFlyoutItem x:Uid="BackgroundTerminalItem" Click="TerminalButton_Click" Tag="Terminal" />
 								<MenuFlyoutItem x:Uid="BackgroundRefreshItem" Click="RefreshButton_Click" Tag="Refresh" />
+								<MenuFlyoutItem x:Uid="BackgroundEmptyTrashItem" Click="EmptyTrashButton_Click" Tag="EmptyTrash" />
 								<MenuFlyoutSeparator />
 								<MenuFlyoutSubItem Tag="Sort">
 									<ToggleMenuFlyoutItem x:Uid="SortNameItem" Click="SortFieldMenuItem_Click" Tag="Name" />

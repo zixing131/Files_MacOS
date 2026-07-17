@@ -200,11 +200,49 @@ public sealed class MacOSWorkspaceService : IMacOSWorkspaceService
 
 	public Task ShareAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
 	{
+		return ShareCoreAsync(paths, MacOSNativeMethods.ShareFiles, cancellationToken);
+	}
+
+	public Task ShareViaAirDropAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+	{
+		return ShareCoreAsync(paths, MacOSNativeMethods.ShareFilesViaAirDrop, cancellationToken);
+	}
+
+	public Task RestoreFromTrashAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+	{
+		return Task.Run(() =>
+		{
+			foreach (string path in paths)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				nint errorPointer = MacOSNativeMethods.RestoreFromTrash(Path.GetFullPath(path));
+				if (errorPointer is 0)
+				{
+					continue;
+				}
+
+				try
+				{
+					throw new IOException(Marshal.PtrToStringUTF8(errorPointer));
+				}
+				finally
+				{
+					MacOSNativeMethods.Free(errorPointer);
+				}
+			}
+		}, cancellationToken);
+	}
+
+	private static Task ShareCoreAsync(
+		IReadOnlyList<string> paths,
+		Func<string, nint> share,
+		CancellationToken cancellationToken)
+	{
 		string pathsJson = JsonSerializer.Serialize(paths.Select(Path.GetFullPath));
 		return Task.Run(() =>
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			nint errorPointer = MacOSNativeMethods.ShareFiles(pathsJson);
+			nint errorPointer = share(pathsJson);
 			if (errorPointer is 0)
 			{
 				return;

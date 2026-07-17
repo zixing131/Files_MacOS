@@ -565,4 +565,19 @@
   <data name="ItemSizeAutomationFormat" xml:space="preserve"><value>大小 {0}</value></data>
   <data name="ItemModifiedAutomationFormat" xml:space="preserve"><value>修改日期 {0}</value></data>
   <data name="ItemLocationAutomationFormat" xml:space="preserve"><value>位置 {0}</value></data>
+  <data name="FullDiskAccessDialogTitle" xml:space="preserve"><value>允许完整磁盘访问权限</value></data>
+  <data name="FullDiskAccessDialogMessage" xml:space="preserve"><value>Files_MacOS 需要“完整磁盘访问权限”才能浏览受保护的文件夹、废纸篓、备份以及其他应用管理的文件。权限已开启时不会再显示此提示。</value></data>
+  <data name="OpenPrivacySettingsButtonText" xml:space="preserve"><value>打开系统设置</value></data>
+  <data name="LaterButtonText" xml:space="preserve"><value>稍后</value></data>
+  <data name="ContextAirDropItem.Text" xml:space="preserve"><value>通过隔空投送共享</value></data>
+  <data name="AirDropItemsErrorMessage" xml:space="preserve"><value>无法通过隔空投送共享所选项目。</value></data>
+  <data name="ContextPutBackItem.Text" xml:space="preserve"><value>放回原处</value></data>
+  <data name="PutBackCompletedFormat" xml:space="preserve"><value>已将 {0} 个项目放回原处。</value></data>
+  <data name="PutBackErrorMessage" xml:space="preserve"><value>无法放回所选项目。“放回原处”适用于通过 Files_MacOS 移入废纸篓的项目。</value></data>
+  <data name="BackgroundEmptyTrashItem.Text" xml:space="preserve"><value>清倒废纸篓…</value></data>
+  <data name="EmptyTrashDialogTitle" xml:space="preserve"><value>清倒废纸篓？</value></data>
+  <data name="EmptyTrashDialogMessageFormat" xml:space="preserve"><value>废纸篓中的 {0} 个项目将被永久删除，此操作无法撤销。</value></data>
+  <data name="EmptyTrashButtonText" xml:space="preserve"><value>清倒废纸篓</value></data>
+  <data name="EmptyTrashCompletedMessage" xml:space="preserve"><value>废纸篓已清空。</value></data>
+  <data name="EmptyTrashErrorMessage" xml:space="preserve"><value>无法清倒废纸篓。</value></data>
 </root>
