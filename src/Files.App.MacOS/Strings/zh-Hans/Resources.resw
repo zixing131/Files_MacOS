@@ -585,8 +585,10 @@
   <data name="EmptyTrashCompletedMessage" xml:space="preserve"><value>废纸篓已清空。</value></data>
   <data name="EmptyTrashErrorMessage" xml:space="preserve"><value>无法清倒废纸篓。</value></data>
   <data name="ContextMenuCustomizationSettingLabel" xml:space="preserve"><value>文件右键菜单</value></data>
-  <data name="ContextMenuCustomizationSettingDescription" xml:space="preserve"><value>可将每个命令放在一级菜单、“更多操作”二级菜单或隐藏。拖动每张卡片左侧的手柄即可调整顺序。</value></data>
-  <data name="ContextMenuDragHandleAutomationName" xml:space="preserve"><value>拖动调整顺序</value></data>
+  <data name="ContextMenuCustomizationSettingDescription" xml:space="preserve"><value>直接编辑一级菜单和“更多操作”菜单。点击左右箭头可在两列之间移动命令，使用“上移”和“下移”调整顺序。</value></data>
+  <data name="MoveToMoreActionsButtonText" xml:space="preserve"><value>移到更多操作</value></data>
+  <data name="MoveToPrimaryMenuButtonText" xml:space="preserve"><value>移到一级菜单</value></data>
+  <data name="ContextMenuHiddenCommandsLabel" xml:space="preserve"><value>隐藏命令</value></data>
   <data name="ContextMenuPrimaryLevelOption" xml:space="preserve"><value>一级菜单</value></data>
   <data name="ContextMenuSecondaryLevelOption" xml:space="preserve"><value>更多操作</value></data>
   <data name="ContextMenuHiddenLevelOption" xml:space="preserve"><value>隐藏</value></data>

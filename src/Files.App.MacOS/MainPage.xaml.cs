@@ -5178,129 +5178,211 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			OffContent = GetResource("ToggleOffText"),
 		};
 		var contextMenuActions = (currentSettings.ContextMenuActions ?? ContextMenuActionSetting.CreateDefaults()).ToList();
-		const string contextMenuDragFormat = "application/x-files-context-menu-action";
-		string? draggedContextMenuAction = null;
-		var contextMenuEditor = new StackPanel { Spacing = 6 };
+		var contextMenuEditor = new Grid { ColumnSpacing = 12, RowSpacing = 10 };
+		contextMenuEditor.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+		contextMenuEditor.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+		contextMenuEditor.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+		contextMenuEditor.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+		void ChangeContextMenuLevel(ContextMenuActionSetting action, ContextMenuLevel targetLevel)
+		{
+			var primary = contextMenuActions.Where(static item => item.Level is ContextMenuLevel.Primary).ToList();
+			var secondary = contextMenuActions.Where(static item => item.Level is ContextMenuLevel.Secondary).ToList();
+			var hidden = contextMenuActions.Where(static item => item.Level is ContextMenuLevel.Hidden).ToList();
+			primary.RemoveAll(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+			secondary.RemoveAll(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+			hidden.RemoveAll(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+			ContextMenuActionSetting movedAction = action with { Level = targetLevel };
+			switch (targetLevel)
+			{
+				case ContextMenuLevel.Primary:
+					primary.Add(movedAction);
+					break;
+				case ContextMenuLevel.Secondary:
+					secondary.Add(movedAction);
+					break;
+				default:
+					hidden.Add(movedAction);
+					break;
+			}
+			contextMenuActions = primary.Concat(secondary).Concat(hidden).ToList();
+			RenderContextMenuEditor();
+		}
+
+		void MoveContextMenuAction(ContextMenuActionSetting action, int offset)
+		{
+			ContextMenuActionSetting[] levelActions = contextMenuActions.Where(item => item.Level == action.Level).ToArray();
+			int levelIndex = Array.FindIndex(levelActions, item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+			int targetLevelIndex = levelIndex + offset;
+			if (levelIndex < 0 || targetLevelIndex < 0 || targetLevelIndex >= levelActions.Length)
+			{
+				return;
+			}
+			int sourceIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+			int targetIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, levelActions[targetLevelIndex].Action, StringComparison.Ordinal));
+			(contextMenuActions[sourceIndex], contextMenuActions[targetIndex]) = (contextMenuActions[targetIndex], contextMenuActions[sourceIndex]);
+			RenderContextMenuEditor();
+		}
+
+		Button CreateLevelArrowButton(ContextMenuActionSetting action, ContextMenuLevel targetLevel)
+		{
+			bool moveRight = targetLevel is ContextMenuLevel.Secondary;
+			string label = GetResource(moveRight ? "MoveToMoreActionsButtonText" : "MoveToPrimaryMenuButtonText");
+			var button = new Button
+			{
+				Width = 32,
+				Height = 30,
+				Padding = new Thickness(7),
+				Content = new PathIcon
+				{
+					Width = 16,
+					Height = 16,
+					Data = (Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(
+						typeof(Geometry),
+						moveRight ? "M3,7 H10 L7,4 L8.5,2.5 L14,8 L8.5,13.5 L7,12 L10,9 H3 Z" : "M13,7 H6 L9,4 L7.5,2.5 L2,8 L7.5,13.5 L9,12 L6,9 H13 Z"),
+				},
+			};
+			Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, label);
+			ToolTipService.SetToolTip(button, label);
+			button.Click += (_, _) => ChangeContextMenuLevel(action, targetLevel);
+			return button;
+		}
+
+		Border CreateContextMenuCard(ContextMenuActionSetting action, int levelIndex, int levelCount)
+		{
+			var cardLayout = new Grid { ColumnSpacing = 6, RowSpacing = 5 };
+			cardLayout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+			cardLayout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+			cardLayout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+			cardLayout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+			var label = new TextBlock
+			{
+				Text = GetResource(GetContextMenuResourceKey(action.Action)),
+				VerticalAlignment = VerticalAlignment.Center,
+				TextTrimming = TextTrimming.CharacterEllipsis,
+			};
+			Button levelButton = CreateLevelArrowButton(
+				action,
+				action.Level is ContextMenuLevel.Primary ? ContextMenuLevel.Secondary : ContextMenuLevel.Primary);
+			var actionButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+			var moveUpButton = new Button
+			{
+				Content = GetResource("MoveUpButtonText"),
+				IsEnabled = levelIndex > 0,
+				Padding = new Thickness(7, 3),
+			};
+			moveUpButton.Click += (_, _) => MoveContextMenuAction(action, -1);
+			var moveDownButton = new Button
+			{
+				Content = GetResource("MoveDownButtonText"),
+				IsEnabled = levelIndex < levelCount - 1,
+				Padding = new Thickness(7, 3),
+			};
+			moveDownButton.Click += (_, _) => MoveContextMenuAction(action, 1);
+			var hideButton = new Button
+			{
+				Content = GetResource("ContextMenuHiddenLevelOption"),
+				Padding = new Thickness(7, 3),
+			};
+			hideButton.Click += (_, _) => ChangeContextMenuLevel(action, ContextMenuLevel.Hidden);
+			actionButtons.Children.Add(moveUpButton);
+			actionButtons.Children.Add(moveDownButton);
+			actionButtons.Children.Add(hideButton);
+			Grid.SetColumn(label, 0);
+			Grid.SetColumn(levelButton, 1);
+			Grid.SetRow(actionButtons, 1);
+			Grid.SetColumnSpan(actionButtons, 2);
+			cardLayout.Children.Add(label);
+			cardLayout.Children.Add(levelButton);
+			cardLayout.Children.Add(actionButtons);
+			return new Border
+			{
+				Padding = new Thickness(9, 7),
+				Background = (Brush)Application.Current.Resources["FilesCardBrush"],
+				BorderBrush = (Brush)Application.Current.Resources["FilesCardBorderBrush"],
+				BorderThickness = new Thickness(1),
+				CornerRadius = new CornerRadius(7),
+				Child = cardLayout,
+			};
+		}
+
 		void RenderContextMenuEditor()
 		{
 			contextMenuEditor.Children.Clear();
-			for (int index = 0; index < contextMenuActions.Count; index++)
+			ContextMenuActionSetting[] primaryActions = contextMenuActions.Where(static item => item.Level is ContextMenuLevel.Primary).ToArray();
+			ContextMenuActionSetting[] secondaryActions = contextMenuActions.Where(static item => item.Level is ContextMenuLevel.Secondary).ToArray();
+			var primaryColumn = new StackPanel { Spacing = 6 };
+			primaryColumn.Children.Add(new TextBlock
 			{
-				ContextMenuActionSetting action = contextMenuActions[index];
-				var row = new Grid { ColumnSpacing = 6 };
-				row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-				row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-				row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(132) });
-				var dragHandle = new Border
+				Text = GetResource("ContextMenuPrimaryLevelOption"),
+				FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+			});
+			for (int index = 0; index < primaryActions.Length; index++)
+			{
+				primaryColumn.Children.Add(CreateContextMenuCard(primaryActions[index], index, primaryActions.Length));
+			}
+			var secondaryColumn = new StackPanel { Spacing = 6 };
+			secondaryColumn.Children.Add(new TextBlock
+			{
+				Text = GetResource("ContextMenuSecondaryLevelOption"),
+				FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+			});
+			for (int index = 0; index < secondaryActions.Length; index++)
+			{
+				secondaryColumn.Children.Add(CreateContextMenuCard(secondaryActions[index], index, secondaryActions.Length));
+			}
+			Grid.SetColumn(secondaryColumn, 1);
+			contextMenuEditor.Children.Add(primaryColumn);
+			contextMenuEditor.Children.Add(secondaryColumn);
+
+			ContextMenuActionSetting[] hiddenActions = contextMenuActions.Where(static item => item.Level is ContextMenuLevel.Hidden).ToArray();
+			if (hiddenActions.Length > 0)
+			{
+				var hiddenPanel = new StackPanel { Spacing = 6 };
+				hiddenPanel.Children.Add(new TextBlock
 				{
-					Width = 28,
-					Height = 32,
-					Padding = new Thickness(8, 6),
-					Background = (Brush)Application.Current.Resources["FilesSubtleBrush"],
-					CornerRadius = new CornerRadius(5),
-					CanDrag = true,
-					Child = new PathIcon
+					Text = GetResource("ContextMenuHiddenCommandsLabel"),
+					FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+				});
+				foreach (ContextMenuActionSetting hiddenAction in hiddenActions)
+				{
+					var hiddenRow = new Grid { ColumnSpacing = 6 };
+					hiddenRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+					hiddenRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+					hiddenRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+					var hiddenLabel = new TextBlock
 					{
-						Width = 12,
-						Height = 18,
-						Data = (Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(
-							typeof(Geometry),
-							"M1,1 H4 V4 H1 Z M8,1 H11 V4 H8 Z M1,7 H4 V10 H1 Z M8,7 H11 V10 H8 Z M1,13 H4 V16 H1 Z M8,13 H11 V16 H8 Z"),
-					},
-				};
-				string dragHandleName = GetResource("ContextMenuDragHandleAutomationName");
-				Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(dragHandle, dragHandleName);
-				ToolTipService.SetToolTip(dragHandle, dragHandleName);
-				dragHandle.DragStarting += (_, e) =>
-				{
-					draggedContextMenuAction = action.Action;
-					e.Data.SetData(contextMenuDragFormat, action.Action);
-					e.Data.RequestedOperation = DataPackageOperation.Move;
-				};
-				var label = new TextBlock
-				{
-					Text = GetResource(GetContextMenuResourceKey(action.Action)),
-					VerticalAlignment = VerticalAlignment.Center,
-					TextTrimming = TextTrimming.CharacterEllipsis,
-				};
-				var levelPicker = new ComboBox
-				{
-					ItemsSource = new[]
+						Text = GetResource(GetContextMenuResourceKey(hiddenAction.Action)),
+						VerticalAlignment = VerticalAlignment.Center,
+					};
+					var showPrimaryButton = new Button
 					{
-						GetResource("ContextMenuPrimaryLevelOption"),
-						GetResource("ContextMenuSecondaryLevelOption"),
-						GetResource("ContextMenuHiddenLevelOption"),
-					},
-					SelectedIndex = action.Level switch
+						Content = GetResource("ContextMenuPrimaryLevelOption"),
+						Padding = new Thickness(8, 3),
+					};
+					showPrimaryButton.Click += (_, _) => ChangeContextMenuLevel(hiddenAction, ContextMenuLevel.Primary);
+					var showSecondaryButton = new Button
 					{
-						ContextMenuLevel.Primary => 0,
-						ContextMenuLevel.Secondary => 1,
-						_ => 2,
-					},
-					HorizontalAlignment = HorizontalAlignment.Stretch,
-				};
-				levelPicker.SelectionChanged += (_, _) =>
-				{
-					int actionIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
-					if (actionIndex >= 0)
+						Content = GetResource("ContextMenuSecondaryLevelOption"),
+						Padding = new Thickness(8, 3),
+					};
+					showSecondaryButton.Click += (_, _) => ChangeContextMenuLevel(hiddenAction, ContextMenuLevel.Secondary);
+					Grid.SetColumn(showPrimaryButton, 1);
+					Grid.SetColumn(showSecondaryButton, 2);
+					hiddenRow.Children.Add(hiddenLabel);
+					hiddenRow.Children.Add(showPrimaryButton);
+					hiddenRow.Children.Add(showSecondaryButton);
+					hiddenPanel.Children.Add(new Border
 					{
-						ContextMenuLevel level = levelPicker.SelectedIndex switch
-						{
-							0 => ContextMenuLevel.Primary,
-							1 => ContextMenuLevel.Secondary,
-							_ => ContextMenuLevel.Hidden,
-						};
-						contextMenuActions[actionIndex] = contextMenuActions[actionIndex] with { Level = level };
-					}
-				};
-				var card = new Border
-				{
-					Padding = new Thickness(8, 5),
-					Background = (Brush)Application.Current.Resources["FilesCardBrush"],
-					BorderBrush = (Brush)Application.Current.Resources["FilesCardBorderBrush"],
-					BorderThickness = new Thickness(1),
-					CornerRadius = new CornerRadius(7),
-					AllowDrop = true,
-					Child = row,
-				};
-				card.DragOver += (_, e) =>
-				{
-					if (draggedContextMenuAction is not null && e.DataView.Contains(contextMenuDragFormat))
-					{
-						e.AcceptedOperation = DataPackageOperation.Move;
-						card.BorderBrush = (Brush)Application.Current.Resources["FilesAccentBrush"];
-						card.BorderThickness = new Thickness(2);
-						e.Handled = true;
-					}
-				};
-				card.DragLeave += (_, _) =>
-				{
-					card.BorderBrush = (Brush)Application.Current.Resources["FilesCardBorderBrush"];
-					card.BorderThickness = new Thickness(1);
-				};
-				card.Drop += (_, e) =>
-				{
-					int sourceIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, draggedContextMenuAction, StringComparison.Ordinal));
-					int targetIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
-					if (sourceIndex >= 0 && targetIndex >= 0 && sourceIndex != targetIndex)
-					{
-						bool insertAfter = e.GetPosition(card).Y >= card.ActualHeight / 2;
-						ContextMenuActionSetting movedAction = contextMenuActions[sourceIndex];
-						contextMenuActions.RemoveAt(sourceIndex);
-						int insertionIndex = targetIndex + (insertAfter ? 1 : 0) - (sourceIndex < targetIndex ? 1 : 0);
-						contextMenuActions.Insert(Math.Clamp(insertionIndex, 0, contextMenuActions.Count), movedAction);
-					}
-					draggedContextMenuAction = null;
-					e.Handled = true;
-					RenderContextMenuEditor();
-				};
-				Grid.SetColumn(dragHandle, 0);
-				Grid.SetColumn(label, 1);
-				Grid.SetColumn(levelPicker, 2);
-				row.Children.Add(dragHandle);
-				row.Children.Add(label);
-				row.Children.Add(levelPicker);
-				contextMenuEditor.Children.Add(card);
+						Padding = new Thickness(9, 6),
+						Background = (Brush)Application.Current.Resources["FilesCardBrush"],
+						CornerRadius = new CornerRadius(7),
+						Child = hiddenRow,
+					});
+				}
+				Grid.SetRow(hiddenPanel, 1);
+				Grid.SetColumnSpan(hiddenPanel, 2);
+				contextMenuEditor.Children.Add(hiddenPanel);
 			}
 		}
 		RenderContextMenuEditor();
@@ -5317,7 +5399,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		var content = new StackPanel
 		{
 			Spacing = 16,
-			MinWidth = 380,
+			Width = Math.Clamp((XamlRoot?.Size.Width ?? 840) - 120, 620, 820),
 		};
 		content.Children.Add(new TextBlock { Text = GetResource("ThemeSettingLabel") });
 		content.Children.Add(themePicker);
