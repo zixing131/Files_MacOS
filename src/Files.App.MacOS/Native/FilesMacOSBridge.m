@@ -66,6 +66,8 @@ typedef int (*FilesScrollWheelCallback)(void *context, double deltaX, double del
 
 @end
 
+static void files_macos_finish_file_drag(void);
+
 @interface FilesFileDraggingSource : NSObject <NSDraggingSource>
 @end
 
@@ -81,6 +83,11 @@ typedef int (*FilesScrollWheelCallback)(void *context, double deltaX, double del
 	return YES;
 }
 
+- (void)draggingSession:(NSDraggingSession *)session endedAtPoint:(NSPoint)screenPoint operation:(NSDragOperation)operation
+{
+	files_macos_finish_file_drag();
+}
+
 @end
 
 static FilesQuickLookDataSource *quickLookDataSource;
@@ -89,7 +96,34 @@ static FilesMenuTarget *mainMenuTarget;
 static FilesFileDraggingSource *fileDraggingSource;
 static NSArray<NSString *> *pendingFileDragPaths;
 static NSWindow *pendingFileDragWindow;
+static NSWindow *activeFileDragWindow;
 static id fileDragEventMonitor;
+
+static void files_macos_finish_file_drag(void)
+{
+	NSWindow *window = activeFileDragWindow;
+	activeFileDragWindow = nil;
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[NSCursor.arrowCursor set];
+		if (window == nil)
+		{
+			return;
+		}
+
+		NSPoint location = [window convertPointFromScreen:NSEvent.mouseLocation];
+		NSEvent *mouseUp = [NSEvent mouseEventWithType:NSEventTypeLeftMouseUp
+			location:location
+			modifierFlags:0
+			timestamp:NSProcessInfo.processInfo.systemUptime
+			windowNumber:window.windowNumber
+			context:nil
+			eventNumber:0
+			clickCount:1
+			pressure:0];
+		[NSApp postEvent:mouseUp atStart:YES];
+		[window invalidateCursorRectsForView:window.contentView];
+	});
+}
 
 static void files_macos_clear_pending_file_drag(void)
 {
@@ -143,9 +177,15 @@ static BOOL files_macos_begin_pending_file_drag(NSEvent *event)
 		fileDraggingSource = [FilesFileDraggingSource new];
 	}
 
+	activeFileDragWindow = window;
 	NSDraggingSession *session = [view beginDraggingSessionWithItems:items event:event source:fileDraggingSource];
+	if (session == nil)
+	{
+		files_macos_finish_file_drag();
+		return NO;
+	}
 	session.animatesToStartingPositionsOnCancelOrFail = YES;
-	return session != nil;
+	return YES;
 }
 
 __attribute__((visibility("default"))) int files_macos_prepare_file_drag(const char *pathsJson)
@@ -199,7 +239,7 @@ __attribute__((visibility("default"))) int files_macos_prepare_file_drag(const c
 			}
 
 			files_macos_begin_pending_file_drag(event);
-			return event;
+			return nil;
 		}];
 		return fileDragEventMonitor == nil ? 0 : 1;
 	}
