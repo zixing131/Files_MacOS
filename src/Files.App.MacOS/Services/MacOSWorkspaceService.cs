@@ -266,10 +266,31 @@ public sealed class MacOSWorkspaceService : IMacOSWorkspaceService
 		double scale,
 		CancellationToken cancellationToken = default)
 	{
+		return GetThumbnailPngCoreAsync(path, width, height, scale, contentOnly: false, cancellationToken);
+	}
+
+	public Task<byte[]?> GetContentPreviewPngAsync(
+		string path,
+		int width,
+		int height,
+		double scale,
+		CancellationToken cancellationToken = default)
+	{
+		return GetThumbnailPngCoreAsync(path, width, height, scale, contentOnly: true, cancellationToken);
+	}
+
+	private static Task<byte[]?> GetThumbnailPngCoreAsync(
+		string path,
+		int width,
+		int height,
+		double scale,
+		bool contentOnly,
+		CancellationToken cancellationToken)
+	{
 		return Task.Run<byte[]?>(() =>
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			if (MacOSNativeMethods.GenerateThumbnail(path, width, height, scale, out nint output, out nuint length) is 0 ||
+			if (MacOSNativeMethods.GenerateThumbnail(path, width, height, scale, contentOnly ? 1 : 0, out nint output, out nuint length) is 0 ||
 				output is 0 ||
 				length is 0 or > int.MaxValue)
 			{

@@ -4,11 +4,12 @@ using Files.App.MacOS.Models;
 using Files.App.MacOS.Services;
 using Files.App.MacOS.ViewModels;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
 using System.Text.Json;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.ApplicationModel.Resources;
 using Windows.Storage;
+using Windows.Storage.Streams;
 using Windows.System;
 
 namespace Files.App.MacOS;
@@ -45,6 +46,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private IReadOnlyList<LocalFileSystemItem> selectedItems = [];
 	private CancellationTokenSource? fileTransferCancellation;
 	private CancellationTokenSource? searchInputCancellation;
+	private CancellationTokenSource? previewImageCancellation;
 	private CancellationTokenSource? settingsSaveCancellation;
 	private CancellationTokenSource? accessibilityAnnouncementCancellation;
 	private readonly Stack<FileOperationHistoryEntry> undoHistory = new();
@@ -111,6 +113,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		RegisterContentWheelHandler(DetailsItems);
 		RegisterContentWheelHandler(SecondaryGridItems);
 		RegisterContentWheelHandler(SecondaryDetailsItems);
+		RegisterContentWheelHandler(SidebarList);
 		PrimaryPaneBorder.PointerEntered += (_, _) => SetPanePointerState(isPrimary: true, isPointerOver: true);
 		PrimaryPaneBorder.PointerExited += (_, _) => SetPanePointerState(isPrimary: true, isPointerOver: false);
 		SecondaryPaneBorder.PointerEntered += (_, _) => SetPanePointerState(isPrimary: false, isPointerOver: true);
@@ -363,24 +366,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		RootLayout.UpdateLayout();
 		UpdateCommandToolbarLayout(CommandToolbarBorder.ActualWidth);
 		RootLayout.IsHitTestVisible = true;
-		if (accessibilityDisplayOptions.HasFlag(MacOSAccessibilityDisplayOptions.ReduceMotion))
-		{
-			RootLayout.Opacity = 1;
-			return;
-		}
-
-		var animation = new DoubleAnimation
-		{
-			From = 0,
-			To = 1,
-			Duration = new Duration(TimeSpan.FromMilliseconds(140)),
-			EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
-		};
-		Storyboard.SetTarget(animation, RootLayout);
-		Storyboard.SetTargetProperty(animation, "Opacity");
-		var storyboard = new Storyboard();
-		storyboard.Children.Add(animation);
-		storyboard.Begin();
+		RootLayout.Opacity = 1;
 	}
 
 	internal Task InitializationTask => initializationCompletion.Task;
@@ -3376,9 +3362,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			PreviewPaneContent.Visibility = Visibility.Visible;
 			PreviewSelectionSummary.Visibility = Visibility.Collapsed;
 			PreviewPaneQuickLookButton.IsEnabled = true;
+			LoadPreviewImage(item);
 			return;
 		}
 
+		CancelPreviewImageLoad();
 		PreviewPaneContent.DataContext = null;
 		PreviewPaneContent.Visibility = Visibility.Collapsed;
 		PreviewSelectionSummary.Visibility = Visibility.Visible;
@@ -3386,6 +3374,64 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			? GetResource("PreviewPaneEmptyMessage")
 			: string.Format(GetResource("PreviewPaneMultipleFormat"), selectedItems.Count);
 		PreviewPaneQuickLookButton.IsEnabled = false;
+	}
+
+	private void CancelPreviewImageLoad()
+	{
+		previewImageCancellation?.Cancel();
+		previewImageCancellation?.Dispose();
+		previewImageCancellation = null;
+		PreviewLargeImage.Source = null;
+		PreviewLargeImage.Visibility = Visibility.Collapsed;
+	}
+
+	private void LoadPreviewImage(LocalFileSystemItem item)
+	{
+		CancelPreviewImageLoad();
+		if (item.IsDirectory && !item.IsPackage)
+		{
+			return;
+		}
+
+		var cancellation = new CancellationTokenSource();
+		previewImageCancellation = cancellation;
+		_ = LoadPreviewImageAsync(item, cancellation);
+	}
+
+	private async Task LoadPreviewImageAsync(LocalFileSystemItem item, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			byte[]? png = await WorkspaceService.GetContentPreviewPngAsync(item.Path, 480, 400, 2, cancellation.Token);
+			if (png is null || cancellation.IsCancellationRequested)
+			{
+				return;
+			}
+
+			using var stream = new InMemoryRandomAccessStream();
+			using (var writer = new DataWriter(stream))
+			{
+				writer.WriteBytes(png);
+				await writer.StoreAsync();
+				await writer.FlushAsync();
+			}
+			stream.Seek(0);
+			var bitmap = new BitmapImage();
+			await bitmap.SetSourceAsync(stream);
+			if (cancellation.IsCancellationRequested || !ReferenceEquals(previewImageCancellation, cancellation))
+			{
+				return;
+			}
+
+			PreviewLargeImage.Source = bitmap;
+			PreviewLargeImage.Visibility = Visibility.Visible;
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+		}
 	}
 
 	private void Items_DragOver(object sender, DragEventArgs e)
@@ -5550,20 +5596,22 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			});
 		}
 
+		var settingsScrollViewer = new ScrollViewer
+		{
+			MaxHeight = 560,
+			HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+			HorizontalScrollMode = ScrollMode.Disabled,
+			VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+			VerticalScrollMode = ScrollMode.Enabled,
+			Content = content,
+		};
+		RegisterContentWheelHandler(settingsScrollViewer);
 		var dialog = new ContentDialog
 		{
 			Width = settingsDialogWidth,
 			MinWidth = settingsDialogWidth,
 			Title = GetResource("SettingsDialogTitle"),
-			Content = new ScrollViewer
-			{
-				MaxHeight = 560,
-				HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-				HorizontalScrollMode = ScrollMode.Disabled,
-				VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-				VerticalScrollMode = ScrollMode.Enabled,
-				Content = content,
-			},
+			Content = settingsScrollViewer,
 			PrimaryButtonText = GetResource("SaveButtonText"),
 			CloseButtonText = GetResource("CancelButtonText"),
 			DefaultButton = ContentDialogButton.Primary,
@@ -5873,14 +5921,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		};
 		AddPropertySectionHeader(panel, GetResource("GeneralPropertiesSection"));
 
-		AddPropertyRow(
+		AddSelectablePropertyRow(
 			panel,
 			GetResource("PropertyNameLabel"),
 			summary.Name ?? string.Format(GetResource("SelectedItemCountFormat"), summary.RootItemCount));
 
 		if (summary.Path is not null)
 		{
-			AddPropertyRow(panel, GetResource("PropertyLocationLabel"), summary.Path);
+			AddSelectablePropertyRow(panel, GetResource("PropertyLocationLabel"), summary.Path);
 		}
 
 		AddPropertyRow(panel, GetResource("PropertySizeLabel"), LocalFileSystemItem.FormatSize(summary.TotalSize));
@@ -5919,7 +5967,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			AddPropertyRow(panel, GetResource("PropertyLinkTargetLabel"), summary.LinkTarget);
 		}
 
-		if (summary.UnixMode is not null || summary.Owner is not null || summary.Group is not null)
+		if (summary.UnixMode is not null || summary.Owner is not null || summary.Group is not null ||
+			(summary.Path is not null && summary.LinkTarget is null))
 		{
 			AddPropertySectionHeader(panel, GetResource("PermissionsPropertiesSection"));
 		}
@@ -5935,59 +5984,52 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				AddPropertyRow(panel, GetResource("PropertyPermissionsLabel"), $"{octalMode}  ({summary.UnixMode.Value})");
 			}
 		}
-		if (summary.Owner is not null)
+		if (summary.Path is not null && summary.LinkTarget is null)
 		{
-			if (summary.Path is not null && summary.LinkTarget is null)
-			{
-				ownerBox = AddEditablePropertyRow(
-					panel,
-					string.Format(GetResource("PropertyOwnerWithIdFormat"), summary.UserId),
-					summary.Owner);
-			}
-			else
-			{
-				AddPropertyRow(panel, GetResource("PropertyOwnerLabel"), $"{summary.Owner} ({summary.UserId})");
-			}
+			ownerBox = AddEditablePropertyRow(
+				panel,
+				string.Format(GetResource("PropertyOwnerWithIdFormat"), summary.UserId),
+				summary.Owner ?? string.Empty);
 		}
-		if (summary.Group is not null)
+		else if (summary.Owner is not null)
 		{
-			if (summary.Path is not null && summary.LinkTarget is null)
-			{
-				groupBox = AddEditablePropertyRow(
-					panel,
-					string.Format(GetResource("PropertyGroupWithIdFormat"), summary.GroupId),
-					summary.Group);
-			}
-			else
-			{
-				AddPropertyRow(panel, GetResource("PropertyGroupLabel"), $"{summary.Group} ({summary.GroupId})");
-			}
+			AddPropertyRow(panel, GetResource("PropertyOwnerLabel"), $"{summary.Owner} ({summary.UserId})");
 		}
-		if (summary.AccessControlList is not null)
+		if (summary.Path is not null && summary.LinkTarget is null)
 		{
-			if (summary.Path is not null && summary.LinkTarget is null)
-			{
-				aclBox = AddEditablePropertyRow(panel, GetResource("PropertyAclLabel"), summary.AccessControlList.Trim(), multiline: true);
-				aclBox.PlaceholderText = GetResource("PropertyAclPlaceholder");
-				AddPropertyHelpText(panel, GetResource("PropertySecurityHelpText"));
-			}
-			else
-			{
-				AddPropertyRow(
-					panel,
-					GetResource("PropertyAclLabel"),
-					string.IsNullOrWhiteSpace(summary.AccessControlList)
-						? GetResource("NoAccessControlEntriesText")
-						: summary.AccessControlList.Trim());
-			}
+			groupBox = AddEditablePropertyRow(
+				panel,
+				string.Format(GetResource("PropertyGroupWithIdFormat"), summary.GroupId),
+				summary.Group ?? string.Empty);
+		}
+		else if (summary.Group is not null)
+		{
+			AddPropertyRow(panel, GetResource("PropertyGroupLabel"), $"{summary.Group} ({summary.GroupId})");
+		}
+		if (summary.Path is not null && summary.LinkTarget is null)
+		{
+			aclBox = AddEditablePropertyRow(panel, GetResource("PropertyAclLabel"), summary.AccessControlList?.Trim() ?? string.Empty, multiline: true);
+			aclBox.PlaceholderText = GetResource("PropertyAclPlaceholder");
+			AddPropertyHelpText(panel, GetResource("PropertySecurityHelpText"));
+		}
+		else if (summary.AccessControlList is not null)
+		{
+			AddPropertyRow(
+				panel,
+				GetResource("PropertyAclLabel"),
+				string.IsNullOrWhiteSpace(summary.AccessControlList)
+					? GetResource("NoAccessControlEntriesText")
+					: summary.AccessControlList.Trim());
 		}
 
-		return new ScrollViewer
+		var scrollViewer = new ScrollViewer
 		{
 			Content = panel,
 			MaxHeight = 480,
 			HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
 		};
+		RegisterContentWheelHandler(scrollViewer);
+		return scrollViewer;
 	}
 
 	private CheckBox[] AddPermissionMatrix(Panel panel, UnixFileMode mode)
@@ -6042,16 +6084,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			for (int column = 0; column < 3; column++)
 			{
 				int index = row * 3 + column;
-				var toggle = new CheckBox
-				{
-					IsChecked = mode.HasFlag(flags[index]),
-					HorizontalAlignment = HorizontalAlignment.Center,
-					VerticalAlignment = VerticalAlignment.Center,
-				};
+				CheckBox toggle = CreateToggleCheckBox(mode.HasFlag(flags[index]), out FrameworkElement toggleHost);
 				Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(toggle, $"{rowLabels[row]} {columnLabels[column + 1]}");
-				Grid.SetRow(toggle, row + 1);
-				Grid.SetColumn(toggle, column + 1);
-				grid.Children.Add(toggle);
+				Grid.SetRow(toggleHost, row + 1);
+				Grid.SetColumn(toggleHost, column + 1);
+				grid.Children.Add(toggleHost);
 				toggles[index] = toggle;
 			}
 		}
@@ -6095,11 +6132,36 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
 		row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 		row.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
-		var input = new CheckBox { IsChecked = value, HorizontalAlignment = HorizontalAlignment.Left };
-		Grid.SetColumn(input, 1);
-		row.Children.Add(input);
+		CheckBox input = CreateToggleCheckBox(value, out FrameworkElement toggleHost);
+		toggleHost.HorizontalAlignment = HorizontalAlignment.Left;
+		Grid.SetColumn(toggleHost, 1);
+		row.Children.Add(toggleHost);
 		panel.Children.Add(row);
 		return input;
+	}
+
+	private static CheckBox CreateToggleCheckBox(bool isChecked, out FrameworkElement host)
+	{
+		var toggle = new CheckBox
+		{
+			IsChecked = isChecked,
+			IsHitTestVisible = false,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+		};
+		var toggleHost = new Border
+		{
+			Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+			Padding = new Thickness(4),
+			Child = toggle,
+		};
+		toggleHost.Tapped += (_, args) =>
+		{
+			toggle.IsChecked = toggle.IsChecked is not true;
+			args.Handled = true;
+		};
+		host = toggleHost;
+		return toggle;
 	}
 
 	private static TextBox AddEditablePropertyRow(Panel panel, string label, string value, bool multiline = false)
@@ -6147,6 +6209,32 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
 		.Distinct(StringComparer.CurrentCultureIgnoreCase)
 		.ToArray();
+
+	private static void AddSelectablePropertyRow(Panel panel, string label, string value)
+	{
+		var row = new Grid();
+		row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+		row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+		var labelText = new TextBlock
+		{
+			Text = label,
+			VerticalAlignment = VerticalAlignment.Center,
+		};
+		var valueInput = new TextBox
+		{
+			Text = value,
+			IsReadOnly = true,
+			IsTabStop = false,
+			BorderThickness = new Thickness(0),
+			Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+			Padding = new Thickness(8, 5, 8, 5),
+		};
+		Grid.SetColumn(valueInput, 1);
+		row.Children.Add(labelText);
+		row.Children.Add(valueInput);
+		panel.Children.Add(row);
+	}
 
 	private static void AddPropertyRow(Panel panel, string label, string value)
 	{
@@ -6420,7 +6508,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Items_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
 	{
-		if (sender is not FrameworkElement control)
+		if (sender is not FrameworkElement control || IsWithinTextInput(e.OriginalSource))
 		{
 			return;
 		}
@@ -6445,12 +6533,25 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				e.Handled = true;
 			}
 		}
-		else if (FindVisualDescendant<ScrollViewer>(control) is ScrollViewer scrollViewer && scrollViewer.ScrollableHeight > 0)
+		else if ((control as ScrollViewer ?? FindVisualDescendant<ScrollViewer>(control)) is ScrollViewer scrollViewer && scrollViewer.ScrollableHeight > 0)
 		{
 			double targetOffset = Math.Clamp(scrollViewer.VerticalOffset + distance, 0, scrollViewer.ScrollableHeight);
 			scrollViewer.ChangeView(null, targetOffset, null, disableAnimation: true);
 			e.Handled = true;
 		}
+	}
+
+	private static bool IsWithinTextInput(object? source)
+	{
+		for (DependencyObject? current = source as DependencyObject; current is not null; current = VisualTreeHelper.GetParent(current))
+		{
+			if (current is TextBox)
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private double GetAcceleratedWheelDistance(int delta)
@@ -6656,6 +6757,30 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private void PaneGrid_SizeChanged(object sender, SizeChangedEventArgs e)
 	{
 		ApplySplitLayout();
+	}
+
+	private double lastDetailsLayoutWidth;
+
+	private void DetailsLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+	{
+		double newWidth = e.NewSize.Width;
+		double previousWidth = lastDetailsLayoutWidth;
+		lastDetailsLayoutWidth = newWidth;
+		if (previousWidth < 1 || newWidth < 1 || resizingDetailColumn is not null)
+		{
+			return;
+		}
+
+		double ratio = newWidth / previousWidth;
+		if (Math.Abs(ratio - 1) < 0.01)
+		{
+			return;
+		}
+
+		foreach (string column in new[] { "Modified", "Created", "LastOpened", "Added", "Size", "Kind", "Version", "Comments", "Tags" })
+		{
+			DetailColumnWidths.SetWidth(column, Math.Clamp(DetailColumnWidths.GetWidth(column) * ratio, 72, 480));
+		}
 	}
 
 	private DirectoryBrowserViewModel? GetBrowserForItemsControl(object? control)
@@ -6958,7 +7083,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private static bool IsOverDetailsHeaderResizeHandle(Button button, string fieldName, PointerRoutedEventArgs e)
 	{
 		double pointerX = e.GetCurrentPoint(button).Position.X;
-		return fieldName is "Name" ? pointerX >= button.ActualWidth - 8 : pointerX <= 8;
+		return fieldName is "Name" ? pointerX >= button.ActualWidth - 12 : pointerX <= 12;
 	}
 
 	private void SetDetailsResizeCursor(bool isVisible)

@@ -33,6 +33,8 @@ public interface IMacOSWorkspaceService
 	Task ShareViaAirDropAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
 
 	Task<byte[]?> GetThumbnailPngAsync(string path, int width, int height, double scale, CancellationToken cancellationToken = default);
+
+	Task<byte[]?> GetContentPreviewPngAsync(string path, int width, int height, double scale, CancellationToken cancellationToken = default);
 }
 
 public sealed record TrashedItemResult(string OriginalPath, string TrashPath);

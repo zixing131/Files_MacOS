@@ -48,6 +48,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	private CancellationTokenSource? navigationCancellation;
 	private CancellationTokenSource? searchCancellation;
 	private CancellationTokenSource? thumbnailCancellation;
+	private CancellationTokenSource? metadataCancellation;
 	private bool searchRefreshPending;
 	private volatile bool isDisposed;
 	private string itemCountStatus = string.Empty;
@@ -149,6 +150,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		searchCancellation?.Dispose();
 		searchRefreshPending = false;
 		searchCancellation = null;
+		metadataCancellation?.Cancel();
+		metadataCancellation?.Dispose();
+		metadataCancellation = null;
 		var cancellation = new CancellationTokenSource();
 		navigationCancellation = cancellation;
 
@@ -166,6 +170,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 			ReplaceItems(items);
 			StartThumbnailLoading(Items);
+			StartMetadataEnrichment(Items);
 
 			if (addToHistory && !string.Equals(previousPath, fullPath, StringComparison.Ordinal))
 			{
@@ -268,6 +273,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		searchCancellation?.Cancel();
 		searchCancellation?.Dispose();
 		searchRefreshPending = false;
+		metadataCancellation?.Cancel();
+		metadataCancellation?.Dispose();
+		metadataCancellation = null;
 
 		if (string.IsNullOrWhiteSpace(query))
 		{
@@ -475,6 +483,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		thumbnailCancellation?.Cancel();
 		thumbnailCancellation?.Dispose();
 		thumbnailCancellation = null;
+		metadataCancellation?.Cancel();
+		metadataCancellation?.Dispose();
+		metadataCancellation = null;
 		lock (thumbnailCacheLock)
 		{
 			thumbnailCache.Clear();
@@ -527,6 +538,94 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		_ = LoadThumbnailsAsync(items.Take(120).ToArray(), cancellation);
 	}
 
+	private void StartMetadataEnrichment(IReadOnlyList<LocalFileSystemItem> items)
+	{
+		if (isDisposed || items.Count is 0)
+		{
+			return;
+		}
+
+		metadataCancellation?.Cancel();
+		metadataCancellation?.Dispose();
+		var cancellation = new CancellationTokenSource();
+		metadataCancellation = cancellation;
+		_ = EnrichMetadataAsync(items, cancellation);
+	}
+
+	private async Task EnrichMetadataAsync(IReadOnlyList<LocalFileSystemItem> items, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			const int batchSize = 96;
+			for (int offset = 0; offset < items.Count && !cancellation.IsCancellationRequested; offset += batchSize)
+			{
+				LocalFileSystemItem[] batch = items.Skip(offset).Take(batchSize).ToArray();
+				using var concurrency = new SemaphoreSlim(8);
+				var results = await Task.WhenAll(batch.Select(async item =>
+				{
+					await concurrency.WaitAsync(cancellation.Token);
+					try
+					{
+						MacOSFinderTagService.SortMetadata metadata = await Task.Run(
+							() => MacOSFinderTagService.GetSortMetadata(item.Path),
+							cancellation.Token);
+						return (item, metadata);
+					}
+					finally
+					{
+						concurrency.Release();
+					}
+				}));
+				if (cancellation.IsCancellationRequested || isDisposed)
+				{
+					return;
+				}
+
+				dispatcherQueue.TryEnqueue(() =>
+				{
+					if (cancellation.IsCancellationRequested || isDisposed)
+					{
+						return;
+					}
+					foreach ((LocalFileSystemItem item, MacOSFinderTagService.SortMetadata metadata) in results)
+					{
+						item.ApplySortMetadata(
+							metadata.LastOpened,
+							metadata.Added,
+							metadata.Kind,
+							metadata.Version,
+							metadata.Comments,
+							metadata.Tags);
+					}
+				});
+			}
+
+			if (!cancellation.IsCancellationRequested && !isDisposed && SortField is
+				FileSortField.LastOpened or FileSortField.Added or FileSortField.Kind or
+				FileSortField.Version or FileSortField.Comments or FileSortField.Tags)
+			{
+				dispatcherQueue.TryEnqueue(() =>
+				{
+					if (!cancellation.IsCancellationRequested && !isDisposed)
+					{
+						ApplyView();
+					}
+				});
+			}
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		finally
+		{
+			if (ReferenceEquals(metadataCancellation, cancellation))
+			{
+				metadataCancellation = null;
+				cancellation.Dispose();
+			}
+		}
+	}
+
 	private async Task LoadThumbnailsAsync(IReadOnlyList<LocalFileSystemItem> items, CancellationTokenSource cancellation)
 	{
 		using var concurrency = new SemaphoreSlim(4);
@@ -555,7 +654,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		await concurrency.WaitAsync(cancellationToken);
 		try
 		{
-			byte[]? png = await workspaceService.GetThumbnailPngAsync(item.Path, 128, 128, 1, cancellationToken);
+			byte[]? png = await workspaceService.GetThumbnailPngAsync(item.Path, 128, 128, 2, cancellationToken);
 			if (png is null)
 			{
 				return;

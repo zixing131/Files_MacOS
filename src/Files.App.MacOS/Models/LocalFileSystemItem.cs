@@ -40,21 +40,63 @@ public sealed partial class LocalFileSystemItem(
 
 	public DateTimeOffset Created { get; } = created ?? modified;
 
-	public DateTimeOffset LastOpened { get; } = lastOpened ?? modified;
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(LastOpenedText))]
+	public partial DateTimeOffset LastOpened { get; set; } = lastOpened ?? modified;
 
-	public DateTimeOffset Added { get; } = added ?? created ?? modified;
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(AddedText))]
+	public partial DateTimeOffset Added { get; set; } = added ?? created ?? modified;
 
-	public string Kind { get; } = kind ?? (isPackage
+	[ObservableProperty]
+	public partial string Kind { get; set; } = kind ?? (isPackage
 		? "app"
 		: isDirectory
 			? "folder"
 			: System.IO.Path.GetExtension(path).TrimStart('.'));
 
-	public string TagsText { get; } = string.Join(", ", tags ?? []);
+	[ObservableProperty]
+	public partial string TagsText { get; set; } = string.Join(", ", tags ?? []);
 
-	public string Version { get; } = version ?? string.Empty;
+	[ObservableProperty]
+	public partial string Version { get; set; } = version ?? string.Empty;
 
-	public string Comments { get; } = comments ?? string.Empty;
+	[ObservableProperty]
+	public partial string Comments { get; set; } = comments ?? string.Empty;
+
+	internal void ApplySortMetadata(
+		DateTimeOffset? enrichedLastOpened,
+		DateTimeOffset? enrichedAdded,
+		string? enrichedKind,
+		string? enrichedVersion,
+		string? enrichedComments,
+		IReadOnlyList<string>? enrichedTags)
+	{
+		if (enrichedLastOpened is { } opened)
+		{
+			LastOpened = opened;
+		}
+		if (enrichedAdded is { } addedToFolder)
+		{
+			Added = addedToFolder;
+		}
+		if (!string.IsNullOrWhiteSpace(enrichedKind))
+		{
+			Kind = enrichedKind;
+		}
+		if (!string.IsNullOrWhiteSpace(enrichedVersion))
+		{
+			Version = enrichedVersion;
+		}
+		if (!string.IsNullOrWhiteSpace(enrichedComments))
+		{
+			Comments = enrichedComments;
+		}
+		if (enrichedTags is { Count: > 0 })
+		{
+			TagsText = string.Join(", ", enrichedTags);
+		}
+	}
 
 	[ObservableProperty]
 	[NotifyPropertyChangedFor(nameof(HasThumbnail))]

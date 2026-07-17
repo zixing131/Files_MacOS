@@ -201,6 +201,7 @@ internal static partial class MacOSNativeMethods
 		double width,
 		double height,
 		double scale,
+		int contentOnly,
 		out nint output,
 		out nuint outputLength);
 

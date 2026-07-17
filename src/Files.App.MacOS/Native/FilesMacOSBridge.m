@@ -2665,11 +2665,59 @@ __attribute__((visibility("default"))) int files_macos_create_alias_file(const c
 	}
 }
 
+static int files_macos_copy_png_result(NSData *pngData, unsigned char **output, size_t *outputLength)
+{
+	if (pngData.length == 0)
+	{
+		return 0;
+	}
+
+	unsigned char *buffer = malloc(pngData.length);
+	if (buffer == NULL)
+	{
+		return 0;
+	}
+
+	memcpy(buffer, pngData.bytes, pngData.length);
+	*output = buffer;
+	*outputLength = pngData.length;
+	return 1;
+}
+
+static NSData *files_macos_ql_thumbnail(NSURL *url, double width, double height, double scale)
+{
+	dispatch_semaphore_t completion = dispatch_semaphore_create(0);
+	__block NSData *pngData = nil;
+	QLThumbnailGenerationRequest *request = [[QLThumbnailGenerationRequest alloc]
+		initWithFileAtURL:url
+		size:NSMakeSize(width, height)
+		scale:scale
+		representationTypes:QLThumbnailGenerationRequestRepresentationTypeThumbnail];
+
+	[[QLThumbnailGenerator sharedGenerator]
+		generateBestRepresentationForRequest:request
+		completionHandler:^(QLThumbnailRepresentation *representation, NSError *error) {
+			if (representation != nil && error == nil)
+			{
+				NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithCGImage:representation.CGImage];
+				pngData = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+			}
+			dispatch_semaphore_signal(completion);
+		}];
+
+	if (dispatch_semaphore_wait(completion, dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC)) != 0)
+	{
+		return nil;
+	}
+	return pngData;
+}
+
 __attribute__((visibility("default"))) int files_macos_generate_thumbnail(
 	const char *path,
 	double width,
 	double height,
 	double scale,
+	int contentOnly,
 	unsigned char **output,
 	size_t *outputLength)
 {
@@ -2690,55 +2738,19 @@ __attribute__((visibility("default"))) int files_macos_generate_thumbnail(
 
 		BOOL wasAlias = NO;
 		NSURL *previewURL = files_macos_resolve_alias_url(url, &wasAlias);
-		NSData *iconData = files_macos_png_for_file_icon(previewURL, width, height, scale);
-		if (iconData.length > 0)
+		NSData *thumbnailData = files_macos_ql_thumbnail(previewURL, width, height, scale);
+		if (files_macos_copy_png_result(thumbnailData, output, outputLength) == 1)
 		{
-			unsigned char *buffer = malloc(iconData.length);
-			if (buffer == NULL)
-			{
-				return 0;
-			}
-
-			memcpy(buffer, iconData.bytes, iconData.length);
-			*output = buffer;
-			*outputLength = iconData.length;
 			return 1;
 		}
 
-		dispatch_semaphore_t completion = dispatch_semaphore_create(0);
-		__block NSData *pngData = nil;
-		QLThumbnailGenerationRequest *request = [[QLThumbnailGenerationRequest alloc]
-			initWithFileAtURL:previewURL
-			size:NSMakeSize(width, height)
-			scale:scale
-			representationTypes:QLThumbnailGenerationRequestRepresentationTypeAll];
-
-		[[QLThumbnailGenerator sharedGenerator]
-			generateBestRepresentationForRequest:request
-			completionHandler:^(QLThumbnailRepresentation *representation, NSError *error) {
-				if (representation != nil && error == nil)
-				{
-					NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithCGImage:representation.CGImage];
-					pngData = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
-				}
-				dispatch_semaphore_signal(completion);
-			}];
-
-		if (dispatch_semaphore_wait(completion, dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC)) != 0 || pngData.length == 0)
+		if (contentOnly != 0)
 		{
 			return 0;
 		}
 
-		unsigned char *buffer = malloc(pngData.length);
-		if (buffer == NULL)
-		{
-			return 0;
-		}
-
-		memcpy(buffer, pngData.bytes, pngData.length);
-		*output = buffer;
-		*outputLength = pngData.length;
-		return 1;
+		NSData *iconData = files_macos_png_for_file_icon(previewURL, width, height, scale);
+		return files_macos_copy_png_result(iconData, output, outputLength);
 	}
 }
 

@@ -257,21 +257,23 @@
 				</Grid>
 			</Border>
 
-			<Grid Grid.Column="6" Width="260" Height="34" VerticalAlignment="Center">
+			<Grid Grid.Column="6" Width="260" Height="34" VerticalAlignment="Center" ColumnDefinitions="*,Auto">
 				<TextBox
 					x:Name="SearchBox"
 					x:Uid="SearchBox"
+					Grid.Column="0"
 					Height="34"
-					Padding="12,3,36,0"
+					Padding="12,0,8,0"
 					VerticalAlignment="Center"
 					VerticalContentAlignment="Center"
 					Text="{Binding ActiveBrowser.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
 					TextChanged="SearchBox_TextChanged" />
 				<Button
 					x:Name="SearchOptionsButton"
-					Width="34"
-					Height="32"
-					HorizontalAlignment="Right"
+					Grid.Column="1"
+					Width="30"
+					Height="30"
+					Margin="0,0,2,0"
 					VerticalAlignment="Center"
 					Background="Transparent"
 					BorderThickness="0"
@@ -638,6 +640,8 @@
 
 						<!--  Details layout  -->
 						<Grid
+							x:Name="PrimaryDetailsLayout"
+							SizeChanged="DetailsLayout_SizeChanged"
 							Visibility="{Binding ActiveTab.Browser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}"
 							RowDefinitions="36,*">
 							<Border
@@ -977,9 +981,10 @@
 									TextAlignment="Center"
 									TextWrapping="Wrap" />
 								<StackPanel x:Name="PreviewPaneContent" Spacing="10" Visibility="Collapsed">
-									<Grid Width="160" Height="160" HorizontalAlignment="Center">
+									<Grid Width="240" Height="200" HorizontalAlignment="Center">
 										<PathIcon Width="88" Height="88" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.58" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 										<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+										<Image x:Name="PreviewLargeImage" Stretch="Uniform" Visibility="Collapsed" />
 									</Grid>
 									<TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding Name}" TextAlignment="Center" TextTrimming="CharacterEllipsis" />
 									<TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Path}" TextAlignment="Center" TextWrapping="Wrap" />
