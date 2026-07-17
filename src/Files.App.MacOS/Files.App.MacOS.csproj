@@ -11,6 +11,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RuntimeIdentifiers>osx-arm64;osx-x64</RuntimeIdentifiers>
+	<RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
 	<SelfContained Condition="'$(Configuration)' == 'Release' and '$(RuntimeIdentifier)' != ''">true</SelfContained>
 
     <MacOSBridgeArch Condition="'$(RuntimeIdentifier)' == 'osx-arm64'">arm64</MacOSBridgeArch>
@@ -21,9 +22,9 @@
 
     <ApplicationTitle>Files</ApplicationTitle>
     <ApplicationId>io.filescommunity.files.macos</ApplicationId>
-    <Version>0.1.11</Version>
-    <ApplicationDisplayVersion>0.1.11</ApplicationDisplayVersion>
-    <ApplicationVersion>10111</ApplicationVersion>
+    <Version>0.1.12</Version>
+    <ApplicationDisplayVersion>0.1.12</ApplicationDisplayVersion>
+    <ApplicationVersion>10112</ApplicationVersion>
     <ApplicationPublisher>Files Community</ApplicationPublisher>
     <Description>Files for macOS technical preview.</Description>
     <UnoPlatformDefaultSymbolsFontFamily>Symbols</UnoPlatformDefaultSymbolsFontFamily>
