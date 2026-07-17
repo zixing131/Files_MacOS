@@ -37,6 +37,8 @@ Release bundles omit managed symbols and .NET diagnostic payloads. Keep symbols 
 
 Local builds use an ad-hoc signature and `Files.AdHoc.entitlements`. The local entitlement disables library validation because separately ad-hoc-signed .NET runtime libraries do not share a Team ID. It must not be used for Developer ID distribution.
 
+Full Disk Access is tied to the app's code identity. Replacing an ad-hoc-signed bundle can therefore require removing the old Files entry from System Settings and adding the updated app again. For repeated local releases, pass the same valid Apple Development identity on every publish so the designated requirement remains stable; public distribution should use the Developer ID flow below.
+
 ## Developer ID packages
 
 CI or a release operator supplies a valid Developer ID Application identity and the strict entitlement file:

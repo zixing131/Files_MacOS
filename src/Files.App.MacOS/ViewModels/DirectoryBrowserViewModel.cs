@@ -137,7 +137,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			return;
 		}
 
-		if (!Directory.Exists(fullPath))
+		if (!Directory.Exists(fullPath) && !IsUserTrashPath(fullPath))
 		{
 			StatusText = string.Format(GetResource("FolderNotFoundFormat"), fullPath);
 			return;
@@ -195,6 +195,15 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 				IsLoading = false;
 			}
 		}
+	}
+
+	private static bool IsUserTrashPath(string path)
+	{
+		string trashPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Trash");
+		return string.Equals(
+			Path.TrimEndingDirectorySeparator(path),
+			Path.TrimEndingDirectorySeparator(Path.GetFullPath(trashPath)),
+			StringComparison.Ordinal);
 	}
 
 	public async Task GoBackAsync()

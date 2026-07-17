@@ -279,6 +279,10 @@
     <value>Permissions</value>
   </data>
   <data name="PropertyPermissionsPlaceholder" xml:space="preserve"><value>Octal mode, for example 755</value></data>
+  <data name="PermissionReadColumn" xml:space="preserve"><value>Read</value></data>
+  <data name="PermissionWriteColumn" xml:space="preserve"><value>Write</value></data>
+  <data name="PermissionExecuteColumn" xml:space="preserve"><value>Execute</value></data>
+  <data name="PermissionEveryoneLabel" xml:space="preserve"><value>Everyone</value></data>
   <data name="PropertyFinderTagsLabel" xml:space="preserve"><value>Finder tags</value></data>
   <data name="PropertyFinderTagsPlaceholder" xml:space="preserve"><value>Comma-separated tags</value></data>
   <data name="PropertyHiddenLabel" xml:space="preserve"><value>Hidden</value></data>
@@ -566,7 +570,7 @@
   <data name="ItemModifiedAutomationFormat" xml:space="preserve"><value>Modified {0}</value></data>
   <data name="ItemLocationAutomationFormat" xml:space="preserve"><value>Location {0}</value></data>
   <data name="FullDiskAccessDialogTitle" xml:space="preserve"><value>Allow full disk access</value></data>
-  <data name="FullDiskAccessDialogMessage" xml:space="preserve"><value>Files_MacOS needs Full Disk Access to browse protected folders, the Trash, backups, and files managed by other apps. Access is already enabled when this message doesn't appear.</value></data>
+  <data name="FullDiskAccessDialogMessage" xml:space="preserve"><value>Files_MacOS can't currently read the Trash. Add the same Files_MacOS app that you are running to Full Disk Access, enable it, then quit and reopen the app. Updated ad-hoc builds may need to be added again.</value></data>
   <data name="OpenPrivacySettingsButtonText" xml:space="preserve"><value>Open System Settings</value></data>
   <data name="LaterButtonText" xml:space="preserve"><value>Later</value></data>
   <data name="ContextAirDropItem.Text" xml:space="preserve"><value>Share via AirDrop</value></data>
@@ -580,4 +584,12 @@
   <data name="EmptyTrashButtonText" xml:space="preserve"><value>Empty Trash</value></data>
   <data name="EmptyTrashCompletedMessage" xml:space="preserve"><value>Trash emptied.</value></data>
   <data name="EmptyTrashErrorMessage" xml:space="preserve"><value>The Trash couldn't be emptied.</value></data>
+  <data name="ContextMenuCustomizationSettingLabel" xml:space="preserve"><value>File context menu</value></data>
+  <data name="ContextMenuCustomizationSettingDescription" xml:space="preserve"><value>Choose whether each command appears in the first-level menu, the More actions submenu, or is hidden. Use Move up and Move down to customize the order.</value></data>
+  <data name="ContextMenuPrimaryLevelOption" xml:space="preserve"><value>First level</value></data>
+  <data name="ContextMenuSecondaryLevelOption" xml:space="preserve"><value>More actions</value></data>
+  <data name="ContextMenuHiddenLevelOption" xml:space="preserve"><value>Hidden</value></data>
+  <data name="MoveUpButtonText" xml:space="preserve"><value>Move up</value></data>
+  <data name="MoveDownButtonText" xml:space="preserve"><value>Move down</value></data>
+  <data name="ResetContextMenuButtonText" xml:space="preserve"><value>Restore default menu</value></data>
 </root>

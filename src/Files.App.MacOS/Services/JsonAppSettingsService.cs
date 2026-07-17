@@ -95,6 +95,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			: NormalizeStrings(settings.DetailColumns, 9, StringComparer.Ordinal)
 				.Where(static column => column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
 				.ToArray();
+		ContextMenuActionSetting[] contextMenuActions = NormalizeContextMenuActions(settings.ContextMenuActions);
 		SavedSearch[] savedSearches = (settings.SavedSearches ?? [])
 			.Where(static search => search is not null &&
 				!string.IsNullOrWhiteSpace(search.Name) &&
@@ -136,6 +137,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			CollapsedSidebarSections = collapsedSidebarSections,
 			HiddenDefaultSidebarLocations = hiddenDefaultSidebarLocations,
 			DetailColumns = detailColumns,
+			ContextMenuActions = contextMenuActions,
 			SavedSearches = savedSearches,
 			Workspace = workspace,
 			AdditionalWindowWorkspaces = additionalWindowWorkspaces,
@@ -146,8 +148,21 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
 			ConfirmMoveToTrash = settings.SchemaVersion < 14 || settings.ConfirmMoveToTrash,
-			SchemaVersion = 15,
+			SchemaVersion = 16,
 		};
+	}
+
+	private static ContextMenuActionSetting[] NormalizeContextMenuActions(ContextMenuActionSetting[]? actions)
+	{
+		ContextMenuActionSetting[] defaults = ContextMenuActionSetting.CreateDefaults();
+		var supported = defaults.Select(static item => item.Action).ToHashSet(StringComparer.Ordinal);
+		var normalized = (actions ?? [])
+			.Where(static item => item is not null && !string.IsNullOrWhiteSpace(item.Action) && Enum.IsDefined(item.Level))
+			.Where(item => supported.Contains(item.Action))
+			.DistinctBy(static item => item.Action, StringComparer.Ordinal)
+			.ToList();
+		normalized.AddRange(defaults.Where(item => normalized.All(existing => !string.Equals(existing.Action, item.Action, StringComparison.Ordinal))));
+		return normalized.ToArray();
 	}
 
 	private static WindowPlacementState? NormalizeWindowPlacement(WindowPlacementState? placement)

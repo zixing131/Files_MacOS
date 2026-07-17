@@ -39,7 +39,7 @@
 
 ## 安装
 
-当前提供 Apple Silicon（ARM64）DMG 安装包。下载最新的 `Files_MacOS-0.1.1-macos-arm64.dmg` 后：
+当前提供 Apple Silicon（ARM64）DMG 安装包。下载最新的 `Files_MacOS-0.1.2-macos-arm64.dmg` 后：
 
 1. 双击挂载 DMG。
 2. 将 `Files.app` 拖入“应用程序”。

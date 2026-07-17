@@ -24,6 +24,41 @@ public enum TerminalPreference
 	WezTerm,
 }
 
+public enum ContextMenuLevel
+{
+	Hidden,
+	Primary,
+	Secondary,
+}
+
+public sealed record ContextMenuActionSetting(string Action, ContextMenuLevel Level)
+{
+	public static ContextMenuActionSetting[] CreateDefaults() =>
+	[
+		new("Open", ContextMenuLevel.Primary),
+		new("OpenWith", ContextMenuLevel.Primary),
+		new("OpenInNewTab", ContextMenuLevel.Primary),
+		new("Preview", ContextMenuLevel.Primary),
+		new("PutBack", ContextMenuLevel.Primary),
+		new("Cut", ContextMenuLevel.Primary),
+		new("Copy", ContextMenuLevel.Primary),
+		new("Rename", ContextMenuLevel.Primary),
+		new("MoveToTrash", ContextMenuLevel.Primary),
+		new("Properties", ContextMenuLevel.Primary),
+		new("Reveal", ContextMenuLevel.Secondary),
+		new("Terminal", ContextMenuLevel.Secondary),
+		new("Duplicate", ContextMenuLevel.Secondary),
+		new("CreateSymbolicLink", ContextMenuLevel.Secondary),
+		new("CopyPath", ContextMenuLevel.Secondary),
+		new("Share", ContextMenuLevel.Secondary),
+		new("AirDrop", ContextMenuLevel.Secondary),
+		new("Compress", ContextMenuLevel.Secondary),
+		new("Extract", ContextMenuLevel.Secondary),
+		new("Favorite", ContextMenuLevel.Secondary),
+		new("PermanentDelete", ContextMenuLevel.Secondary),
+	];
+}
+
 public sealed record AppSettings(
 	AppThemePreference Theme = AppThemePreference.System,
 	bool ShowHiddenFiles = false,
@@ -49,7 +84,8 @@ public sealed record AppSettings(
 	TerminalPreference Terminal = TerminalPreference.Terminal,
 	bool ConfirmMoveToTrash = true,
 	string[]? DetailColumns = null,
-	int SchemaVersion = 15);
+	ContextMenuActionSetting[]? ContextMenuActions = null,
+	int SchemaVersion = 16);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 

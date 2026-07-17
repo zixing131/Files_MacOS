@@ -1386,6 +1386,17 @@ __attribute__((visibility("default"))) int files_macos_full_disk_access_status(v
 	@autoreleasepool
 	{
 		NSString *home = NSHomeDirectory();
+		NSString *trashPath = [home stringByAppendingPathComponent:@".Trash"];
+		NSError *trashError = nil;
+		if ([[NSFileManager defaultManager] contentsOfDirectoryAtPath:trashPath error:&trashError] != nil)
+		{
+			return 1;
+		}
+		if (trashError.code == NSFileReadNoPermissionError ||
+			([trashError.domain isEqualToString:NSPOSIXErrorDomain] && (trashError.code == EACCES || trashError.code == EPERM)))
+		{
+			return 0;
+		}
 		NSArray<NSDictionary<NSString *, id> *> *probes = @[
 			@{ @"path": [home stringByAppendingPathComponent:@"Library/Application Support/com.apple.TCC/TCC.db"], @"directory": @NO },
 			@{ @"path": [home stringByAppendingPathComponent:@"Library/Safari/History.db"], @"directory": @NO },

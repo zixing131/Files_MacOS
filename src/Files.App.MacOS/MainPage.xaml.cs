@@ -292,9 +292,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
-	private async Task EnsureFullDiskAccessAsync()
+	private async Task EnsureFullDiskAccessAsync(bool forcePrompt = false)
 	{
-		if (MacOSPrivacyService.GetFullDiskAccessStatus() is not FullDiskAccessStatus.Denied || !MacOSPrivacyService.TryBeginPrompt())
+		if (MacOSPrivacyService.GetFullDiskAccessStatus() is not FullDiskAccessStatus.Denied ||
+			!forcePrompt && !MacOSPrivacyService.TryBeginPrompt())
 		{
 			return;
 		}
@@ -568,6 +569,23 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		];
 		bool compactItemContextMenu = itemContextFlyout.Items.Count <= 13 &&
 			expectedItemContextActions.All(itemContextActions.Contains);
+		AppSettings settingsBeforeContextMenuDiagnostic = currentSettings;
+		currentSettings = currentSettings with
+		{
+			ContextMenuActions =
+			[
+				new("Copy", ContextMenuLevel.Secondary),
+				new("Open", ContextMenuLevel.Primary),
+				new("Rename", ContextMenuLevel.Hidden),
+			],
+		};
+		MenuFlyout customizedContextFlyout = CreateItemContextFlyout();
+		currentSettings = settingsBeforeContextMenuDiagnostic;
+		bool customizedContextMenu = customizedContextFlyout.Items is
+		[
+			MenuFlyoutSubItem { Tag: "MoreActions", Items: [MenuFlyoutItem { Tag: "Copy" }] },
+			MenuFlyoutItem { Tag: "Open" },
+		];
 		string[] expectedBackgroundActions =
 		[
 			"NewFolder", "NewTextFile", "Paste", "Terminal", "Refresh", "Name", "Modified", "Size",
@@ -802,6 +820,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			FindTypeSelectMatch(typeSelectItems, "a", 0) == 1 &&
 			FindTypeSelectMatch(typeSelectItems, "a", 1) == 0 &&
 			FindTypeSelectMatch(typeSelectItems, "al", -1) == 1;
+		CheckBox[] permissionToggles = Enumerable.Range(0, 9).Select(static _ => new CheckBox()).ToArray();
+		permissionToggles[0].IsChecked = true;
+		permissionToggles[1].IsChecked = true;
+		permissionToggles[3].IsChecked = true;
+		bool permissionMatrix = GetUnixMode(permissionToggles) ==
+			(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
 		(bool permanentDeleteRoundtrip, bool metadataEditRoundtrip, bool securityPropertiesRoundtrip, bool openWithRoundtrip, bool recentLocationsRoundtrip, bool duplicateRoundtrip, bool newTabRoundtrip, bool tabLabelsRoundtrip, bool tabHistoryRoundtrip, bool tabManagementRoundtrip, bool symbolicLinkRoundtrip) = await RunFileMutationDiagnosticsAsync();
 
 		using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
@@ -810,8 +834,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"items={browser.Items.Count} realized={realizedContainers} selection_roundtrip={selectionRoundtrip} " +
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} sidebar_eject_buttons={renderedEjectButtons} sidebar_header_spacing={sidebarHeaderSpacing} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
-			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} tab_icon_layout={tabIconLayout} breadcrumb_home_icon={breadcrumbHomeIcon} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} symbol_font={app.IsSymbolFontAvailable} dynamic_labels={dynamicCommandLabels} item_context_compact={compactItemContextMenu} background_context_menu={backgroundContextMenu} item_context_hit_targets={itemContextHitTargets} item_context_targets={itemContextTargets} external_file_drag={externalFileDrag} alias_app_thumbnail={aliasApplicationThumbnail} thumbnail_double_buffer={thumbnailDoubleBuffer} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} detail_columns={detailColumnCustomization} type_select={typeSelect} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} tab_icon_layout={tabIconLayout} breadcrumb_home_icon={breadcrumbHomeIcon} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} symbol_font={app.IsSymbolFontAvailable} dynamic_labels={dynamicCommandLabels} item_context_compact={compactItemContextMenu} customized_context_menu={customizedContextMenu} background_context_menu={backgroundContextMenu} item_context_hit_targets={itemContextHitTargets} item_context_targets={itemContextTargets} external_file_drag={externalFileDrag} alias_app_thumbnail={aliasApplicationThumbnail} thumbnail_double_buffer={thumbnailDoubleBuffer} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
+			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} detail_columns={detailColumnCustomization} type_select={typeSelect} permission_matrix={permissionMatrix} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -1077,7 +1101,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
 			recentLocations &= restoredSettings is
 			{
-				SchemaVersion: 15,
+				SchemaVersion: 16,
 				RecentPaths: [var restoredRecentPath],
 				CollapsedSidebarSections: ["Recent"],
 				AdditionalWindowWorkspaces: [{ Tabs: [{ SplitRatio: 0.8 }] }],
@@ -2022,6 +2046,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}
 			else
 			{
+				if (IsTrashPath(location.Path) && MacOSPrivacyService.GetFullDiskAccessStatus() is FullDiskAccessStatus.Denied)
+				{
+					await EnsureFullDiskAccessAsync(forcePrompt: true);
+					return;
+				}
 				await Browser.NavigateAsync(location.Path);
 			}
 		}
@@ -3501,40 +3530,62 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private MenuFlyout CreateItemContextFlyout()
 	{
 		var flyout = new MenuFlyout();
-		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenItem/Text", "Open"));
-		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenWithItem/Text", "OpenWith"));
-		flyout.Items.Add(CreateItemContextMenuItem("ContextOpenInNewTabItem/Text", "OpenInNewTab"));
-		flyout.Items.Add(CreateItemContextMenuItem("ContextPreviewItem/Text", "Preview"));
-		flyout.Items.Add(CreateItemContextMenuItem("ContextPutBackItem/Text", "PutBack"));
-		flyout.Items.Add(new MenuFlyoutSeparator());
-		flyout.Items.Add(CreateItemContextMenuItem("ContextCutItem/Text", "Cut"));
-		flyout.Items.Add(CreateItemContextMenuItem("ContextCopyItem/Text", "Copy"));
-		flyout.Items.Add(CreateItemContextMenuItem("ContextRenameItem/Text", "Rename"));
-		flyout.Items.Add(CreateItemContextMenuItem("ContextDeleteItem/Text", "MoveToTrash"));
-		flyout.Items.Add(new MenuFlyoutSeparator());
-		flyout.Items.Add(CreateItemContextMenuItem("ContextPropertiesItem/Text", "Properties"));
-
-		var moreActions = new MenuFlyoutSubItem
+		ContextMenuActionSetting[] actions = currentSettings.ContextMenuActions ?? ContextMenuActionSetting.CreateDefaults();
+		ContextMenuActionSetting[] secondaryActions = actions.Where(static item => item.Level is ContextMenuLevel.Secondary).ToArray();
+		bool secondaryAdded = false;
+		foreach (ContextMenuActionSetting action in actions)
 		{
-			Text = GetResource("ContextMoreActionsSubItem/Text"),
-			Tag = "MoreActions",
-		};
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextRevealItem/Text", "Reveal"));
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextTerminalItem/Text", "Terminal"));
-		moreActions.Items.Add(new MenuFlyoutSeparator());
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextDuplicateItem/Text", "Duplicate"));
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextCreateSymbolicLinkItem/Text", "CreateSymbolicLink"));
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextCopyPathItem/Text", "CopyPath"));
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextShareItem/Text", "Share"));
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextAirDropItem/Text", "AirDrop"));
-		moreActions.Items.Add(new MenuFlyoutSeparator());
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextCompressItem/Text", "Compress"));
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextExtractItem/Text", "Extract"));
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextFavoriteItem/Text", "Favorite"));
-		moreActions.Items.Add(CreateItemContextMenuItem("ContextPermanentDeleteItem/Text", "PermanentDelete"));
-		flyout.Items.Add(moreActions);
+			if (action.Level is ContextMenuLevel.Primary)
+			{
+				flyout.Items.Add(CreateItemContextMenuItem(GetContextMenuResourceKey(action.Action), action.Action));
+			}
+			else if (action.Level is ContextMenuLevel.Secondary && !secondaryAdded)
+			{
+				var moreActions = new MenuFlyoutSubItem
+				{
+					Text = GetResource("ContextMoreActionsSubItem/Text"),
+					Tag = "MoreActions",
+				};
+				foreach (ContextMenuActionSetting secondaryAction in secondaryActions)
+				{
+					moreActions.Items.Add(CreateItemContextMenuItem(GetContextMenuResourceKey(secondaryAction.Action), secondaryAction.Action));
+				}
+				flyout.Items.Add(moreActions);
+				secondaryAdded = true;
+			}
+		}
+		if (flyout.Items.Count is 0)
+		{
+			flyout.Items.Add(CreateItemContextMenuItem(GetContextMenuResourceKey("Open"), "Open"));
+		}
 		return flyout;
 	}
+
+	private static string GetContextMenuResourceKey(string action) => action switch
+	{
+		"Open" => "ContextOpenItem/Text",
+		"OpenWith" => "ContextOpenWithItem/Text",
+		"OpenInNewTab" => "ContextOpenInNewTabItem/Text",
+		"Preview" => "ContextPreviewItem/Text",
+		"PutBack" => "ContextPutBackItem/Text",
+		"Cut" => "ContextCutItem/Text",
+		"Copy" => "ContextCopyItem/Text",
+		"Rename" => "ContextRenameItem/Text",
+		"MoveToTrash" => "ContextDeleteItem/Text",
+		"Properties" => "ContextPropertiesItem/Text",
+		"Reveal" => "ContextRevealItem/Text",
+		"Terminal" => "ContextTerminalItem/Text",
+		"Duplicate" => "ContextDuplicateItem/Text",
+		"CreateSymbolicLink" => "ContextCreateSymbolicLinkItem/Text",
+		"CopyPath" => "ContextCopyPathItem/Text",
+		"Share" => "ContextShareItem/Text",
+		"AirDrop" => "ContextAirDropItem/Text",
+		"Compress" => "ContextCompressItem/Text",
+		"Extract" => "ContextExtractItem/Text",
+		"Favorite" => "ContextFavoriteItem/Text",
+		"PermanentDelete" => "ContextPermanentDeleteItem/Text",
+		_ => throw new ArgumentOutOfRangeException(nameof(action), action, null),
+	};
 
 	private MenuFlyoutItem CreateItemContextMenuItem(string resourceKey, string action)
 	{
@@ -5019,6 +5070,107 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			OnContent = GetResource("ToggleOnText"),
 			OffContent = GetResource("ToggleOffText"),
 		};
+		var contextMenuActions = (currentSettings.ContextMenuActions ?? ContextMenuActionSetting.CreateDefaults()).ToList();
+		var contextMenuEditor = new StackPanel { Spacing = 6 };
+		void RenderContextMenuEditor()
+		{
+			contextMenuEditor.Children.Clear();
+			for (int index = 0; index < contextMenuActions.Count; index++)
+			{
+				ContextMenuActionSetting action = contextMenuActions[index];
+				var row = new Grid { ColumnSpacing = 6 };
+				row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+				row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(116) });
+				row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+				row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+				var label = new TextBlock
+				{
+					Text = GetResource(GetContextMenuResourceKey(action.Action)),
+					VerticalAlignment = VerticalAlignment.Center,
+					TextTrimming = TextTrimming.CharacterEllipsis,
+				};
+				var levelPicker = new ComboBox
+				{
+					ItemsSource = new[]
+					{
+						GetResource("ContextMenuPrimaryLevelOption"),
+						GetResource("ContextMenuSecondaryLevelOption"),
+						GetResource("ContextMenuHiddenLevelOption"),
+					},
+					SelectedIndex = action.Level switch
+					{
+						ContextMenuLevel.Primary => 0,
+						ContextMenuLevel.Secondary => 1,
+						_ => 2,
+					},
+					HorizontalAlignment = HorizontalAlignment.Stretch,
+				};
+				levelPicker.SelectionChanged += (_, _) =>
+				{
+					int actionIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+					if (actionIndex >= 0)
+					{
+						ContextMenuLevel level = levelPicker.SelectedIndex switch
+						{
+							0 => ContextMenuLevel.Primary,
+							1 => ContextMenuLevel.Secondary,
+							_ => ContextMenuLevel.Hidden,
+						};
+						contextMenuActions[actionIndex] = contextMenuActions[actionIndex] with { Level = level };
+					}
+				};
+				var moveUpButton = new Button
+				{
+					Content = GetResource("MoveUpButtonText"),
+					IsEnabled = index > 0,
+					Padding = new Thickness(8, 4),
+				};
+				moveUpButton.Click += (_, _) =>
+				{
+					int actionIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+					if (actionIndex > 0)
+					{
+						(contextMenuActions[actionIndex - 1], contextMenuActions[actionIndex]) = (contextMenuActions[actionIndex], contextMenuActions[actionIndex - 1]);
+						RenderContextMenuEditor();
+					}
+				};
+				var moveDownButton = new Button
+				{
+					Content = GetResource("MoveDownButtonText"),
+					IsEnabled = index < contextMenuActions.Count - 1,
+					Padding = new Thickness(8, 4),
+				};
+				moveDownButton.Click += (_, _) =>
+				{
+					int actionIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+					if (actionIndex >= 0 && actionIndex < contextMenuActions.Count - 1)
+					{
+						(contextMenuActions[actionIndex + 1], contextMenuActions[actionIndex]) = (contextMenuActions[actionIndex], contextMenuActions[actionIndex + 1]);
+						RenderContextMenuEditor();
+					}
+				};
+				Grid.SetColumn(label, 0);
+				Grid.SetColumn(levelPicker, 1);
+				Grid.SetColumn(moveUpButton, 2);
+				Grid.SetColumn(moveDownButton, 3);
+				row.Children.Add(label);
+				row.Children.Add(levelPicker);
+				row.Children.Add(moveUpButton);
+				row.Children.Add(moveDownButton);
+				contextMenuEditor.Children.Add(row);
+			}
+		}
+		RenderContextMenuEditor();
+		var resetContextMenuButton = new Button
+		{
+			Content = GetResource("ResetContextMenuButtonText"),
+			HorizontalAlignment = HorizontalAlignment.Left,
+		};
+		resetContextMenuButton.Click += (_, _) =>
+		{
+			contextMenuActions = ContextMenuActionSetting.CreateDefaults().ToList();
+			RenderContextMenuEditor();
+		};
 		var content = new StackPanel
 		{
 			Spacing = 16,
@@ -5034,6 +5186,15 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		content.Children.Add(defaultGridToggle);
 		content.Children.Add(reverseTabScrollToggle);
 		content.Children.Add(confirmMoveToTrashToggle);
+		content.Children.Add(new TextBlock { Text = GetResource("ContextMenuCustomizationSettingLabel") });
+		content.Children.Add(new TextBlock
+		{
+			Text = GetResource("ContextMenuCustomizationSettingDescription"),
+			TextWrapping = TextWrapping.Wrap,
+			Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+		});
+		content.Children.Add(contextMenuEditor);
+		content.Children.Add(resetContextMenuButton);
 		SidebarLocationOption[] defaultSidebarLocations = ViewModel.GetDefaultSidebarLocations();
 		var hiddenSidebarLocations = (currentSettings.HiddenDefaultSidebarLocations ?? []).ToHashSet(StringComparer.Ordinal);
 		CheckBox[] defaultLocationToggles = defaultSidebarLocations.Select(location => new CheckBox
@@ -5161,6 +5322,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			UseGridViewForNewTabs = defaultGridToggle.IsOn,
 			ReverseTabScrollDirection = reverseTabScrollToggle.IsOn,
 			ConfirmMoveToTrash = confirmMoveToTrashToggle.IsOn,
+			ContextMenuActions = contextMenuActions.ToArray(),
 			HiddenDefaultSidebarLocations = defaultLocationToggles
 				.Where(static toggle => toggle.IsChecked is not true)
 				.Select(static toggle => (string)toggle.Tag)
@@ -5358,14 +5520,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			FilePropertiesSummary summary = await FilePropertiesService.GetSummaryAsync(items.Select(static item => item.Path).ToArray());
 			FrameworkElement content = CreatePropertiesContent(
 				summary,
-				out TextBox? permissionsBox,
+				out CheckBox[]? permissionToggles,
 				out TextBox? tagsBox,
 				out CheckBox? hiddenBox,
 				out CheckBox? lockedBox,
 				out TextBox? ownerBox,
 				out TextBox? groupBox,
 				out TextBox? aclBox);
-			bool canEdit = summary.Path is not null && permissionsBox is not null && tagsBox is not null &&
+			bool canEdit = summary.Path is not null && permissionToggles is not null && tagsBox is not null &&
 				hiddenBox is not null && lockedBox is not null && ownerBox is not null && groupBox is not null && aclBox is not null;
 			var dialog = new ContentDialog
 			{
@@ -5380,9 +5542,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			if (canEdit)
 			{
 				void ValidateEditor(object? sender, TextChangedEventArgs args) =>
-					dialog.IsPrimaryButtonEnabled = TryParseUnixMode(permissionsBox!.Text, out _) &&
-						AreFinderTagsValid(tagsBox!.Text) && AreSecurityFieldsValid(ownerBox!.Text, groupBox!.Text, aclBox!.Text);
-				permissionsBox!.TextChanged += ValidateEditor;
+					dialog.IsPrimaryButtonEnabled = AreFinderTagsValid(tagsBox!.Text) &&
+						AreSecurityFieldsValid(ownerBox!.Text, groupBox!.Text, aclBox!.Text);
 				tagsBox!.TextChanged += ValidateEditor;
 				ownerBox!.TextChanged += ValidateEditor;
 				groupBox!.TextChanged += ValidateEditor;
@@ -5390,10 +5551,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}
 
 			if (await dialog.ShowAsync() is ContentDialogResult.Primary &&
-				summary.Path is not null && permissionsBox is not null && tagsBox is not null &&
+				summary.Path is not null && permissionToggles is not null && tagsBox is not null &&
 				hiddenBox is not null && lockedBox is not null && ownerBox is not null && groupBox is not null && aclBox is not null &&
-				TryParseUnixMode(permissionsBox.Text, out UnixFileMode unixMode))
+				permissionToggles.Length is 9)
 			{
+				UnixFileMode unixMode = GetUnixMode(permissionToggles);
 				await FilePropertiesService.UpdateAsync(
 					summary.Path,
 					new FilePropertyUpdate(
@@ -5421,7 +5583,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private FrameworkElement CreatePropertiesContent(
 		FilePropertiesSummary summary,
-		out TextBox? permissionsBox,
+		out CheckBox[]? permissionToggles,
 		out TextBox? tagsBox,
 		out CheckBox? hiddenBox,
 		out CheckBox? lockedBox,
@@ -5429,7 +5591,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		out TextBox? groupBox,
 		out TextBox? aclBox)
 	{
-		permissionsBox = null;
+		permissionToggles = null;
 		tagsBox = null;
 		hiddenBox = null;
 		lockedBox = null;
@@ -5498,8 +5660,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			string octalMode = Convert.ToString((int)summary.UnixMode.Value, 8).PadLeft(3, '0');
 			if (summary.Path is not null && summary.LinkTarget is null)
 			{
-				permissionsBox = AddEditablePropertyRow(panel, GetResource("PropertyPermissionsLabel"), octalMode);
-				permissionsBox.PlaceholderText = GetResource("PropertyPermissionsPlaceholder");
+				permissionToggles = AddPermissionMatrix(panel, summary.UnixMode.Value);
 			}
 			else
 			{
@@ -5561,6 +5722,94 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		};
 	}
 
+	private CheckBox[] AddPermissionMatrix(Panel panel, UnixFileMode mode)
+	{
+		var grid = new Grid { ColumnSpacing = 12, RowSpacing = 6 };
+		grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+		grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(76) });
+		grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(76) });
+		grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(76) });
+		for (int index = 0; index < 4; index++)
+		{
+			grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+		}
+
+		string[] columnLabels =
+		[
+			string.Empty,
+			GetResource("PermissionReadColumn"),
+			GetResource("PermissionWriteColumn"),
+			GetResource("PermissionExecuteColumn"),
+		];
+		for (int column = 1; column < columnLabels.Length; column++)
+		{
+			var header = new TextBlock
+			{
+				Text = columnLabels[column],
+				HorizontalAlignment = HorizontalAlignment.Center,
+				Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+			};
+			Grid.SetColumn(header, column);
+			grid.Children.Add(header);
+		}
+
+		string[] rowLabels =
+		[
+			GetResource("PropertyOwnerLabel"),
+			GetResource("PropertyGroupLabel"),
+			GetResource("PermissionEveryoneLabel"),
+		];
+		UnixFileMode[] flags =
+		[
+			UnixFileMode.UserRead, UnixFileMode.UserWrite, UnixFileMode.UserExecute,
+			UnixFileMode.GroupRead, UnixFileMode.GroupWrite, UnixFileMode.GroupExecute,
+			UnixFileMode.OtherRead, UnixFileMode.OtherWrite, UnixFileMode.OtherExecute,
+		];
+		var toggles = new CheckBox[flags.Length];
+		for (int row = 0; row < rowLabels.Length; row++)
+		{
+			var rowHeader = new TextBlock { Text = rowLabels[row], VerticalAlignment = VerticalAlignment.Center };
+			Grid.SetRow(rowHeader, row + 1);
+			grid.Children.Add(rowHeader);
+			for (int column = 0; column < 3; column++)
+			{
+				int index = row * 3 + column;
+				var toggle = new CheckBox
+				{
+					IsChecked = mode.HasFlag(flags[index]),
+					HorizontalAlignment = HorizontalAlignment.Center,
+					VerticalAlignment = VerticalAlignment.Center,
+				};
+				Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(toggle, $"{rowLabels[row]} {columnLabels[column + 1]}");
+				Grid.SetRow(toggle, row + 1);
+				Grid.SetColumn(toggle, column + 1);
+				grid.Children.Add(toggle);
+				toggles[index] = toggle;
+			}
+		}
+		panel.Children.Add(grid);
+		return toggles;
+	}
+
+	private static UnixFileMode GetUnixMode(IReadOnlyList<CheckBox> toggles)
+	{
+		UnixFileMode[] flags =
+		[
+			UnixFileMode.UserRead, UnixFileMode.UserWrite, UnixFileMode.UserExecute,
+			UnixFileMode.GroupRead, UnixFileMode.GroupWrite, UnixFileMode.GroupExecute,
+			UnixFileMode.OtherRead, UnixFileMode.OtherWrite, UnixFileMode.OtherExecute,
+		];
+		UnixFileMode mode = 0;
+		for (int index = 0; index < Math.Min(flags.Length, toggles.Count); index++)
+		{
+			if (toggles[index].IsChecked is true)
+			{
+				mode |= flags[index];
+			}
+		}
+		return mode;
+	}
+
 	private static void AddPropertySectionHeader(Panel panel, string text)
 	{
 		panel.Children.Add(new TextBlock
@@ -5615,24 +5864,6 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			FontSize = 12,
 			Margin = new Thickness(120, -4, 0, 2),
 		});
-	}
-
-	private static bool TryParseUnixMode(string value, out UnixFileMode mode)
-	{
-		mode = default;
-		string text = value.Trim();
-		if (text.Length is < 3 or > 4 || text.Any(static character => character is < '0' or > '7'))
-		{
-			return false;
-		}
-
-		int parsed = 0;
-		foreach (char character in text)
-		{
-			parsed = (parsed * 8) + (character - '0');
-		}
-		mode = (UnixFileMode)parsed;
-		return true;
 	}
 
 	private static bool AreFinderTagsValid(string value) =>
@@ -6650,7 +6881,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				WindowPlacement = windowSession.PrimaryWindowPlacement,
 				AdditionalWindowPlacements = windowSession.AdditionalWindowPlacements,
 				SidebarWidth = mergedSettings.SidebarWidth,
-				SchemaVersion = 15,
+				SchemaVersion = 16,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;
@@ -6673,6 +6904,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ReverseTabScrollDirection = requested.ReverseTabScrollDirection != baseline.ReverseTabScrollDirection ? requested.ReverseTabScrollDirection : latest.ReverseTabScrollDirection,
 			ConfirmMoveToTrash = requested.ConfirmMoveToTrash != baseline.ConfirmMoveToTrash ? requested.ConfirmMoveToTrash : latest.ConfirmMoveToTrash,
 			DetailColumns = HasSequenceChanged(requested.DetailColumns, baseline.DetailColumns, StringComparer.Ordinal) ? requested.DetailColumns : latest.DetailColumns,
+			ContextMenuActions = HasSequenceChanged(requested.ContextMenuActions, baseline.ContextMenuActions) ? requested.ContextMenuActions : latest.ContextMenuActions,
 			FavoritePaths = HasSequenceChanged(requested.FavoritePaths, baseline.FavoritePaths, StringComparer.OrdinalIgnoreCase) ? requested.FavoritePaths : latest.FavoritePaths,
 			RecentPaths = HasSequenceChanged(requested.RecentPaths, baseline.RecentPaths, StringComparer.Ordinal) ? requested.RecentPaths : latest.RecentPaths,
 			RecentServers = HasSequenceChanged(requested.RecentServers, baseline.RecentServers, StringComparer.OrdinalIgnoreCase) ? requested.RecentServers : latest.RecentServers,
