@@ -2,8 +2,6 @@
 
   <PropertyGroup>
     <TargetFrameworks>net10.0-desktop</TargetFrameworks>
-    <!-- Directory.Build.props uses this SDK-reserved name for a TFM. Let the SDK infer it locally. -->
-    <TargetFrameworkVersion />
     <OutputType>Exe</OutputType>
     <UnoSingleProject>true</UnoSingleProject>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -22,9 +20,9 @@
 
     <ApplicationTitle>Files</ApplicationTitle>
     <ApplicationId>io.filescommunity.files.macos</ApplicationId>
-    <Version>0.1.12</Version>
-    <ApplicationDisplayVersion>0.1.12</ApplicationDisplayVersion>
-    <ApplicationVersion>10112</ApplicationVersion>
+    <Version>0.1.13</Version>
+    <ApplicationDisplayVersion>0.1.13</ApplicationDisplayVersion>
+    <ApplicationVersion>10113</ApplicationVersion>
     <ApplicationPublisher>Files Community</ApplicationPublisher>
     <Description>Files for macOS technical preview.</Description>
     <UnoPlatformDefaultSymbolsFontFamily>Symbols</UnoPlatformDefaultSymbolsFontFamily>

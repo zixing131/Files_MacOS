@@ -39,7 +39,7 @@
 
 ## 安装
 
-当前提供 Apple Silicon（ARM64）DMG 安装包。下载最新的 `Files_MacOS-0.1.2-macos-arm64.dmg` 后：
+当前提供 Apple Silicon（ARM64）DMG 安装包。下载最新的 `Files_MacOS-0.1.13-macos-arm64.dmg` 后：
 
 1. 双击挂载 DMG。
 2. 将 `Files.app` 拖入“应用程序”。
@@ -57,9 +57,10 @@
 
 ```bash
 dotnet build src/Files.App.MacOS/Files.App.MacOS.csproj \
-  -c Debug \
-  -r osx-arm64
+  -c Debug
 ```
+
+项目会自动选择当前 Mac 的运行时架构。也可以使用 `-r osx-arm64` 或 `-r osx-x64` 显式指定架构。使用 Rider 时请打开根目录下的 `Files.MacOS.slnx`，并将 `Files.App.MacOS` 设为启动项目。
 
 ### Release 发布
 

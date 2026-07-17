@@ -1,79 +1,45 @@
 name: Bug Report
-description: Create a bug report to help improve Files.
-type: 'Bug'
-title: 'Bug: '
+description: Report a reproducible Files_MacOS problem.
+type: Bug
+title: "Bug: "
 body:
-
-  # Tip to warn of checking for existing issues
-  - type: markdown
-    attributes:
-      value: |
-        > [!TIP]
-        > Have you checked for similar issues? There's a possibility the bug you are experiencing has already been reported. Please do a thorough search before creating a new issue.
-
-  # Description
   - type: textarea
     attributes:
-      label: Description
-      description: A clear and concise description of what the issue is.
+      label: 问题描述
+      description: 请说明实际结果和预期结果。
     validations:
       required: true
-
-  # Step To Reproduce
   - type: textarea
     attributes:
-      label: Steps To Reproduce
-      description: Steps to reproduce the behavior.
+      label: 复现步骤
       placeholder: |
         1.
         2.
         3.
     validations:
       required: true
-
-  # Files Version
   - type: input
-    id: files_version
     attributes:
-      label: Files Version
-      description: Which version of Files are you using? To copy your Files version, access it from Settings -> About -> Copy -> Files version.
-      placeholder: "e.g. 2.0.34.0"
+      label: Files_MacOS 版本
+      placeholder: "例如 0.1.13"
     validations:
       required: true
-
-  # Windows Version
   - type: input
-    id: windows_version
     attributes:
-      label: Windows Version
-      description: Which version of Windows are you using? To copy your Windows version, access it from Settings -> About -> Copy -> Windows version.
-      placeholder: "e.g. 10.0.22621.1848"
+      label: macOS 版本与 Mac 型号
+      placeholder: "例如 macOS 26.0 / Mac mini M4"
     validations:
       required: true
-
-  # User ID
-  - type: input
-    id: user_id
+  - type: dropdown
     attributes:
-      label: User ID
-      description: Your User ID is a GUID that can be matched up with bug reports in Sentry. To copy your User ID, access it from Settings -> About -> Copy -> User ID.
-      placeholder: "74750836-5885-4eeb-964f-8177cb4babf6"
-    validations:
-      required: false
-
-  # Note that the user should always upload the report rather than pasting it.
-  - type: markdown
-    attributes:
-      value: |
-        > [!IMPORTANT]
-        > The log file can be accessed from **Settings → About → Open log location**. If you cannot access the UI, you can locate the file [manually](https://files.community/docs/getting-started/faq#:~:text=How%20to%20Locate%20the%20Log%20File).
-        >
-        > Feel free to remove potentially sensitive information such as usernames or drive names before uploading the file.
-
-  # Log File
-  - type: upload
-    attributes:
-      label: Log File
+      label: 安装方式
+      options:
+        - 公证 DMG
+        - Rider / dotnet Debug
+        - 自行构建的 Release
     validations:
       required: true
-      accept: ".png,.jpg,.log,.txt"
+  - type: textarea
+    attributes:
+      label: 截图或日志
+      description: 上传截图或日志前请移除用户名、路径等敏感信息。
