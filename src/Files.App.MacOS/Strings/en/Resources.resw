@@ -585,7 +585,8 @@
   <data name="EmptyTrashCompletedMessage" xml:space="preserve"><value>Trash emptied.</value></data>
   <data name="EmptyTrashErrorMessage" xml:space="preserve"><value>The Trash couldn't be emptied.</value></data>
   <data name="ContextMenuCustomizationSettingLabel" xml:space="preserve"><value>File context menu</value></data>
-  <data name="ContextMenuCustomizationSettingDescription" xml:space="preserve"><value>Choose whether each command appears in the first-level menu, the More actions submenu, or is hidden. Use Move up and Move down to customize the order.</value></data>
+  <data name="ContextMenuCustomizationSettingDescription" xml:space="preserve"><value>Choose whether each command appears in the first-level menu, the More actions submenu, or is hidden. Drag the handle on each card to customize the order.</value></data>
+  <data name="ContextMenuDragHandleAutomationName" xml:space="preserve"><value>Drag to reorder</value></data>
   <data name="ContextMenuPrimaryLevelOption" xml:space="preserve"><value>First level</value></data>
   <data name="ContextMenuSecondaryLevelOption" xml:space="preserve"><value>More actions</value></data>
   <data name="ContextMenuHiddenLevelOption" xml:space="preserve"><value>Hidden</value></data>

@@ -2869,17 +2869,21 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void CopySelectedPaths()
 	{
-		if (selectedItems.Count is 0)
+		string[] paths = selectedItems
+			.Select(static item => item.Path)
+			.Distinct(StringComparer.Ordinal)
+			.ToArray();
+		if (paths.Length is 0)
 		{
 			return;
 		}
 
 		var data = new DataPackage { RequestedOperation = DataPackageOperation.Copy };
-		data.SetText(string.Join(Environment.NewLine, selectedItems.Select(static item => item.Path)));
+		data.SetText(string.Join(Environment.NewLine, paths));
 		Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(data);
 		if (Browser is DirectoryBrowserViewModel browser)
 		{
-			browser.StatusText = string.Format(GetResource("PathsCopiedFormat"), selectedItems.Count);
+			browser.StatusText = string.Format(GetResource("PathsCopiedFormat"), paths.Length);
 		}
 	}
 
@@ -3503,6 +3507,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		else if (control is ListViewBase list && !list.SelectedItems.Contains(item))
 		{
+			list.SelectedItems.Clear();
 			list.SelectedItem = item;
 		}
 		ActivateBrowser(browser, control);
@@ -5173,6 +5178,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			OffContent = GetResource("ToggleOffText"),
 		};
 		var contextMenuActions = (currentSettings.ContextMenuActions ?? ContextMenuActionSetting.CreateDefaults()).ToList();
+		const string contextMenuDragFormat = "application/x-files-context-menu-action";
+		string? draggedContextMenuAction = null;
 		var contextMenuEditor = new StackPanel { Spacing = 6 };
 		void RenderContextMenuEditor()
 		{
@@ -5181,10 +5188,35 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				ContextMenuActionSetting action = contextMenuActions[index];
 				var row = new Grid { ColumnSpacing = 6 };
+				row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 				row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-				row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(116) });
-				row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-				row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+				row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(132) });
+				var dragHandle = new Border
+				{
+					Width = 28,
+					Height = 32,
+					Padding = new Thickness(8, 6),
+					Background = (Brush)Application.Current.Resources["FilesSubtleBrush"],
+					CornerRadius = new CornerRadius(5),
+					CanDrag = true,
+					Child = new PathIcon
+					{
+						Width = 12,
+						Height = 18,
+						Data = (Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(
+							typeof(Geometry),
+							"M1,1 H4 V4 H1 Z M8,1 H11 V4 H8 Z M1,7 H4 V10 H1 Z M8,7 H11 V10 H8 Z M1,13 H4 V16 H1 Z M8,13 H11 V16 H8 Z"),
+					},
+				};
+				string dragHandleName = GetResource("ContextMenuDragHandleAutomationName");
+				Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(dragHandle, dragHandleName);
+				ToolTipService.SetToolTip(dragHandle, dragHandleName);
+				dragHandle.DragStarting += (_, e) =>
+				{
+					draggedContextMenuAction = action.Action;
+					e.Data.SetData(contextMenuDragFormat, action.Action);
+					e.Data.RequestedOperation = DataPackageOperation.Move;
+				};
 				var label = new TextBlock
 				{
 					Text = GetResource(GetContextMenuResourceKey(action.Action)),
@@ -5221,45 +5253,54 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 						contextMenuActions[actionIndex] = contextMenuActions[actionIndex] with { Level = level };
 					}
 				};
-				var moveUpButton = new Button
+				var card = new Border
 				{
-					Content = GetResource("MoveUpButtonText"),
-					IsEnabled = index > 0,
-					Padding = new Thickness(8, 4),
+					Padding = new Thickness(8, 5),
+					Background = (Brush)Application.Current.Resources["FilesCardBrush"],
+					BorderBrush = (Brush)Application.Current.Resources["FilesCardBorderBrush"],
+					BorderThickness = new Thickness(1),
+					CornerRadius = new CornerRadius(7),
+					AllowDrop = true,
+					Child = row,
 				};
-				moveUpButton.Click += (_, _) =>
+				card.DragOver += (_, e) =>
 				{
-					int actionIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
-					if (actionIndex > 0)
+					if (draggedContextMenuAction is not null && e.DataView.Contains(contextMenuDragFormat))
 					{
-						(contextMenuActions[actionIndex - 1], contextMenuActions[actionIndex]) = (contextMenuActions[actionIndex], contextMenuActions[actionIndex - 1]);
-						RenderContextMenuEditor();
+						e.AcceptedOperation = DataPackageOperation.Move;
+						card.BorderBrush = (Brush)Application.Current.Resources["FilesAccentBrush"];
+						card.BorderThickness = new Thickness(2);
+						e.Handled = true;
 					}
 				};
-				var moveDownButton = new Button
+				card.DragLeave += (_, _) =>
 				{
-					Content = GetResource("MoveDownButtonText"),
-					IsEnabled = index < contextMenuActions.Count - 1,
-					Padding = new Thickness(8, 4),
+					card.BorderBrush = (Brush)Application.Current.Resources["FilesCardBorderBrush"];
+					card.BorderThickness = new Thickness(1);
 				};
-				moveDownButton.Click += (_, _) =>
+				card.Drop += (_, e) =>
 				{
-					int actionIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
-					if (actionIndex >= 0 && actionIndex < contextMenuActions.Count - 1)
+					int sourceIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, draggedContextMenuAction, StringComparison.Ordinal));
+					int targetIndex = contextMenuActions.FindIndex(item => string.Equals(item.Action, action.Action, StringComparison.Ordinal));
+					if (sourceIndex >= 0 && targetIndex >= 0 && sourceIndex != targetIndex)
 					{
-						(contextMenuActions[actionIndex + 1], contextMenuActions[actionIndex]) = (contextMenuActions[actionIndex], contextMenuActions[actionIndex + 1]);
-						RenderContextMenuEditor();
+						bool insertAfter = e.GetPosition(card).Y >= card.ActualHeight / 2;
+						ContextMenuActionSetting movedAction = contextMenuActions[sourceIndex];
+						contextMenuActions.RemoveAt(sourceIndex);
+						int insertionIndex = targetIndex + (insertAfter ? 1 : 0) - (sourceIndex < targetIndex ? 1 : 0);
+						contextMenuActions.Insert(Math.Clamp(insertionIndex, 0, contextMenuActions.Count), movedAction);
 					}
+					draggedContextMenuAction = null;
+					e.Handled = true;
+					RenderContextMenuEditor();
 				};
-				Grid.SetColumn(label, 0);
-				Grid.SetColumn(levelPicker, 1);
-				Grid.SetColumn(moveUpButton, 2);
-				Grid.SetColumn(moveDownButton, 3);
+				Grid.SetColumn(dragHandle, 0);
+				Grid.SetColumn(label, 1);
+				Grid.SetColumn(levelPicker, 2);
+				row.Children.Add(dragHandle);
 				row.Children.Add(label);
 				row.Children.Add(levelPicker);
-				row.Children.Add(moveUpButton);
-				row.Children.Add(moveDownButton);
-				contextMenuEditor.Children.Add(row);
+				contextMenuEditor.Children.Add(card);
 			}
 		}
 		RenderContextMenuEditor();
