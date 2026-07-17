@@ -128,6 +128,20 @@ static void files_macos_finish_file_drag(void)
 	});
 }
 
+__attribute__((visibility("default"))) void files_macos_set_horizontal_resize_cursor(int isEnabled)
+{
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (isEnabled != 0)
+		{
+			[NSCursor.resizeLeftRightCursor set];
+		}
+		else
+		{
+			[NSCursor.arrowCursor set];
+		}
+	});
+}
+
 static void files_macos_clear_pending_file_drag(void)
 {
 	if (fileDragEventMonitor != nil)

@@ -60,6 +60,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private double detailColumnResizeStartWidth;
 	private double detailColumnResizeDirection = 1;
 	private bool suppressDetailsHeaderClick;
+	private bool isDetailsResizeCursorVisible;
 	private bool isConnectingServer;
 	private bool isHistoryOperationRunning;
 	private bool isUpdatingSelection;
@@ -238,6 +239,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			button.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(DetailsHeaderResize_PointerMoved), handledEventsToo: true);
 			button.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(DetailsHeaderResize_PointerReleased), handledEventsToo: true);
 			button.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler(DetailsHeaderResize_PointerCaptureLost), handledEventsToo: true);
+			button.PointerExited += DetailsHeaderResize_PointerExited;
 		}
 	}
 
@@ -6873,8 +6875,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void DetailsHeaderResize_PointerPressed(object sender, PointerRoutedEventArgs e)
 	{
-		if (sender is not Button { Tag: string fieldName } button ||
-			e.GetCurrentPoint(button).Position.X < button.ActualWidth - 8)
+		if (sender is not Button { Tag: string fieldName } button || !IsOverDetailsHeaderResizeHandle(button, fieldName, e))
 		{
 			return;
 		}
@@ -6883,12 +6884,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			fieldName = new[] { "Modified", "Created", "LastOpened", "Added", "Size", "Kind", "Version", "Comments", "Tags" }
 				.FirstOrDefault(DetailColumnState.IsVisible) ?? string.Empty;
-			detailColumnResizeDirection = -1;
 		}
-		else
-		{
-			detailColumnResizeDirection = 1;
-		}
+		detailColumnResizeDirection = -1;
 
 		if (string.IsNullOrEmpty(fieldName))
 		{
@@ -6913,6 +6910,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		if (resizingDetailsHeader is null || resizingDetailColumn is null)
 		{
+			if (sender is Button { Tag: string fieldName } button)
+			{
+				SetDetailsResizeCursor(IsOverDetailsHeaderResizeHandle(button, fieldName, e));
+			}
 			return;
 		}
 
@@ -6935,6 +6936,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		resizedButton.ReleasePointerCapture(e.Pointer);
 		currentSettings = currentSettings with { DetailColumnWidths = DetailColumnWidths.Capture() };
 		ScheduleWorkspaceSave();
+		SetDetailsResizeCursor(true);
 		DispatcherQueue.TryEnqueue(() => suppressDetailsHeaderClick = false);
 		e.Handled = true;
 	}
@@ -6943,6 +6945,31 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		resizingDetailsHeader = null;
 		resizingDetailColumn = null;
+	}
+
+	private void DetailsHeaderResize_PointerExited(object sender, PointerRoutedEventArgs e)
+	{
+		if (resizingDetailsHeader is null)
+		{
+			SetDetailsResizeCursor(false);
+		}
+	}
+
+	private static bool IsOverDetailsHeaderResizeHandle(Button button, string fieldName, PointerRoutedEventArgs e)
+	{
+		double pointerX = e.GetCurrentPoint(button).Position.X;
+		return fieldName is "Name" ? pointerX >= button.ActualWidth - 8 : pointerX <= 8;
+	}
+
+	private void SetDetailsResizeCursor(bool isVisible)
+	{
+		if (isDetailsResizeCursorVisible == isVisible)
+		{
+			return;
+		}
+
+		isDetailsResizeCursorVisible = isVisible;
+		MacOSNativeMethods.SetHorizontalResizeCursor(isVisible ? 1 : 0);
 	}
 
 	private void ApplyDetailsSort(DirectoryBrowserViewModel browser, FileSortField field, bool announce = true)

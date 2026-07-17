@@ -43,6 +43,9 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_set_grid_scroll_capture")]
 	internal static partial void SetGridScrollCapture(int isEnabled);
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_set_horizontal_resize_cursor")]
+	internal static partial void SetHorizontalResizeCursor(int isEnabled);
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_describe_main_menu")]
 	internal static partial nint DescribeMainMenu();
 
