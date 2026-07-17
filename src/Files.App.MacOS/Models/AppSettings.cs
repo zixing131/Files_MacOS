@@ -84,8 +84,11 @@ public sealed record AppSettings(
 	TerminalPreference Terminal = TerminalPreference.Terminal,
 	bool ConfirmMoveToTrash = true,
 	string[]? DetailColumns = null,
+	DetailColumnWidthSetting[]? DetailColumnWidths = null,
 	ContextMenuActionSetting[]? ContextMenuActions = null,
-	int SchemaVersion = 16);
+	int SchemaVersion = 17);
+
+public sealed record DetailColumnWidthSetting(string Column, double Width);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 

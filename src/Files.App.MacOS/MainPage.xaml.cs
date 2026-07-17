@@ -38,6 +38,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private MacOSMainMenuService MainMenuService => ((App)Application.Current).MainMenuService;
 	private DetailColumnVisibilityState DetailColumnState =>
 		(DetailColumnVisibilityState)Resources["DetailColumnVisibilityState"];
+	private DetailColumnWidthState DetailColumnWidths =>
+		(DetailColumnWidthState)Resources["DetailColumnWidthState"];
 	private readonly ResourceLoader resourceLoader = ResourceLoader.GetForViewIndependentUse();
 	private static readonly SemaphoreSlim SettingsSaveLock = new(1, 1);
 	private IReadOnlyList<LocalFileSystemItem> selectedItems = [];
@@ -52,6 +54,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private AppSettings persistedSettingsBaseline = new();
 	private bool isResizingSplit;
 	private bool isResizingSidebar;
+	private Button? resizingDetailsHeader;
+	private string? resizingDetailColumn;
+	private double detailColumnResizeStartX;
+	private double detailColumnResizeStartWidth;
+	private double detailColumnResizeDirection = 1;
+	private bool suppressDetailsHeaderClick;
 	private bool isConnectingServer;
 	private bool isHistoryOperationRunning;
 	private bool isUpdatingSelection;
@@ -110,6 +118,27 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		SecondaryPaneBorder.AddHandler(UIElement.RightTappedEvent, new RightTappedEventHandler(SecondaryPane_RightTapped), handledEventsToo: true);
 		RegisterDividerPointerHandlers(SidebarDivider, SidebarDivider_PointerPressed, SidebarDivider_PointerMoved, SidebarDivider_PointerReleased, SidebarDivider_PointerCaptureLost);
 		RegisterDividerPointerHandlers(SplitDivider, SplitDivider_PointerPressed, SplitDivider_PointerMoved, SplitDivider_PointerReleased, SplitDivider_PointerCaptureLost);
+		RegisterDetailsHeaderResizeHandlers(
+			PrimaryNameHeaderButton,
+			PrimaryModifiedHeaderButton,
+			PrimaryCreatedHeaderButton,
+			PrimaryLastOpenedHeaderButton,
+			PrimaryAddedHeaderButton,
+			PrimarySizeHeaderButton,
+			PrimaryKindHeaderButton,
+			PrimaryVersionHeaderButton,
+			PrimaryCommentsHeaderButton,
+			PrimaryTagsHeaderButton,
+			SecondaryNameHeaderButton,
+			SecondaryModifiedHeaderButton,
+			SecondaryCreatedHeaderButton,
+			SecondaryLastOpenedHeaderButton,
+			SecondaryAddedHeaderButton,
+			SecondarySizeHeaderButton,
+			SecondaryKindHeaderButton,
+			SecondaryVersionHeaderButton,
+			SecondaryCommentsHeaderButton,
+			SecondaryTagsHeaderButton);
 		MoreSelectionSubItem.Text = GetResource("MoreSelectionSubItem/Text");
 		MoreArchiveSubItem.Text = GetResource("MoreArchiveSubItem/Text");
 		LocalizeContextMenuSubItems();
@@ -201,6 +230,17 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		divider.AddHandler(UIElement.PointerCaptureLostEvent, captureLost, handledEventsToo: true);
 	}
 
+	private void RegisterDetailsHeaderResizeHandlers(params Button[] buttons)
+	{
+		foreach (Button button in buttons)
+		{
+			button.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(DetailsHeaderResize_PointerPressed), handledEventsToo: true);
+			button.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(DetailsHeaderResize_PointerMoved), handledEventsToo: true);
+			button.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(DetailsHeaderResize_PointerReleased), handledEventsToo: true);
+			button.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler(DetailsHeaderResize_PointerCaptureLost), handledEventsToo: true);
+		}
+	}
+
 	private void AccessibilityStatusText_PropertyChanged(DependencyObject sender, DependencyProperty property)
 	{
 		if (IsInitialized && sender is TextBlock { Text.Length: > 0 } textBlock)
@@ -251,6 +291,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		currentSettings = AccessGrantSettingsMapper.Apply(currentSettings, restoredGrants);
 		persistedSettingsBaseline = currentSettings;
 		DetailColumnState.Apply(currentSettings.DetailColumns);
+		DetailColumnWidths.Apply(currentSettings.DetailColumnWidths);
 		isSidebarOpen = currentSettings.IsSidebarOpen;
 		sidebarWidth = currentSettings.SidebarWidth;
 		isPreviewPaneOpen = currentSettings.IsPreviewPaneOpen;
@@ -6808,6 +6849,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void DetailsHeaderButton_Click(object sender, RoutedEventArgs e)
 	{
+		if (suppressDetailsHeaderClick)
+		{
+			return;
+		}
+
 		if (sender is not Button { Tag: string value } button || !Enum.TryParse(value, out FileSortField field))
 		{
 			return;
@@ -6823,6 +6869,80 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		ActivateBrowser(browser, GetVisibleItemsControl(browser));
 		ApplyDetailsSort(browser, field);
+	}
+
+	private void DetailsHeaderResize_PointerPressed(object sender, PointerRoutedEventArgs e)
+	{
+		if (sender is not Button { Tag: string fieldName } button ||
+			e.GetCurrentPoint(button).Position.X < button.ActualWidth - 8)
+		{
+			return;
+		}
+
+		if (fieldName is "Name")
+		{
+			fieldName = new[] { "Modified", "Created", "LastOpened", "Added", "Size", "Kind", "Version", "Comments", "Tags" }
+				.FirstOrDefault(DetailColumnState.IsVisible) ?? string.Empty;
+			detailColumnResizeDirection = -1;
+		}
+		else
+		{
+			detailColumnResizeDirection = 1;
+		}
+
+		if (string.IsNullOrEmpty(fieldName))
+		{
+			return;
+		}
+
+		resizingDetailsHeader = button;
+		resizingDetailColumn = fieldName;
+		detailColumnResizeStartX = e.GetCurrentPoint(this).Position.X;
+		detailColumnResizeStartWidth = DetailColumnWidths.GetWidth(fieldName);
+		if (!button.CapturePointer(e.Pointer))
+		{
+			resizingDetailsHeader = null;
+			resizingDetailColumn = null;
+			return;
+		}
+
+		e.Handled = true;
+	}
+
+	private void DetailsHeaderResize_PointerMoved(object sender, PointerRoutedEventArgs e)
+	{
+		if (resizingDetailsHeader is null || resizingDetailColumn is null)
+		{
+			return;
+		}
+
+		double delta = (e.GetCurrentPoint(this).Position.X - detailColumnResizeStartX) * detailColumnResizeDirection;
+		DetailColumnWidths.SetWidth(resizingDetailColumn, Math.Clamp(detailColumnResizeStartWidth + delta, 72, 480));
+		e.Handled = true;
+	}
+
+	private void DetailsHeaderResize_PointerReleased(object sender, PointerRoutedEventArgs e)
+	{
+		if (resizingDetailsHeader is null)
+		{
+			return;
+		}
+
+		Button resizedButton = resizingDetailsHeader;
+		resizingDetailsHeader = null;
+		resizingDetailColumn = null;
+		suppressDetailsHeaderClick = true;
+		resizedButton.ReleasePointerCapture(e.Pointer);
+		currentSettings = currentSettings with { DetailColumnWidths = DetailColumnWidths.Capture() };
+		ScheduleWorkspaceSave();
+		DispatcherQueue.TryEnqueue(() => suppressDetailsHeaderClick = false);
+		e.Handled = true;
+	}
+
+	private void DetailsHeaderResize_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+	{
+		resizingDetailsHeader = null;
+		resizingDetailColumn = null;
 	}
 
 	private void ApplyDetailsSort(DirectoryBrowserViewModel browser, FileSortField field, bool announce = true)
@@ -7106,7 +7226,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				WindowPlacement = windowSession.PrimaryWindowPlacement,
 				AdditionalWindowPlacements = windowSession.AdditionalWindowPlacements,
 				SidebarWidth = mergedSettings.SidebarWidth,
-				SchemaVersion = 16,
+				SchemaVersion = 17,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;
@@ -7129,6 +7249,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ReverseTabScrollDirection = requested.ReverseTabScrollDirection != baseline.ReverseTabScrollDirection ? requested.ReverseTabScrollDirection : latest.ReverseTabScrollDirection,
 			ConfirmMoveToTrash = requested.ConfirmMoveToTrash != baseline.ConfirmMoveToTrash ? requested.ConfirmMoveToTrash : latest.ConfirmMoveToTrash,
 			DetailColumns = HasSequenceChanged(requested.DetailColumns, baseline.DetailColumns, StringComparer.Ordinal) ? requested.DetailColumns : latest.DetailColumns,
+			DetailColumnWidths = HasSequenceChanged(requested.DetailColumnWidths, baseline.DetailColumnWidths) ? requested.DetailColumnWidths : latest.DetailColumnWidths,
 			ContextMenuActions = HasSequenceChanged(requested.ContextMenuActions, baseline.ContextMenuActions) ? requested.ContextMenuActions : latest.ContextMenuActions,
 			FavoritePaths = HasSequenceChanged(requested.FavoritePaths, baseline.FavoritePaths, StringComparer.OrdinalIgnoreCase) ? requested.FavoritePaths : latest.FavoritePaths,
 			RecentPaths = HasSequenceChanged(requested.RecentPaths, baseline.RecentPaths, StringComparer.Ordinal) ? requested.RecentPaths : latest.RecentPaths,

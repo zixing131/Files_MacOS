@@ -63,7 +63,7 @@ public sealed partial class DetailColumnVisibilityState : ObservableObject
 
 	public string[] Capture() => SupportedColumns.Where(IsVisible).ToArray();
 
-	private bool IsVisible(string column) => column switch
+	public bool IsVisible(string column) => column switch
 	{
 		"Modified" => ShowModified,
 		"Created" => ShowCreated,

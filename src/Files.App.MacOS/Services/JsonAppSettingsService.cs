@@ -95,6 +95,11 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			: NormalizeStrings(settings.DetailColumns, 9, StringComparer.Ordinal)
 				.Where(static column => column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
 				.ToArray();
+		DetailColumnWidthSetting[] detailColumnWidths = (settings.DetailColumnWidths ?? [])
+			.Where(static item => item is not null && item.Column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
+			.GroupBy(static item => item.Column, StringComparer.Ordinal)
+			.Select(static group => new DetailColumnWidthSetting(group.Key, Math.Clamp(group.Last().Width, 72, 480)))
+			.ToArray();
 		ContextMenuActionSetting[] contextMenuActions = NormalizeContextMenuActions(settings.ContextMenuActions);
 		SavedSearch[] savedSearches = (settings.SavedSearches ?? [])
 			.Where(static search => search is not null &&
@@ -137,6 +142,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			CollapsedSidebarSections = collapsedSidebarSections,
 			HiddenDefaultSidebarLocations = hiddenDefaultSidebarLocations,
 			DetailColumns = detailColumns,
+			DetailColumnWidths = detailColumnWidths,
 			ContextMenuActions = contextMenuActions,
 			SavedSearches = savedSearches,
 			Workspace = workspace,
@@ -148,7 +154,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
 			ConfirmMoveToTrash = settings.SchemaVersion < 14 || settings.ConfirmMoveToTrash,
-			SchemaVersion = 16,
+			SchemaVersion = 17,
 		};
 	}
 
