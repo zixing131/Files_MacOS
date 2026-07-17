@@ -5298,9 +5298,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			string label = GetResource(moveRight ? "MoveToMoreActionsButtonText" : "MoveToPrimaryMenuButtonText");
 			var button = new Button
 			{
-				Width = 32,
-				Height = 30,
-				Padding = new Thickness(7),
+				Width = 28,
+				Height = 28,
+				Padding = new Thickness(6),
 				Content = new PathIcon
 				{
 					Width = 16,
@@ -5318,11 +5318,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		Border CreateContextMenuCard(ContextMenuActionSetting action, int levelIndex, int levelCount)
 		{
-			var cardLayout = new Grid { ColumnSpacing = 6, RowSpacing = 5 };
+			var cardLayout = new Grid { ColumnSpacing = 4 };
 			cardLayout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 			cardLayout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-			cardLayout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-			cardLayout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+			cardLayout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+			cardLayout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+			cardLayout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 			var label = new TextBlock
 			{
 				Text = GetResource(GetContextMenuResourceKey(action.Action)) +
@@ -5333,40 +5334,58 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Button levelButton = CreateLevelArrowButton(
 				action,
 				GetContextMenuEditorLevel(action) is ContextMenuLevel.Primary ? ContextMenuLevel.Secondary : ContextMenuLevel.Primary);
-			var actionButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
 			var moveUpButton = new Button
 			{
-				Content = GetResource("MoveUpButtonText"),
+				Width = 28,
+				Height = 28,
+				Padding = new Thickness(6),
+				Content = new PathIcon
+				{
+					Width = 14,
+					Height = 14,
+					Data = (Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Geometry), "M2,9 L7,4 L12,9 L10.5,10.5 L8,8 V13 H6 V8 L3.5,10.5 Z"),
+				},
 				IsEnabled = levelIndex > 0,
-				Padding = new Thickness(7, 3),
 			};
+			Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(moveUpButton, GetResource("MoveUpButtonText"));
+			ToolTipService.SetToolTip(moveUpButton, GetResource("MoveUpButtonText"));
 			moveUpButton.Click += (_, _) => MoveContextMenuAction(action, -1);
 			var moveDownButton = new Button
 			{
-				Content = GetResource("MoveDownButtonText"),
+				Width = 28,
+				Height = 28,
+				Padding = new Thickness(6),
+				Content = new PathIcon
+				{
+					Width = 14,
+					Height = 14,
+					Data = (Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Geometry), "M2,7 L3.5,5.5 L6,8 V3 H8 V8 L10.5,5.5 L12,7 L7,12 Z"),
+				},
 				IsEnabled = levelIndex < levelCount - 1,
-				Padding = new Thickness(7, 3),
 			};
+			Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(moveDownButton, GetResource("MoveDownButtonText"));
+			ToolTipService.SetToolTip(moveDownButton, GetResource("MoveDownButtonText"));
 			moveDownButton.Click += (_, _) => MoveContextMenuAction(action, 1);
 			var hideButton = new Button
 			{
 				Content = GetResource(action.Level is ContextMenuLevel.Hidden ? "ContextMenuShowLevelOption" : "ContextMenuHiddenLevelOption"),
-				Padding = new Thickness(7, 3),
+				Height = 28,
+				Padding = new Thickness(7, 2),
 			};
 			hideButton.Click += (_, _) => ToggleContextMenuActionVisibility(action);
-			actionButtons.Children.Add(moveUpButton);
-			actionButtons.Children.Add(moveDownButton);
-			actionButtons.Children.Add(hideButton);
 			Grid.SetColumn(label, 0);
-			Grid.SetColumn(levelButton, 1);
-			Grid.SetRow(actionButtons, 1);
-			Grid.SetColumnSpan(actionButtons, 2);
+			Grid.SetColumn(moveUpButton, 1);
+			Grid.SetColumn(moveDownButton, 2);
+			Grid.SetColumn(hideButton, 3);
+			Grid.SetColumn(levelButton, 4);
 			cardLayout.Children.Add(label);
+			cardLayout.Children.Add(moveUpButton);
+			cardLayout.Children.Add(moveDownButton);
+			cardLayout.Children.Add(hideButton);
 			cardLayout.Children.Add(levelButton);
-			cardLayout.Children.Add(actionButtons);
 			return new Border
 			{
-				Padding = new Thickness(9, 7),
+				Padding = new Thickness(8, 4),
 				Background = (Brush)Application.Current.Resources["FilesCardBrush"],
 				BorderBrush = (Brush)Application.Current.Resources["FilesCardBorderBrush"],
 				BorderThickness = new Thickness(1),
@@ -5415,10 +5434,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			contextMenuActions = ContextMenuActionSetting.CreateDefaults().ToList();
 			RenderContextMenuEditor();
 		};
+		double settingsDialogWidth = Math.Clamp((XamlRoot?.Size.Width ?? 1200) - 80, 680, 1120);
 		var content = new StackPanel
 		{
 			Spacing = 16,
-			Width = Math.Clamp((XamlRoot?.Size.Width ?? 900) - 96, 700, 860),
+			Width = Math.Max(616, settingsDialogWidth - 64),
 		};
 		content.Children.Add(new TextBlock { Text = GetResource("ThemeSettingLabel") });
 		content.Children.Add(themePicker);
@@ -5532,13 +5552,15 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		var dialog = new ContentDialog
 		{
-			MaxWidth = 920,
+			Width = settingsDialogWidth,
+			MinWidth = settingsDialogWidth,
+			MaxWidth = settingsDialogWidth,
 			Title = GetResource("SettingsDialogTitle"),
 			Content = new ScrollViewer
 			{
 				MaxHeight = 560,
-				HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-				HorizontalScrollMode = ScrollMode.Enabled,
+				HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+				HorizontalScrollMode = ScrollMode.Disabled,
 				VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
 				VerticalScrollMode = ScrollMode.Enabled,
 				Content = content,

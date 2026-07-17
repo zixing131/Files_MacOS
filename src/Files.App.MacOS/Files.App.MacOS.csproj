@@ -21,9 +21,9 @@
 
     <ApplicationTitle>Files</ApplicationTitle>
     <ApplicationId>io.filescommunity.files.macos</ApplicationId>
-    <Version>0.1.9</Version>
-    <ApplicationDisplayVersion>0.1.9</ApplicationDisplayVersion>
-    <ApplicationVersion>10109</ApplicationVersion>
+    <Version>0.1.10</Version>
+    <ApplicationDisplayVersion>0.1.10</ApplicationDisplayVersion>
+    <ApplicationVersion>10110</ApplicationVersion>
     <ApplicationPublisher>Files Community</ApplicationPublisher>
     <Description>Files for macOS technical preview.</Description>
     <UnoPlatformDefaultSymbolsFontFamily>Symbols</UnoPlatformDefaultSymbolsFontFamily>
