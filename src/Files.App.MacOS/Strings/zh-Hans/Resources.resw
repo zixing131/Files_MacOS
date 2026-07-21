@@ -435,6 +435,7 @@
   <data name="EjectVolumeErrorMessage" xml:space="preserve"><value>无法弹出驱动器，请确认其中的文件未被占用。</value></data>
   <data name="DropCopyCaption" xml:space="preserve"><value>复制到此文件夹</value></data>
   <data name="DropMoveCaption" xml:space="preserve"><value>移动到此文件夹</value></data>
+  <data name="DropTrashCaption" xml:space="preserve"><value>移到废纸篓</value></data>
   <data name="DropCopyToFolderCaptionFormat" xml:space="preserve"><value>复制到“{0}”</value></data>
   <data name="DropMoveToFolderCaptionFormat" xml:space="preserve"><value>移动到“{0}”</value></data>
   <data name="DropNavigateCaption" xml:space="preserve"><value>打开此位置</value></data>

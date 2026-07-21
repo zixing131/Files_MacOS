@@ -156,10 +156,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		RegisterContentWheelHandler(SecondaryGridItems);
 		RegisterContentWheelHandler(SecondaryDetailsItems);
 		RegisterContentWheelHandler(SidebarList);
-		RegisterMarqueeSelectionHandlers(GridItems);
-		RegisterMarqueeSelectionHandlers(DetailsItems);
-		RegisterMarqueeSelectionHandlers(SecondaryGridItems);
-		RegisterMarqueeSelectionHandlers(SecondaryDetailsItems);
+		RegisterMarqueeSelectionHandlers(PrimaryPaneBorder);
+		RegisterMarqueeSelectionHandlers(SecondaryPaneBorder);
 		PrimaryPaneBorder.PointerEntered += (_, _) => SetPanePointerState(isPrimary: true, isPointerOver: true);
 		PrimaryPaneBorder.PointerExited += (_, _) => SetPanePointerState(isPrimary: true, isPointerOver: false);
 		SecondaryPaneBorder.PointerEntered += (_, _) => SetPanePointerState(isPrimary: false, isPointerOver: true);
@@ -2525,30 +2523,39 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		if (SidebarList.SelectedItem is SidebarLocation location && Browser is not null)
 		{
-			if (!string.IsNullOrWhiteSpace(location.ExternalUrl))
+			await OpenSidebarLocationAsync(location);
+		}
+	}
+
+	private async Task OpenSidebarLocationAsync(SidebarLocation location)
+	{
+		if (Browser is null)
+		{
+			return;
+		}
+		if (!string.IsNullOrWhiteSpace(location.ExternalUrl))
+		{
+			try
 			{
-				try
-				{
-					await WorkspaceService.OpenUrlAsync(location.ExternalUrl);
-				}
-				catch (IOException)
-				{
-					await ShowErrorAsync(GetResource("OpenItemErrorMessage"));
-				}
+				await WorkspaceService.OpenUrlAsync(location.ExternalUrl);
 			}
-			else if (location.IsNetworkServer)
+			catch (IOException)
 			{
-				await ConnectToServerAsync(location.Path);
+				await ShowErrorAsync(GetResource("OpenItemErrorMessage"));
 			}
-			else
+		}
+		else if (location.IsNetworkServer)
+		{
+			await ConnectToServerAsync(location.Path);
+		}
+		else
+		{
+			if (IsTrashPath(location.Path) && MacOSPrivacyService.GetFullDiskAccessStatus() is FullDiskAccessStatus.Denied)
 			{
-				if (IsTrashPath(location.Path) && MacOSPrivacyService.GetFullDiskAccessStatus() is FullDiskAccessStatus.Denied)
-				{
-					await EnsureFullDiskAccessAsync(forcePrompt: true);
-					return;
-				}
-				await Browser.NavigateAsync(location.Path);
+				await EnsureFullDiskAccessAsync(forcePrompt: true);
+				return;
 			}
+			await Browser.NavigateAsync(location.Path);
 		}
 	}
 
@@ -2566,6 +2573,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			return;
 		}
+		await ConfirmAndEjectVolumeAsync(volume);
+	}
+
+	private async Task ConfirmAndEjectVolumeAsync(SidebarLocation volume)
+	{
 		var dialog = new ContentDialog
 		{
 			Title = GetResource("EjectVolumeDialogTitle"),
@@ -2597,6 +2609,113 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			await ShowErrorAsync(GetResource("EjectVolumeErrorMessage"));
 		}
+	}
+
+	private void SidebarLocation_RightTapped(object sender, RightTappedRoutedEventArgs e)
+	{
+		if (sender is not FrameworkElement { DataContext: SidebarLocation { IsHeader: false } location } element)
+		{
+			return;
+		}
+
+		var flyout = new MenuFlyout();
+		AddSidebarMenuItem(flyout, "ContextOpenItem/Text", "Open", location);
+		if (string.IsNullOrWhiteSpace(location.ExternalUrl) && !location.IsNetworkServer)
+		{
+			AddSidebarMenuItem(flyout, "ContextOpenInNewTabItem/Text", "OpenInNewTab", location);
+			AddSidebarMenuItem(flyout, "ContextRevealItem/Text", "Reveal", location);
+			AddSidebarMenuItem(flyout, "ContextCopyPathItem/Text", "CopyPath", location);
+			if (IsTrashPath(location.Path))
+			{
+				flyout.Items.Add(new MenuFlyoutSeparator());
+				AddSidebarMenuItem(flyout, "BackgroundEmptyTrashItem/Text", "EmptyTrash", location);
+			}
+			if (location.CanEject)
+			{
+				flyout.Items.Add(new MenuFlyoutSeparator());
+				AddSidebarMenuItem(flyout, "EjectVolumeButtonText", "Eject", location);
+			}
+		}
+
+		flyout.ShowAt(element, e.GetPosition(element));
+		e.Handled = true;
+	}
+
+	private void AddSidebarMenuItem(MenuFlyout flyout, string resourceKey, string action, SidebarLocation location)
+	{
+		var item = new MenuFlyoutItem
+		{
+			Text = GetResource(resourceKey),
+			Tag = (action, location),
+		};
+		item.Click += SidebarMenuAction_Click;
+		flyout.Items.Add(item);
+	}
+
+	private async void SidebarMenuAction_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is not MenuFlyoutItem { Tag: (string action, SidebarLocation location) })
+		{
+			return;
+		}
+
+		try
+		{
+			switch (action)
+			{
+				case "Open":
+					await OpenSidebarLocationAsync(location);
+					break;
+				case "OpenInNewTab":
+					await ViewModel.NewTabAsync(location.Path);
+					break;
+				case "Reveal":
+					await WorkspaceService.RevealAsync(location.Path);
+					break;
+				case "CopyPath":
+					var data = new DataPackage { RequestedOperation = DataPackageOperation.Copy };
+					data.SetText(location.Path);
+					Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(data);
+					break;
+				case "EmptyTrash":
+					await EmptyTrashLocationAsync();
+					break;
+				case "Eject" when location.CanEject:
+					await ConfirmAndEjectVolumeAsync(location);
+					break;
+			}
+		}
+		catch (IOException)
+		{
+			await ShowErrorAsync(GetResource("OpenItemErrorMessage"));
+		}
+	}
+
+	private async Task EmptyTrashLocationAsync()
+	{
+		if (Browser is DirectoryBrowserViewModel browser && IsTrashPath(browser.CurrentPath) && browser.Items.Count > 0)
+		{
+			await EmptyTrashCoreAsync(browser.Items.Select(static item => item.Path).ToArray());
+			return;
+		}
+
+		string trashPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Trash");
+		string[] entries;
+		try
+		{
+			entries = Directory.GetFileSystemEntries(trashPath);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			await ShowErrorAsync(string.IsNullOrWhiteSpace(ex.Message) ? GetResource("EmptyTrashErrorMessage") : ex.Message);
+			return;
+		}
+		if (entries.Length is 0)
+		{
+			return;
+		}
+
+		await EmptyTrashCoreAsync(entries);
 	}
 
 	private void SidebarList_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -2816,12 +2935,25 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}
 			else
 			{
-				await WorkspaceService.OpenAsync(item.Path);
+				await OpenFileWithFallbackAsync(item);
 			}
 		}
 		catch (IOException ex)
 		{
 			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("OpenItemErrorMessage") : ex.Message);
+		}
+	}
+
+	private async Task OpenFileWithFallbackAsync(LocalFileSystemItem item)
+	{
+		try
+		{
+			await WorkspaceService.OpenAsync(item.Path);
+		}
+		catch (IOException)
+		{
+			// No application claims this file type, so offer "Open With" instead of a dead-end error.
+			await ShowOpenWithDialogAsync(item);
 		}
 	}
 
@@ -2833,9 +2965,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ScheduleWorkspaceSave();
 	}
 
-	private async Task ShowOpenWithDialogAsync()
+	private Task ShowOpenWithDialogAsync()
 	{
-		if (selectedItems is not [LocalFileSystemItem { IsNavigableDirectory: false } item] || fileTransferCancellation is not null)
+		return selectedItems is [LocalFileSystemItem { IsNavigableDirectory: false } selectedItem]
+			? ShowOpenWithDialogAsync(selectedItem)
+			: Task.CompletedTask;
+	}
+
+	private async Task ShowOpenWithDialogAsync(LocalFileSystemItem item)
+	{
+		if (item.IsNavigableDirectory || fileTransferCancellation is not null)
 		{
 			return;
 		}
@@ -3197,24 +3336,32 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private void Marquee_PointerPressed(object sender, PointerRoutedEventArgs e)
 	{
 		if (marqueeControl is not null ||
-			sender is not FrameworkElement control ||
-			!IsLeftPointerPress(e, control) ||
-			e.Pointer.PointerDeviceType is Microsoft.UI.Input.PointerDeviceType.Touch ||
-			GetBrowserForItemsControl(control) is not DirectoryBrowserViewModel browser)
+			sender is not FrameworkElement pane ||
+			!IsLeftPointerPress(e, pane) ||
+			e.Pointer.PointerDeviceType is Microsoft.UI.Input.PointerDeviceType.Touch)
 		{
 			return;
 		}
 
-		int targetKind = GetMarqueeTargetKind(e.OriginalSource as DependencyObject, control);
+		DirectoryBrowserViewModel? browser = pane is { Tag: "Secondary" }
+			? ViewModel.ActiveTab?.SecondaryBrowser
+			: ViewModel.ActiveTab?.Browser;
+		if (browser is null)
+		{
+			return;
+		}
+
+		FrameworkElement control = GetVisibleItemsControl(browser);
+		(Canvas layer, Border rectangle) = ReferenceEquals(pane, SecondaryPaneBorder)
+			? (SecondaryMarqueeLayer, SecondaryMarqueeRectangle)
+			: (PrimaryMarqueeLayer, PrimaryMarqueeRectangle);
+		Windows.Foundation.Point pointerPoint = e.GetCurrentPoint(layer).Position;
+		int targetKind = GetMarqueeTargetKind(e.OriginalSource as DependencyObject, control, layer, pointerPoint);
 		if (targetKind is 0)
 		{
 			return;
 		}
-		(Canvas layer, Border rectangle) = ReferenceEquals(control, SecondaryGridItems) ||
-			ReferenceEquals(control, SecondaryDetailsItems)
-			? (SecondaryMarqueeLayer, SecondaryMarqueeRectangle)
-			: (PrimaryMarqueeLayer, PrimaryMarqueeRectangle);
-		Windows.Foundation.Point startPoint = ClampToMarqueeControl(e.GetCurrentPoint(layer).Position, control, layer);
+		Windows.Foundation.Point startPoint = ClampToMarqueeControl(pointerPoint, control, layer);
 		bool togglesSelection = IsKeyDown(VirtualKey.Control);
 		bool preservesSelection = togglesSelection || IsKeyDown(VirtualKey.Shift);
 		if (targetKind is 2)
@@ -3353,7 +3500,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Marquee_PointerMoved(object sender, PointerRoutedEventArgs e)
 	{
-		if (ReferenceEquals(sender, pendingMarqueeControl) &&
+		if (IsMarqueePane(sender, pendingMarqueeControl) &&
 			pendingMarqueeControl is FrameworkElement pendingControl &&
 			pendingMarqueeLayer is Canvas pendingLayer)
 		{
@@ -3392,7 +3539,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				togglesSelection,
 				startedFromItem: true);
 		}
-		if (!ReferenceEquals(sender, marqueeControl) || marqueeLayer is not Canvas layer || marqueeRectangle is not Border rectangle ||
+		if (!IsMarqueePane(sender, marqueeControl) || marqueeLayer is not Canvas layer || marqueeRectangle is not Border rectangle ||
 			marqueeBrowser is not DirectoryBrowserViewModel browser || marqueeControl is not FrameworkElement control)
 		{
 			return;
@@ -3463,12 +3610,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		pressedMarqueeItem = null;
 		pressedMarqueeItemWasSelected = false;
-		if (ReferenceEquals(sender, pendingMarqueeControl))
+		if (IsMarqueePane(sender, pendingMarqueeControl))
 		{
 			CancelPendingMarqueeSelection();
 			return;
 		}
-		if (!ReferenceEquals(sender, marqueeControl) || marqueeControl is not FrameworkElement control)
+		if (!IsMarqueePane(sender, marqueeControl) || marqueeControl is not FrameworkElement control)
 		{
 			return;
 		}
@@ -3482,11 +3629,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		pressedMarqueeItem = null;
 		pressedMarqueeItemWasSelected = false;
-		if (ReferenceEquals(sender, pendingMarqueeControl))
+		if (IsMarqueePane(sender, pendingMarqueeControl))
 		{
 			CancelPendingMarqueeSelection();
 		}
-		if (ReferenceEquals(sender, marqueeControl))
+		if (IsMarqueePane(sender, marqueeControl))
 		{
 			EndMarqueeSelection();
 		}
@@ -3517,7 +3664,27 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		hasMarqueeMoved = false;
 	}
 
-	private static int GetMarqueeTargetKind(DependencyObject? source, DependencyObject control)
+	private static bool IsMarqueePane(object sender, FrameworkElement? control)
+	{
+		if (sender is not DependencyObject pane || control is null)
+		{
+			return false;
+		}
+		for (DependencyObject? current = control; current is not null; current = VisualTreeHelper.GetParent(current))
+		{
+			if (ReferenceEquals(current, pane))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static int GetMarqueeTargetKind(
+		DependencyObject? source,
+		FrameworkElement control,
+		FrameworkElement layer,
+		Windows.Foundation.Point point)
 	{
 		bool isItem = false;
 		for (DependencyObject? current = source; current is not null; current = VisualTreeHelper.GetParent(current))
@@ -3536,7 +3703,20 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}
 		}
 
-		return 0;
+		if (isItem)
+		{
+			return 2;
+		}
+
+		// The press landed outside the items control's subtree, for example on the pane
+		// background showing through empty viewport space that is not hit-testable.
+		// Treat it as empty space only when the pointer is within the control bounds,
+		// so surfaces like the details header above the list do not start a marquee.
+		Windows.Foundation.Point origin = control.TransformToVisual(layer).TransformPoint(default);
+		return point.X >= origin.X && point.X <= origin.X + control.ActualWidth &&
+			point.Y >= origin.Y && point.Y <= origin.Y + control.ActualHeight
+			? 1
+			: 0;
 	}
 
 	private static LocalFileSystemItem? FindMarqueeItem(DependencyObject? source, DependencyObject control)
@@ -4477,11 +4657,27 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (sender is not FrameworkElement { DataContext: SidebarLocation { IsHeader: false } location } ||
 			Browser is not DirectoryBrowserViewModel ||
 			string.IsNullOrWhiteSpace(location.Path) ||
-			IsTrashPath(location.Path) ||
-			!Directory.Exists(location.Path) ||
 			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
-			IsInvalidInternalDropTarget(e.DataView, location.Path) ||
 			fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		if (IsTrashPath(location.Path))
+		{
+			if (e.DataView.Contains(InternalFileDragFormat) &&
+				selectedItems.Any(item => IsSameOrDescendantPath(item.Path, location.Path)))
+			{
+				return;
+			}
+			e.AcceptedOperation = DataPackageOperation.Move;
+			e.DragUIOverride.IsCaptionVisible = true;
+			e.DragUIOverride.Caption = GetResource("DropTrashCaption");
+			e.Handled = true;
+			return;
+		}
+
+		if (!Directory.Exists(location.Path) || IsInvalidInternalDropTarget(e.DataView, location.Path))
 		{
 			return;
 		}
@@ -4494,17 +4690,53 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (sender is not FrameworkElement { DataContext: SidebarLocation { IsHeader: false } location } ||
 			Browser is not DirectoryBrowserViewModel browser ||
 			string.IsNullOrWhiteSpace(location.Path) ||
-			IsTrashPath(location.Path) ||
-			!Directory.Exists(location.Path) ||
 			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
-			IsInvalidInternalDropTarget(e.DataView, location.Path) ||
 			fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		if (IsTrashPath(location.Path))
+		{
+			e.Handled = true;
+			await HandleTrashDropAsync(e);
+			return;
+		}
+
+		if (!Directory.Exists(location.Path) || IsInvalidInternalDropTarget(e.DataView, location.Path))
 		{
 			return;
 		}
 
 		e.Handled = true;
 		await HandleItemsDropAsync(e, browser, location.Path);
+	}
+
+	private async Task HandleTrashDropAsync(DragEventArgs e)
+	{
+		var deferral = e.GetDeferral();
+		try
+		{
+			IReadOnlyList<IStorageItem> storageItems = await e.DataView.GetStorageItemsAsync();
+			string trashPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Trash");
+			string[] paths = storageItems
+				.Select(static item => item.Path)
+				.Where(static path => !string.IsNullOrWhiteSpace(path))
+				.Where(path => !IsSameOrDescendantPath(path, trashPath))
+				.Distinct(StringComparer.Ordinal)
+				.ToArray();
+			if (paths.Length is 0)
+			{
+				return;
+			}
+
+			e.AcceptedOperation = DataPackageOperation.Move;
+			await MovePathsToTrashAsync(paths, confirm: false);
+		}
+		finally
+		{
+			deferral.Complete();
+		}
 	}
 
 	private void Breadcrumb_DragOver(object sender, DragEventArgs e)
@@ -4682,6 +4914,43 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		await HandleItemsDropAsync(e, browser, browser.CurrentPath);
 	}
 
+	private void Pane_DragOver(object sender, DragEventArgs e)
+	{
+		if (e.DataView.Contains(StandardDataFormats.StorageItems) &&
+			fileTransferCancellation is null &&
+			GetBrowserForPane(sender) is DirectoryBrowserViewModel browser &&
+			!IsInvalidInternalDropTarget(e.DataView, browser.CurrentPath))
+		{
+			FileTransferMode mode = GetDropTransferMode(e.DataView);
+			e.AcceptedOperation = GetDataPackageOperation(mode);
+			e.DragUIOverride.IsCaptionVisible = true;
+			e.DragUIOverride.Caption = GetResource(mode is FileTransferMode.Move ? "DropMoveCaption" : "DropCopyCaption");
+			e.Handled = true;
+		}
+	}
+
+	private async void Pane_Drop(object sender, DragEventArgs e)
+	{
+		if (!e.DataView.Contains(StandardDataFormats.StorageItems) || fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		if (GetBrowserForPane(sender) is not DirectoryBrowserViewModel browser)
+		{
+			return;
+		}
+
+		e.Handled = true;
+		ActivateBrowser(browser, GetVisibleItemsControl(browser));
+		await HandleItemsDropAsync(e, browser, browser.CurrentPath);
+	}
+
+	private DirectoryBrowserViewModel? GetBrowserForPane(object sender) =>
+		sender is FrameworkElement { Tag: "Secondary" }
+			? ViewModel.ActiveTab?.SecondaryBrowser
+			: ViewModel.ActiveTab?.Browser;
+
 	private async Task HandleItemsDropAsync(
 		DragEventArgs e,
 		DirectoryBrowserViewModel targetBrowser,
@@ -4701,6 +4970,25 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				return;
 			}
 
+			if (paths.All(IsTrashedItemPath))
+			{
+				// Dragging items out of the Trash restores them to their original locations.
+				e.AcceptedOperation = DataPackageOperation.Move;
+				if (await TryRestoreTrashedItemsAsync(paths, targetBrowser))
+				{
+					return;
+				}
+				// Some items have no recorded original location; move the rest into the drop target.
+				paths = paths
+					.Where(static path => File.Exists(path) || Directory.Exists(path))
+					.ToArray();
+				if (paths.Length is 0)
+				{
+					await RefreshTrashBrowsersAsync();
+					return;
+				}
+			}
+
 			FileTransferMode mode = GetDropTransferMode(e.DataView);
 			e.AcceptedOperation = GetDataPackageOperation(mode);
 			await TransferItemsAsync(
@@ -4717,6 +5005,27 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		finally
 		{
 			deferral.Complete();
+		}
+	}
+
+	private static bool IsTrashedItemPath(string path)
+	{
+		string trashPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Trash");
+		return IsSameOrDescendantPath(path, trashPath);
+	}
+
+	private async Task<bool> TryRestoreTrashedItemsAsync(IReadOnlyList<string> paths, DirectoryBrowserViewModel targetBrowser)
+	{
+		try
+		{
+			await WorkspaceService.RestoreFromTrashAsync(paths);
+			targetBrowser.StatusText = string.Format(GetResource("PutBackCompletedFormat"), paths.Count);
+			await RefreshTrashBrowsersAsync();
+			return true;
+		}
+		catch (IOException)
+		{
+			return false;
 		}
 	}
 
@@ -6197,12 +6506,22 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		if (currentSettings.ConfirmMoveToTrash)
+		await MovePathsToTrashAsync(selectedItems.Select(static item => item.Path).ToArray(), confirm: true);
+	}
+
+	private async Task MovePathsToTrashAsync(IReadOnlyList<string> paths, bool confirm)
+	{
+		if (paths.Count is 0)
+		{
+			return;
+		}
+
+		if (confirm && currentSettings.ConfirmMoveToTrash)
 		{
 			var dialog = new ContentDialog
 			{
 				Title = GetResource("MoveToTrashDialogTitle"),
-				Content = string.Format(GetResource("MoveToTrashDialogMessageFormat"), selectedItems.Count),
+				Content = string.Format(GetResource("MoveToTrashDialogMessageFormat"), paths.Count),
 				PrimaryButtonText = GetResource("MoveToTrashButtonText"),
 				CloseButtonText = GetResource("CancelButtonText"),
 				DefaultButton = ContentDialogButton.Close,
@@ -6217,8 +6536,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		try
 		{
-			IReadOnlyList<TrashedItemResult> results = await WorkspaceService.MoveToTrashAsync(
-				selectedItems.Select(static item => item.Path).ToArray());
+			IReadOnlyList<TrashedItemResult> results = await WorkspaceService.MoveToTrashAsync(paths);
 			RecordTrashHistory(results);
 		}
 		catch (TrashOperationPartialException ex)
@@ -6232,7 +6550,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		finally
 		{
-			await Browser.RefreshAsync();
+			if (Browser is DirectoryBrowserViewModel browser)
+			{
+				await browser.RefreshAsync();
+			}
+			await RefreshTrashBrowsersAsync();
 		}
 	}
 
@@ -6266,11 +6588,20 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		IReadOnlyList<LocalFileSystemItem> items = browser.Items.ToArray();
+		await EmptyTrashCoreAsync(browser.Items.Select(static item => item.Path).ToArray());
+	}
+
+	private async Task EmptyTrashCoreAsync(IReadOnlyList<string> paths)
+	{
+		if (paths.Count is 0)
+		{
+			return;
+		}
+
 		var dialog = new ContentDialog
 		{
 			Title = GetResource("EmptyTrashDialogTitle"),
-			Content = string.Format(GetResource("EmptyTrashDialogMessageFormat"), items.Count),
+			Content = string.Format(GetResource("EmptyTrashDialogMessageFormat"), paths.Count),
 			PrimaryButtonText = GetResource("EmptyTrashButtonText"),
 			CloseButtonText = GetResource("CancelButtonText"),
 			DefaultButton = ContentDialogButton.Close,
@@ -6283,8 +6614,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		try
 		{
-			await FileOperationService.DeletePermanentlyAsync(items.Select(static item => item.Path).ToArray());
-			browser.StatusText = GetResource("EmptyTrashCompletedMessage");
+			await FileOperationService.DeletePermanentlyAsync(paths.ToArray());
+			if (Browser is DirectoryBrowserViewModel browser)
+			{
+				browser.StatusText = GetResource("EmptyTrashCompletedMessage");
+			}
 		}
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 		{
@@ -6292,8 +6626,22 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		finally
 		{
-			await browser.RefreshAsync();
+			await RefreshTrashBrowsersAsync();
 		}
+	}
+
+	private async Task RefreshTrashBrowsersAsync()
+	{
+		var refreshes = new List<Task>(2);
+		if (ViewModel.ActiveTab?.Browser is DirectoryBrowserViewModel primary && IsTrashPath(primary.CurrentPath))
+		{
+			refreshes.Add(primary.RefreshAsync());
+		}
+		if (ViewModel.ActiveTab?.SecondaryBrowser is DirectoryBrowserViewModel secondary && IsTrashPath(secondary.CurrentPath))
+		{
+			refreshes.Add(secondary.RefreshAsync());
+		}
+		await Task.WhenAll(refreshes);
 	}
 
 	private void MoveToTrashAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)

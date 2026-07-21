@@ -314,7 +314,7 @@
 						SelectionMode="Single">
 					<ListView.ItemTemplate>
 						<DataTemplate>
-							<Grid AllowDrop="True" AutomationProperties.Name="{Binding AutomationName}" DragOver="SidebarLocation_DragOver" Drop="SidebarLocation_Drop">
+							<Grid AllowDrop="True" AutomationProperties.Name="{Binding AutomationName}" DragOver="SidebarLocation_DragOver" Drop="SidebarLocation_Drop" RightTapped="SidebarLocation_RightTapped">
 								<Grid
 									MinHeight="32"
 									Padding="10,6,8,2"
@@ -557,10 +557,13 @@
 				<Border
 					x:Name="PrimaryPaneBorder"
 					Grid.Column="0"
+					AllowDrop="True"
 					Background="{ThemeResource FilesCardBrush}"
 					BorderBrush="{ThemeResource FilesCardBorderBrush}"
 					BorderThickness="2"
 					CornerRadius="8"
+					DragOver="Pane_DragOver"
+					Drop="Pane_Drop"
 					PointerPressed="PaneBorder_PointerPressed"
 					Tag="Primary">
 					<Border.ContextFlyout>
@@ -777,10 +780,13 @@
 					<Border
 						x:Name="SecondaryPaneBorder"
 						Grid.Column="2"
+						AllowDrop="True"
 						Background="{ThemeResource FilesCardBrush}"
 						BorderBrush="{ThemeResource FilesCardBorderBrush}"
 						BorderThickness="1"
 						CornerRadius="8"
+						DragOver="Pane_DragOver"
+						Drop="Pane_Drop"
 						PointerPressed="PaneBorder_PointerPressed"
 						Tag="Secondary"
 						Visibility="{Binding ActiveTab.IsSplitView, Converter={StaticResource BooleanToVisibilityConverter}}">
