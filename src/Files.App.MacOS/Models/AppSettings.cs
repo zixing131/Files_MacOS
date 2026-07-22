@@ -102,7 +102,8 @@ public sealed record BrowserPaneState(
 	string Path,
 	bool IsGridView = true,
 	string SortField = "Name",
-	string SortDirection = "Ascending");
+	string SortDirection = "Ascending",
+	bool IsColumnView = false);
 
 public sealed record BrowserTabState(
 	BrowserPaneState Primary,

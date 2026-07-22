@@ -91,7 +91,22 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	public partial bool IsLoading { get; set; }
 
 	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(ShowGridView))]
+	[NotifyPropertyChangedFor(nameof(ShowDetailsView))]
+	[NotifyPropertyChangedFor(nameof(ShowColumnView))]
 	public partial bool IsGridView { get; set; } = true;
+
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(ShowGridView))]
+	[NotifyPropertyChangedFor(nameof(ShowDetailsView))]
+	[NotifyPropertyChangedFor(nameof(ShowColumnView))]
+	public partial bool IsColumnView { get; set; }
+
+	public bool ShowGridView => IsGridView && !IsColumnView;
+
+	public bool ShowDetailsView => !IsGridView && !IsColumnView;
+
+	public bool ShowColumnView => IsColumnView;
 
 	[ObservableProperty]
 	public partial bool IsFileOperationRunning { get; set; }
@@ -297,6 +312,10 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	{
 		return NavigateAsync(CurrentPath, addToHistory: false);
 	}
+
+	// Raw directory listing for auxiliary UI (column view ancestor columns); does not navigate.
+	public Task<IReadOnlyList<LocalFileSystemItem>> GetItemsAsync(string path, CancellationToken cancellationToken) =>
+		directoryService.GetItemsAsync(path, cancellationToken);
 
 	public Task ReloadAsync()
 	{

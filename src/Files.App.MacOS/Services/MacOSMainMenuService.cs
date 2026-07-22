@@ -48,6 +48,7 @@ internal enum MacOSMenuCommand
 	MoveTabToNewWindow,
 	NextTab,
 	PreviousTab,
+	ColumnView,
 }
 
 internal interface IMacOSMenuCommandTarget

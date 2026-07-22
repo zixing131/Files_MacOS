@@ -72,6 +72,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private readonly Stack<FileOperationHistoryEntry> undoHistory = new();
 	private readonly Stack<FileOperationHistoryEntry> redoHistory = new();
 	private readonly Dictionary<DirectoryBrowserViewModel, string> lastScrollPaths = [];
+	private const double ColumnViewColumnWidth = 240;
+	private readonly List<FrameworkElement> primaryColumnViewColumns = [];
+	private readonly List<FrameworkElement> secondaryColumnViewColumns = [];
+	private string? primaryColumnViewPath;
+	private string? secondaryColumnViewPath;
+	private int primaryColumnViewGeneration;
+	private int secondaryColumnViewGeneration;
+	private bool isColumnViewSelectionSync;
 	private AppSettings currentSettings = new();
 	private AppSettings persistedSettingsBaseline = new();
 	private bool isResizingSplit;
@@ -152,8 +160,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), handledEventsToo: true);
 		RegisterContentWheelHandler(GridItems);
 		RegisterContentWheelHandler(DetailsItems);
+		RegisterContentWheelHandler(PrimaryColumnItems);
 		RegisterContentWheelHandler(SecondaryGridItems);
 		RegisterContentWheelHandler(SecondaryDetailsItems);
+		RegisterContentWheelHandler(SecondaryColumnItems);
 		RegisterContentWheelHandler(SidebarList);
 		RegisterMarqueeSelectionHandlers(PrimaryPaneBorder);
 		RegisterMarqueeSelectionHandlers(SecondaryPaneBorder);
@@ -198,6 +208,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ConfigureIconButton(ClosePreviewPaneButton, "ClosePreviewPaneTooltip");
 		ConfigureIconButton(GridViewStatusButton, "GridViewTooltip");
 		ConfigureIconButton(DetailsViewStatusButton, "DetailsViewTooltip");
+		ConfigureIconButton(ColumnViewStatusButton, "ColumnViewTooltip");
 		ConfigureIconButton(SearchOptionsButton, "SearchOptionsTooltip");
 		ConfigureIconButton(MoreCommandsButton, "MoreCommandsTooltip");
 		ConfigureIconButton(SidebarDivider, "SidebarResizeTooltip");
@@ -208,8 +219,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ConfigureAccessibleName(SearchBox, "SearchBoxAutomationName");
 		ConfigureAccessibleName(GridItems, "PrimaryFilesAutomationName");
 		ConfigureAccessibleName(DetailsItems, "PrimaryFilesAutomationName");
+		ConfigureAccessibleName(PrimaryColumnItems, "PrimaryFilesAutomationName");
 		ConfigureAccessibleName(SecondaryGridItems, "SecondaryFilesAutomationName");
 		ConfigureAccessibleName(SecondaryDetailsItems, "SecondaryFilesAutomationName");
+		ConfigureAccessibleName(SecondaryColumnItems, "SecondaryFilesAutomationName");
 		ConfigureAccessibleName(FileOperationProgressBar, "FileOperationProgressAutomationName");
 		ConfigureAccessibleName(StatusTextBlock, "StatusBarAutomationName");
 		ConfigureAccessibleName(PreviewSelectionSummary, "PreviewSelectionAutomationName");
@@ -448,7 +461,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		FrameworkElement visibleControl = browser.IsGridView ? GridItems : DetailsItems;
+		FrameworkElement visibleControl = GetVisibleItemsControl(browser);
 		int realizedContainers = CountRealizedContainers(visibleControl, browser.Items.Count);
 		bool selectionRoundtrip = VerifySelectionRoundtrip(visibleControl, browser.Items.Count);
 		bool initialSidebarState = isSidebarOpen;
@@ -534,6 +547,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ClosePreviewPaneButton,
 			GridViewStatusButton,
 			DetailsViewStatusButton,
+			ColumnViewStatusButton,
 			MoreCommandsButton,
 		];
 		bool navigationIcons = navigationIconButtons.All(static button => button.Content is PathIcon { Data: not null }) &&
@@ -555,8 +569,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			SearchBox,
 			GridItems,
 			DetailsItems,
+			PrimaryColumnItems,
 			SecondaryGridItems,
 			SecondaryDetailsItems,
+			SecondaryColumnItems,
 			FileOperationProgressBar,
 			SidebarDivider,
 			SplitDivider,
@@ -731,11 +747,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}.All(static button => !string.IsNullOrWhiteSpace(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(button)));
 		browser.SetSort(initialSortField, initialSortDirection);
 		UpdateSortHeaderVisuals();
-		bool initialGridView = browser.IsGridView;
-		SetViewMode(browser, !initialGridView);
-		bool viewChanged = browser.IsGridView != initialGridView;
-		SetViewMode(browser, initialGridView);
-		bool viewModeRoundtrip = viewChanged && browser.IsGridView == initialGridView;
+		BrowserViewMode initialViewMode = GetViewMode(browser);
+		SetViewMode(browser, initialViewMode is BrowserViewMode.Grid ? BrowserViewMode.Details : BrowserViewMode.Grid);
+		bool viewChanged = GetViewMode(browser) != initialViewMode;
+		SetViewMode(browser, initialViewMode);
+		bool viewModeRoundtrip = viewChanged && GetViewMode(browser) == initialViewMode;
 		string[] originalDetailColumns = DetailColumnState.Capture();
 		DetailColumnState.Apply(["Created", "Kind"]);
 		RootLayout.UpdateLayout();
@@ -903,7 +919,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
 		Console.WriteLine(
-			$"FILES_MACOS_PERF view={(browser.IsGridView ? "grid" : "details")} " +
+			$"FILES_MACOS_PERF view={(browser.IsColumnView ? "columns" : browser.IsGridView ? "grid" : "details")} " +
 			$"items={browser.Items.Count} realized={realizedContainers} selection_roundtrip={selectionRoundtrip} " +
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} sidebar_eject_buttons={renderedEjectButtons} sidebar_header_spacing={sidebarHeaderSpacing} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
@@ -1790,10 +1806,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				BeginAddressEdit();
 				break;
 			case MacOSMenuCommand.GridView when Browser is DirectoryBrowserViewModel gridBrowser:
-				SetViewMode(gridBrowser, isGridView: true);
+				SetViewMode(gridBrowser, BrowserViewMode.Grid);
 				break;
 			case MacOSMenuCommand.DetailsView when Browser is DirectoryBrowserViewModel detailsBrowser:
-				SetViewMode(detailsBrowser, isGridView: false);
+				SetViewMode(detailsBrowser, BrowserViewMode.Details);
+				break;
+			case MacOSMenuCommand.ColumnView when Browser is DirectoryBrowserViewModel columnBrowser:
+				SetViewMode(columnBrowser, BrowserViewMode.Columns);
 				break;
 			case MacOSMenuCommand.TogglePreview:
 				SetPreviewPaneOpen(!isPreviewPaneOpen);
@@ -3357,14 +3376,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return false;
 		}
 
-		bool isSecondary = ReferenceEquals(browser, ViewModel.ActiveTab?.SecondaryBrowser);
-		Control itemView = (isSecondary, browser.IsGridView) switch
-		{
-			(true, true) => SecondaryGridItems,
-			(true, false) => SecondaryDetailsItems,
-			(false, true) => GridItems,
-			_ => DetailsItems,
-		};
+		Control itemView = (Control)GetVisibleItemsControl(browser);
 		var targets = new List<Control> { Tabs };
 		if (isSidebarOpen)
 		{
@@ -5804,8 +5816,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 					"Tags" => browser.SortField is FileSortField.Tags,
 					"Ascending" => browser.SortDirection is FileSortDirection.Ascending,
 					"Descending" => browser.SortDirection is FileSortDirection.Descending,
-					"Grid" => browser.IsGridView,
-					"Details" => !browser.IsGridView,
+					"Grid" => browser is { IsGridView: true, IsColumnView: false },
+					"Details" => browser is { IsGridView: false, IsColumnView: false },
+					"Columns" => browser.IsColumnView,
 					_ => toggle.IsChecked,
 				};
 				toggle.IsEnabled = isIdle;
@@ -8859,11 +8872,26 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		return true;
 	}
 
+	private enum BrowserViewMode
+	{
+		Grid,
+		Details,
+		Columns,
+	}
+
+	private static BrowserViewMode GetViewMode(DirectoryBrowserViewModel browser) =>
+		browser.IsColumnView ? BrowserViewMode.Columns : browser.IsGridView ? BrowserViewMode.Grid : BrowserViewMode.Details;
+
 	private void ViewButton_Click(object sender, RoutedEventArgs e)
 	{
 		if (Browser is DirectoryBrowserViewModel browser)
 		{
-			SetViewMode(browser, !browser.IsGridView);
+			SetViewMode(browser, GetViewMode(browser) switch
+			{
+				BrowserViewMode.Grid => BrowserViewMode.Details,
+				BrowserViewMode.Details => BrowserViewMode.Columns,
+				_ => BrowserViewMode.Grid,
+			});
 		}
 	}
 
@@ -8871,7 +8899,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		if (Browser is DirectoryBrowserViewModel browser)
 		{
-			SetViewMode(browser, isGridView: true);
+			SetViewMode(browser, BrowserViewMode.Grid);
 		}
 	}
 
@@ -8879,19 +8907,28 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		if (Browser is DirectoryBrowserViewModel browser)
 		{
-			SetViewMode(browser, isGridView: false);
+			SetViewMode(browser, BrowserViewMode.Details);
 		}
 	}
 
-	private void SetViewMode(DirectoryBrowserViewModel browser, bool isGridView)
+	private void ColumnViewStatusButton_Click(object sender, RoutedEventArgs e)
 	{
-		if (browser.IsGridView == isGridView)
+		if (Browser is DirectoryBrowserViewModel browser)
+		{
+			SetViewMode(browser, BrowserViewMode.Columns);
+		}
+	}
+
+	private void SetViewMode(DirectoryBrowserViewModel browser, BrowserViewMode viewMode)
+	{
+		if (GetViewMode(browser) == viewMode)
 		{
 			return;
 		}
 
 		IReadOnlyList<LocalFileSystemItem> selection = selectedItems.Where(browser.Items.Contains).ToArray();
-		browser.IsGridView = isGridView;
+		browser.IsGridView = viewMode is BrowserViewMode.Grid;
+		browser.IsColumnView = viewMode is BrowserViewMode.Columns;
 		FrameworkElement targetControl = GetVisibleItemsControl(browser);
 		RestoreSelection(browser, targetControl, selection);
 		ActivateBrowser(browser, targetControl);
@@ -8920,6 +8957,179 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				}
 			});
 		});
+	}
+
+	private void UpdateColumnViewPanes()
+	{
+		if (ViewModel.ActiveTab is not BrowserTabViewModel tab)
+		{
+			return;
+		}
+
+		UpdateColumnViewPane(tab.Browser, isSecondary: false);
+		if (tab.SecondaryBrowser is DirectoryBrowserViewModel secondaryBrowser)
+		{
+			UpdateColumnViewPane(secondaryBrowser, isSecondary: true);
+		}
+	}
+
+	private void UpdateColumnViewPane(DirectoryBrowserViewModel browser, bool isSecondary)
+	{
+		if (!browser.IsColumnView)
+		{
+			// Forget the built chain so re-entering column view rebuilds it.
+			if (isSecondary)
+			{
+				secondaryColumnViewPath = null;
+			}
+			else
+			{
+				primaryColumnViewPath = null;
+			}
+			return;
+		}
+
+		string? builtPath = isSecondary ? secondaryColumnViewPath : primaryColumnViewPath;
+		if (string.Equals(builtPath, browser.CurrentPath, StringComparison.Ordinal))
+		{
+			return;
+		}
+
+		RebuildColumnViewPane(browser, isSecondary);
+		int generation = isSecondary ? secondaryColumnViewGeneration : primaryColumnViewGeneration;
+		DispatcherQueue.TryEnqueue(() =>
+		{
+			if (generation != (isSecondary ? secondaryColumnViewGeneration : primaryColumnViewGeneration) || !browser.IsColumnView)
+			{
+				return;
+			}
+
+			ScrollViewer scrollViewer = isSecondary ? SecondaryColumnScrollViewer : PrimaryColumnScrollViewer;
+			scrollViewer.ChangeView(scrollViewer.ScrollableWidth, null, null, true);
+		});
+	}
+
+	private void RebuildColumnViewPane(DirectoryBrowserViewModel browser, bool isSecondary)
+	{
+		int generation = isSecondary ? ++secondaryColumnViewGeneration : ++primaryColumnViewGeneration;
+		StackPanel panel = isSecondary ? SecondaryColumnPanel : PrimaryColumnPanel;
+		List<FrameworkElement> columns = isSecondary ? secondaryColumnViewColumns : primaryColumnViewColumns;
+		foreach (FrameworkElement column in columns)
+		{
+			panel.Children.Remove(column);
+		}
+		columns.Clear();
+		if (isSecondary)
+		{
+			secondaryColumnViewPath = browser.CurrentPath;
+		}
+		else
+		{
+			primaryColumnViewPath = browser.CurrentPath;
+		}
+
+		string[] ancestorPaths = GetColumnViewAncestorPaths(browser.CurrentPath);
+		Brush separatorBrush = (Brush)Application.Current.Resources["FilesCardBorderBrush"];
+		for (int index = 0; index < ancestorPaths.Length; index++)
+		{
+			string columnPath = ancestorPaths[index];
+			string selectedChildPath = index + 1 < ancestorPaths.Length ? ancestorPaths[index + 1] : browser.CurrentPath;
+			var columnList = new ListView
+			{
+				ItemTemplate = (DataTemplate)Resources["ColumnViewAncestorItemTemplate"],
+				SelectionMode = ListViewSelectionMode.Single,
+			};
+			columnList.SelectionChanged += ColumnViewAncestor_SelectionChanged;
+			var columnBorder = new Border
+			{
+				Width = ColumnViewColumnWidth,
+				BorderBrush = separatorBrush,
+				BorderThickness = new Thickness(0, 0, 1, 0),
+				Child = columnList,
+			};
+			columns.Add(columnBorder);
+			panel.Children.Insert(index, columnBorder);
+			_ = LoadColumnViewAncestorAsync(browser, columnList, columnPath, selectedChildPath, generation, isSecondary);
+		}
+	}
+
+	// Ancestor chain from the volume root down to (but excluding) the current path;
+	// the tail column showing the current path contents lives in XAML.
+	private static string[] GetColumnViewAncestorPaths(string currentPath)
+	{
+		var ancestors = new List<string>();
+		string? path = Path.TrimEndingDirectorySeparator(currentPath);
+		while (!string.IsNullOrEmpty(path))
+		{
+			string? parent = Path.GetDirectoryName(path);
+			if (string.IsNullOrEmpty(parent) || string.Equals(parent, path, StringComparison.Ordinal))
+			{
+				break;
+			}
+			ancestors.Insert(0, parent);
+			path = parent;
+		}
+		return ancestors.ToArray();
+	}
+
+	private async Task LoadColumnViewAncestorAsync(
+		DirectoryBrowserViewModel browser,
+		ListView columnList,
+		string columnPath,
+		string selectedChildPath,
+		int generation,
+		bool isSecondary)
+	{
+		IReadOnlyList<LocalFileSystemItem> items;
+		try
+		{
+			items = await browser.GetItemsAsync(columnPath, CancellationToken.None);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			// Leave the column empty when the directory cannot be read.
+			return;
+		}
+		if (generation != (isSecondary ? secondaryColumnViewGeneration : primaryColumnViewGeneration) || !browser.IsColumnView)
+		{
+			return;
+		}
+
+		LocalFileSystemItem[] orderedItems = items
+			.Where(item => browser.ShowHiddenFiles || !item.IsHidden)
+			.OrderByDescending(static item => item.IsNavigableDirectory)
+			.ThenBy(static item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+			.ToArray();
+		columnList.ItemsSource = orderedItems;
+		isColumnViewSelectionSync = true;
+		try
+		{
+			columnList.SelectedItem = orderedItems.FirstOrDefault(
+				item => string.Equals(item.Path, selectedChildPath, StringComparison.Ordinal));
+		}
+		finally
+		{
+			isColumnViewSelectionSync = false;
+		}
+	}
+
+	// Ancestor columns navigate on folder selection but never touch the pane's item selection.
+	private async void ColumnViewAncestor_SelectionChanged(object sender, SelectionChangedEventArgs e)
+	{
+		if (isColumnViewSelectionSync || sender is not ListView { SelectedItem: LocalFileSystemItem item } list)
+		{
+			return;
+		}
+
+		DirectoryBrowserViewModel? browser = IsDescendantOf(list, SecondaryPaneBorder)
+			? ViewModel.ActiveTab?.SecondaryBrowser
+			: ViewModel.ActiveTab?.Browser;
+		if (browser is null || !item.IsNavigableDirectory)
+		{
+			return;
+		}
+
+		await browser.NavigateAsync(item.Path);
 	}
 
 	private async void SplitViewButton_Click(object sender, RoutedEventArgs e)
@@ -9063,7 +9273,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private DirectoryBrowserViewModel? GetBrowserForItemsControl(object? control)
 	{
-		return ReferenceEquals(control, SecondaryGridItems) || ReferenceEquals(control, SecondaryDetailsItems)
+		return ReferenceEquals(control, SecondaryGridItems) || ReferenceEquals(control, SecondaryDetailsItems) || ReferenceEquals(control, SecondaryColumnItems)
 			? ViewModel.ActiveTab?.SecondaryBrowser
 			: ViewModel.ActiveTab?.Browser;
 	}
@@ -9096,6 +9306,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private FrameworkElement GetVisibleItemsControl(DirectoryBrowserViewModel browser)
 	{
 		bool isSecondary = ReferenceEquals(browser, ViewModel.ActiveTab?.SecondaryBrowser);
+		if (browser.IsColumnView)
+		{
+			return isSecondary ? SecondaryColumnItems : PrimaryColumnItems;
+		}
 		return (isSecondary, browser.IsGridView) switch
 		{
 			(true, true) => SecondaryGridItems,
@@ -9250,6 +9464,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		UpdateViewModeVisuals();
 		UpdateAddressBar();
 		ApplySplitLayout();
+		UpdateColumnViewPanes();
 	}
 
 	private void ApplySplitLayout()
@@ -9583,9 +9798,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		Brush selectedBrush = (Brush)Application.Current.Resources["FilesAccentSubtleBrush"];
 		Brush inactiveBrush = (Brush)Application.Current.Resources["FilesSubtleBrush"];
-		bool isGridView = Browser?.IsGridView is true;
-		GridViewStatusButton.Background = isGridView ? selectedBrush : inactiveBrush;
-		DetailsViewStatusButton.Background = isGridView ? inactiveBrush : selectedBrush;
+		BrowserViewMode viewMode = Browser is DirectoryBrowserViewModel browser ? GetViewMode(browser) : BrowserViewMode.Grid;
+		GridViewStatusButton.Background = viewMode is BrowserViewMode.Grid ? selectedBrush : inactiveBrush;
+		DetailsViewStatusButton.Background = viewMode is BrowserViewMode.Details ? selectedBrush : inactiveBrush;
+		ColumnViewStatusButton.Background = viewMode is BrowserViewMode.Columns ? selectedBrush : inactiveBrush;
 	}
 
 	private void SortFlyout_Opening(object sender, object e)
@@ -9648,6 +9864,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		UpdateSidebarSelection();
 		UpdateSortHeaderVisuals();
 		UpdateViewModeVisuals();
+		UpdateColumnViewPanes();
 		ScheduleWorkspaceSave();
 	}
 

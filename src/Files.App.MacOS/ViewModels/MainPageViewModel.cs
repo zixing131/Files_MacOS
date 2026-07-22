@@ -425,12 +425,14 @@ public sealed class MainPageViewModel : ObservableObject
 			browser.CurrentPath,
 			browser.IsGridView,
 			browser.SortField.ToString(),
-			browser.SortDirection.ToString());
+			browser.SortDirection.ToString(),
+			browser.IsColumnView);
 	}
 
 	private static void ApplyPaneState(DirectoryBrowserViewModel browser, BrowserPaneState state)
 	{
 		browser.IsGridView = state.IsGridView;
+		browser.IsColumnView = state.IsColumnView;
 		if (Enum.TryParse(state.SortField, ignoreCase: true, out FileSortField sortField) &&
 			Enum.TryParse(state.SortDirection, ignoreCase: true, out FileSortDirection sortDirection))
 		{

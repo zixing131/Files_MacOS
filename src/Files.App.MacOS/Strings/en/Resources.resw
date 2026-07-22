@@ -419,6 +419,7 @@
   <data name="BackgroundViewSubItem.Text" xml:space="preserve"><value>View</value></data>
   <data name="BackgroundGridViewItem.Text" xml:space="preserve"><value>Grid</value></data>
   <data name="BackgroundDetailsViewItem.Text" xml:space="preserve"><value>Details</value></data>
+  <data name="BackgroundColumnViewItem.Text" xml:space="preserve"><value>Columns</value></data>
   <data name="ToggleOnText" xml:space="preserve"><value>On</value></data>
   <data name="ToggleOffText" xml:space="preserve"><value>Off</value></data>
   <data name="SidebarSharedLocationName" xml:space="preserve"><value>Shared</value></data>
@@ -540,6 +541,7 @@
   <data name="NoSearchResultsDescription.Text" xml:space="preserve"><value>Try a different name or adjust the search filters.</value></data>
   <data name="GridViewTooltip" xml:space="preserve"><value>Grid view</value></data>
   <data name="DetailsViewTooltip" xml:space="preserve"><value>Details view</value></data>
+  <data name="ColumnViewTooltip" xml:space="preserve"><value>Column view</value></data>
   <data name="ReopenClosedTabMenuItem.Text" xml:space="preserve"><value>Reopen closed tab</value></data>
   <data name="CloseTabMenuItem.Text" xml:space="preserve"><value>Close tab</value></data>
   <data name="CloseOtherTabsMenuItem.Text" xml:space="preserve"><value>Close other tabs</value></data>

@@ -59,6 +59,26 @@
 			<ToggleMenuFlyoutItem x:Uid="SortCommentsItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowComments, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Comments" />
 			<ToggleMenuFlyoutItem x:Uid="SortTagsItem" Click="DetailColumnMenuItem_Click" IsChecked="{Binding ShowTags, Source={StaticResource DetailColumnVisibilityState}, Mode=OneWay}" Tag="Tags" />
 		</MenuFlyout>
+		<!--  Column view: tail column items reuse the shared item handlers and inline rename.  -->
+		<DataTemplate x:Key="ColumnViewItemTemplate">
+			<Grid MinHeight="28" Padding="8,2" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="24,*" ColumnSpacing="6" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+				<Grid Grid.Column="0" Width="20" Height="20" VerticalAlignment="Center" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
+					<PathIcon Width="16" Height="16" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+					<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+				</Grid>
+				<StackPanel Grid.Column="1" VerticalAlignment="Center">
+					<TextBlock FontSize="13" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+					<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+				</StackPanel>
+			</Grid>
+		</DataTemplate>
+		<!--  Column view: lightweight ancestor column items without the shared item handlers.  -->
+		<DataTemplate x:Key="ColumnViewAncestorItemTemplate">
+			<Grid MinHeight="28" Padding="8,2" Background="Transparent" ColumnDefinitions="24,*" ColumnSpacing="6" ToolTipService.ToolTip="{Binding Path}">
+				<PathIcon Grid.Column="0" Width="16" Height="16" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" VerticalAlignment="Center" />
+				<TextBlock Grid.Column="1" FontSize="13" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+			</Grid>
+		</DataTemplate>
 	</Page.Resources>
 	<Page.KeyboardAccelerators>
 		<KeyboardAccelerator Key="C" Modifiers="Control" Invoked="CopyAccelerator_Invoked" />
@@ -635,6 +655,7 @@
 							<MenuFlyoutSubItem Tag="View">
 								<ToggleMenuFlyoutItem x:Uid="BackgroundGridViewItem" Click="GridViewStatusButton_Click" Tag="Grid" />
 								<ToggleMenuFlyoutItem x:Uid="BackgroundDetailsViewItem" Click="DetailsViewStatusButton_Click" Tag="Details" />
+								<ToggleMenuFlyoutItem x:Uid="BackgroundColumnViewItem" Click="ColumnViewStatusButton_Click" Tag="Columns" />
 							</MenuFlyoutSubItem>
 						</MenuFlyout>
 					</Border.ContextFlyout>
@@ -650,7 +671,7 @@
 							KeyDown="Items_KeyDown"
 							SelectionChanged="GridItems_SelectionChanged"
 							SelectionMode="Extended"
-							Visibility="{Binding ActiveTab.Browser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}}">
+							Visibility="{Binding ActiveTab.Browser.ShowGridView, Converter={StaticResource BooleanToVisibilityConverter}}">
 							<ItemsView.Layout>
 								<UniformGridLayout
 									ItemsJustification="Start"
@@ -696,7 +717,7 @@
 						<Grid
 							x:Name="PrimaryDetailsLayout"
 							SizeChanged="DetailsLayout_SizeChanged"
-							Visibility="{Binding ActiveTab.Browser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}"
+							Visibility="{Binding ActiveTab.Browser.ShowDetailsView, Converter={StaticResource BooleanToVisibilityConverter}}"
 							RowDefinitions="36,*">
 							<Border
 								x:Name="PrimaryDetailsHeader"
@@ -773,6 +794,38 @@
 								</ListView.ItemTemplate>
 							</ListView>
 						</Grid>
+
+						<!--  Column layout  -->
+						<ScrollViewer
+							x:Name="PrimaryColumnScrollViewer"
+							HorizontalScrollBarVisibility="Auto"
+							HorizontalScrollMode="Enabled"
+							VerticalScrollBarVisibility="Disabled"
+							VerticalScrollMode="Disabled"
+							Visibility="{Binding ActiveTab.Browser.ShowColumnView, Converter={StaticResource BooleanToVisibilityConverter}}">
+							<StackPanel x:Name="PrimaryColumnPanel" Orientation="Horizontal">
+								<ListView
+									x:Name="PrimaryColumnItems"
+									Width="240"
+									AllowDrop="True"
+									CanDragItems="True"
+									DragItemsStarting="Items_DragItemsStarting"
+									DragOver="Items_DragOver"
+									Drop="Items_Drop"
+									DoubleTapped="Items_DoubleTapped"
+									ItemTemplate="{StaticResource ColumnViewItemTemplate}"
+									ItemsSource="{Binding ActiveTab.Browser.Items}"
+									KeyDown="Items_KeyDown"
+									SelectionChanged="Items_SelectionChanged"
+									SelectionMode="Extended">
+									<ListView.ItemsPanel>
+										<ItemsPanelTemplate>
+											<ItemsStackPanel Orientation="Vertical" />
+										</ItemsPanelTemplate>
+									</ListView.ItemsPanel>
+								</ListView>
+							</StackPanel>
+						</ScrollViewer>
 
 						<StackPanel
 							HorizontalAlignment="Center"
@@ -870,6 +923,7 @@
 								<MenuFlyoutSubItem Tag="View">
 									<ToggleMenuFlyoutItem x:Uid="BackgroundGridViewItem" Click="GridViewStatusButton_Click" Tag="Grid" />
 									<ToggleMenuFlyoutItem x:Uid="BackgroundDetailsViewItem" Click="DetailsViewStatusButton_Click" Tag="Details" />
+									<ToggleMenuFlyoutItem x:Uid="BackgroundColumnViewItem" Click="ColumnViewStatusButton_Click" Tag="Columns" />
 								</MenuFlyoutSubItem>
 							</MenuFlyout>
 						</Border.ContextFlyout>
@@ -885,7 +939,7 @@
 								KeyDown="Items_KeyDown"
 								SelectionChanged="GridItems_SelectionChanged"
 								SelectionMode="Extended"
-								Visibility="{Binding ActiveTab.SecondaryBrowser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}}">
+								Visibility="{Binding ActiveTab.SecondaryBrowser.ShowGridView, Converter={StaticResource BooleanToVisibilityConverter}}">
 								<ItemsView.Layout>
 									<UniformGridLayout
 										ItemsJustification="Start"
@@ -914,7 +968,7 @@
 							</ItemsView>
 
 							<Grid
-								Visibility="{Binding ActiveTab.SecondaryBrowser.IsGridView, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}"
+								Visibility="{Binding ActiveTab.SecondaryBrowser.ShowDetailsView, Converter={StaticResource BooleanToVisibilityConverter}}"
 								RowDefinitions="36,*">
 								<Border
 									x:Name="SecondaryDetailsHeader"
@@ -991,6 +1045,38 @@
 									</ListView.ItemTemplate>
 								</ListView>
 							</Grid>
+
+							<!--  Column layout  -->
+							<ScrollViewer
+								x:Name="SecondaryColumnScrollViewer"
+								HorizontalScrollBarVisibility="Auto"
+								HorizontalScrollMode="Enabled"
+								VerticalScrollBarVisibility="Disabled"
+								VerticalScrollMode="Disabled"
+								Visibility="{Binding ActiveTab.SecondaryBrowser.ShowColumnView, Converter={StaticResource BooleanToVisibilityConverter}}">
+								<StackPanel x:Name="SecondaryColumnPanel" Orientation="Horizontal">
+									<ListView
+										x:Name="SecondaryColumnItems"
+										Width="240"
+										AllowDrop="True"
+										CanDragItems="True"
+										DragItemsStarting="Items_DragItemsStarting"
+										DragOver="Items_DragOver"
+										Drop="Items_Drop"
+										DoubleTapped="Items_DoubleTapped"
+										ItemTemplate="{StaticResource ColumnViewItemTemplate}"
+										ItemsSource="{Binding ActiveTab.SecondaryBrowser.Items}"
+										KeyDown="Items_KeyDown"
+										SelectionChanged="Items_SelectionChanged"
+										SelectionMode="Extended">
+										<ListView.ItemsPanel>
+											<ItemsPanelTemplate>
+												<ItemsStackPanel Orientation="Vertical" />
+											</ItemsPanelTemplate>
+										</ListView.ItemsPanel>
+									</ListView>
+								</StackPanel>
+							</ScrollViewer>
 
 							<StackPanel
 								HorizontalAlignment="Center"
@@ -1121,6 +1207,9 @@
 							</Button>
 							<Button x:Name="DetailsViewStatusButton" Click="DetailsViewStatusButton_Click" Style="{StaticResource StatusViewButtonStyle}">
 								<PathIcon Width="16" Height="16" Data="M3,2 A1,1 0 1 0 3,4 A1,1 0 0 0 3,2 Z M6,2 H15 V4 H6 Z M3,7 A1,1 0 1 0 3,9 A1,1 0 0 0 3,7 Z M6,7 H15 V9 H6 Z M3,12 A1,1 0 1 0 3,14 A1,1 0 0 0 3,12 Z M6,12 H15 V14 H6 Z" />
+							</Button>
+							<Button x:Name="ColumnViewStatusButton" Click="ColumnViewStatusButton_Click" Style="{StaticResource StatusViewButtonStyle}">
+								<PathIcon Width="16" Height="16" Data="M1,1 H5 V15 H1 Z M2,2 V14 H4 V2 Z M6,1 H10 V15 H6 Z M7,2 V14 H9 V2 Z M11,1 H15 V15 H11 Z M12,2 V14 H14 V2 Z" />
 							</Button>
 						</StackPanel>
 					</Border>

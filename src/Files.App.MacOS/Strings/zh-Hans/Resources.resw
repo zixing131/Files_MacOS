@@ -419,6 +419,7 @@
   <data name="BackgroundViewSubItem.Text" xml:space="preserve"><value>视图</value></data>
   <data name="BackgroundGridViewItem.Text" xml:space="preserve"><value>网格</value></data>
   <data name="BackgroundDetailsViewItem.Text" xml:space="preserve"><value>详细信息</value></data>
+  <data name="BackgroundColumnViewItem.Text" xml:space="preserve"><value>分栏</value></data>
   <data name="ToggleOnText" xml:space="preserve"><value>开启</value></data>
   <data name="ToggleOffText" xml:space="preserve"><value>关闭</value></data>
   <data name="SidebarSharedLocationName" xml:space="preserve"><value>共享</value></data>
@@ -540,6 +541,7 @@
   <data name="NoSearchResultsDescription.Text" xml:space="preserve"><value>请尝试其他名称或调整搜索筛选条件。</value></data>
   <data name="GridViewTooltip" xml:space="preserve"><value>网格视图</value></data>
   <data name="DetailsViewTooltip" xml:space="preserve"><value>详细信息视图</value></data>
+  <data name="ColumnViewTooltip" xml:space="preserve"><value>分栏视图</value></data>
   <data name="ReopenClosedTabMenuItem.Text" xml:space="preserve"><value>重新打开关闭的标签页</value></data>
   <data name="CloseTabMenuItem.Text" xml:space="preserve"><value>关闭标签页</value></data>
   <data name="CloseOtherTabsMenuItem.Text" xml:space="preserve"><value>关闭其他标签页</value></data>

@@ -169,6 +169,7 @@ public sealed class BrowserTabViewModel : ObservableObject, IDisposable
 
 		if (e.PropertyName is nameof(DirectoryBrowserViewModel.CurrentPath) or
 			nameof(DirectoryBrowserViewModel.IsGridView) or
+			nameof(DirectoryBrowserViewModel.IsColumnView) or
 			nameof(DirectoryBrowserViewModel.SortField) or
 			nameof(DirectoryBrowserViewModel.SortDirection))
 		{

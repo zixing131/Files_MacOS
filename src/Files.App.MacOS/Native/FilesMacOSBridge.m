@@ -998,6 +998,7 @@ __attribute__((visibility("default"))) void files_macos_install_main_menu(
 			[viewMenu addItem:[NSMenuItem separatorItem]];
 			files_add_menu_command(viewMenu, zh ? @"网格" : @"Grid", @"1", NSEventModifierFlagCommand, 17);
 			files_add_menu_command(viewMenu, zh ? @"详细信息" : @"Details", @"2", NSEventModifierFlagCommand, 18);
+			files_add_menu_command(viewMenu, zh ? @"分栏" : @"Columns", @"3", NSEventModifierFlagCommand, 43);
 			files_add_menu_command(viewMenu, zh ? @"显示预览" : @"Show Preview", @"p", NSEventModifierFlagCommand | NSEventModifierFlagShift, 19);
 			files_add_menu_command(viewMenu, zh ? @"显示侧栏" : @"Show Sidebar", @"s", NSEventModifierFlagCommand | NSEventModifierFlagOption, 20);
 
