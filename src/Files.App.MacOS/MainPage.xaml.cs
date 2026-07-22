@@ -37,6 +37,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private const double MarqueeDragThreshold = 5;
 	private const double MarqueeAutoScrollEdge = 24;
 	private const double MarqueeAutoScrollMaximumStep = 32;
+	private const long SpringLoadDelayMilliseconds = 700;
+	private const long SpringLoadHoverTimeoutMilliseconds = 350;
 	private const string InternalFileDragFormat = "application/x-files-macos-internal-file-drag";
 	private const string HomeBreadcrumbIconData = "M7.07934 1.22258C7.60474 0.797737 8.35525 0.797737 8.88065 1.22258L15.4689 6.55068C16.5623 7.43475 15.9402 9.20232 14.5276 9.20232H14.25V13.75C14.25 14.7165 13.4665 15.5 12.5 15.5H10.5C9.5335 15.5 8.75 14.7165 8.75 13.75V11.25C8.75 10.8358 8.41421 10.5 8 10.5C7.58579 10.5 7.25 10.8358 7.25 11.25V13.75C7.25 14.7165 6.4665 15.5 5.5 15.5H3.5C2.5335 15.5 1.75 14.7165 1.75 13.75V9.20232H1.43239C0.0198307 9.20232 -0.602245 7.43475 0.491105 6.55068L7.07934 1.22258ZM8.25178 2.0001C8.09322 1.87188 7.86677 1.87188 7.70821 2.0001L1.11996 7.3282C0.756928 7.62179 0.963431 8.20232 1.43239 8.20232H2.75V13.75C2.75 14.1642 3.08579 14.5 3.5 14.5H5.5C5.91421 14.5 6.25 14.1642 6.25 13.75V11.25C6.25 10.2835 7.0335 9.5 8 9.5C8.9665 9.5 9.75 10.2835 9.75 11.25V13.75C9.75 14.1642 10.0858 14.5 10.5 14.5H12.5C12.9142 14.5 13.25 14.1642 13.25 13.75V8.20232H14.5276C14.9966 8.20232 15.2031 7.62179 14.84 7.3282L8.25178 2.0001Z";
 	private MainPageViewModel ViewModel { get; } = new();
@@ -120,6 +122,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private bool marqueeTogglesSelection;
 	private bool hasMarqueeMoved;
 	private Microsoft.UI.Dispatching.DispatcherQueueTimer? marqueeAutoScrollTimer;
+	private Microsoft.UI.Dispatching.DispatcherQueueTimer? springLoadTimer;
+	private string? springLoadPath;
+	private DirectoryBrowserViewModel? springLoadBrowser;
+	private long springLoadLastSeen;
 
 	public MainPage()
 		: this(restoresWorkspace: true)
@@ -2200,6 +2206,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void AddressBar_Drop(object sender, DragEventArgs e)
 	{
+		CancelSpringLoad();
 		if (Browser is not DirectoryBrowserViewModel browser || !ContainsDroppedPath(e.DataView))
 		{
 			return;
@@ -3734,6 +3741,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		double step = direction * Math.Clamp(edgeDistance * 1.5, 4, MarqueeAutoScrollMaximumStep);
+		return ScrollItemsControlVertically(control, step);
+	}
+
+	private static bool ScrollItemsControlVertically(FrameworkElement control, double step)
+	{
 		if (control is ItemsView itemsView &&
 			(itemsView.ScrollView ?? FindVisualDescendant<ScrollView>(itemsView)) is ScrollView scrollView)
 		{
@@ -4467,6 +4479,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Items_DragOver(object sender, DragEventArgs e)
 	{
+		CancelSpringLoad();
 		if (!e.DataView.Contains(StandardDataFormats.StorageItems) ||
 			fileTransferCancellation is not null ||
 			GetBrowserForItemsControl(sender) is not DirectoryBrowserViewModel browser)
@@ -4487,11 +4500,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			e.DragUIOverride.IsCaptionVisible = true;
 			e.DragUIOverride.Caption = GetResource(mode is FileTransferMode.Move ? "DropMoveCaption" : "DropCopyCaption");
 			e.Handled = true;
+			AutoScrollItemsControlDuringDrag(GetVisibleItemsControl(browser), e.GetPosition(GetVisibleItemsControl(browser)));
 		}
 	}
 
 	private void SetTrashDropFeedback(DragEventArgs e, string trashPath)
 	{
+		CancelSpringLoad();
 		if (e.DataView.Contains(InternalFileDragFormat) &&
 			selectedItems.Any(item => IsSameOrDescendantPath(item.Path, trashPath)))
 		{
@@ -4523,10 +4538,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			GetResource(mode is FileTransferMode.Move ? "DropMoveToFolderCaptionFormat" : "DropCopyToFolderCaptionFormat"),
 			folder.Name);
 		e.Handled = true;
+		ScheduleSpringLoad(browser, folder.Path);
+		AutoScrollItemsControlDuringDrag(GetVisibleItemsControl(browser), e.GetPosition(GetVisibleItemsControl(browser)));
 	}
 
 	private async void FolderItem_Drop(object sender, DragEventArgs e)
 	{
+		CancelSpringLoad();
 		if (sender is not FrameworkElement { DataContext: LocalFileSystemItem { IsNavigableDirectory: true } folder } ||
 			GetBrowserForItem(folder) is not DirectoryBrowserViewModel browser ||
 			IsTrashPath(browser.CurrentPath) ||
@@ -4545,11 +4563,28 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void SidebarLocation_DragOver(object sender, DragEventArgs e)
 	{
-		if (sender is not FrameworkElement { DataContext: SidebarLocation { IsHeader: false } location } ||
-			Browser is not DirectoryBrowserViewModel ||
-			string.IsNullOrWhiteSpace(location.Path) ||
+		if (sender is not FrameworkElement { DataContext: SidebarLocation location } ||
 			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
 			fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		if (location.IsHeader)
+		{
+			// Dropping folders on the Favorites heading pins them, like Finder.
+			if (location.SectionId is "Favorites")
+			{
+				CancelSpringLoad();
+				e.AcceptedOperation = DataPackageOperation.Link;
+				e.DragUIOverride.IsCaptionVisible = true;
+				e.DragUIOverride.Caption = GetResource("ContextFavoriteItem/Text");
+				e.Handled = true;
+			}
+			return;
+		}
+
+		if (Browser is not DirectoryBrowserViewModel sidebarBrowser || string.IsNullOrWhiteSpace(location.Path))
 		{
 			return;
 		}
@@ -4566,15 +4601,34 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		SetFolderDropFeedback(e, location.Name, location.Path);
+		ScheduleSpringLoad(sidebarBrowser, location.Path);
 	}
 
 	private async void SidebarLocation_Drop(object sender, DragEventArgs e)
 	{
-		if (sender is not FrameworkElement { DataContext: SidebarLocation { IsHeader: false } location } ||
-			Browser is not DirectoryBrowserViewModel browser ||
-			string.IsNullOrWhiteSpace(location.Path) ||
+		CancelSpringLoad();
+		if (sender is not FrameworkElement { DataContext: SidebarLocation location } ||
 			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
 			fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		if (location.IsHeader)
+		{
+			if (location.SectionId is "Favorites")
+			{
+				e.Handled = true;
+				IReadOnlyList<IStorageItem> draggedItems = await e.DataView.GetStorageItemsAsync();
+				await AddFavoritePathsAsync(draggedItems
+					.Select(static item => item.Path)
+					.Where(static path => !string.IsNullOrWhiteSpace(path))
+					.ToArray());
+			}
+			return;
+		}
+
+		if (Browser is not DirectoryBrowserViewModel browser || string.IsNullOrWhiteSpace(location.Path))
 		{
 			return;
 		}
@@ -4625,7 +4679,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private void Breadcrumb_DragOver(object sender, DragEventArgs e)
 	{
 		if (sender is not Button { Tag: string path } button ||
-			Browser is not DirectoryBrowserViewModel ||
+			Browser is not DirectoryBrowserViewModel browser ||
 			IsTrashPath(path) ||
 			!Directory.Exists(path) ||
 			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
@@ -4636,10 +4690,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		SetFolderDropFeedback(e, ToolTipService.GetToolTip(button) as string ?? Path.GetFileName(path), path);
+		ScheduleSpringLoad(browser, path);
 	}
 
 	private async void Breadcrumb_Drop(object sender, DragEventArgs e)
 	{
+		CancelSpringLoad();
 		if (sender is not Button { Tag: string path } ||
 			Browser is not DirectoryBrowserViewModel browser ||
 			IsTrashPath(path) ||
@@ -4664,6 +4720,116 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			GetResource(mode is FileTransferMode.Move ? "DropMoveToFolderCaptionFormat" : "DropCopyToFolderCaptionFormat"),
 			folderName);
 		e.Handled = true;
+	}
+
+	// Finder spring-loading: hovering a folder during a drag opens it after a short delay.
+	private void ScheduleSpringLoad(DirectoryBrowserViewModel browser, string path)
+	{
+		if (string.Equals(browser.CurrentPath, path, StringComparison.Ordinal))
+		{
+			CancelSpringLoad();
+			return;
+		}
+
+		springLoadLastSeen = Environment.TickCount64;
+		if (springLoadTimer is not null && string.Equals(springLoadPath, path, StringComparison.Ordinal))
+		{
+			return;
+		}
+
+		CancelSpringLoad();
+		springLoadPath = path;
+		springLoadBrowser = browser;
+		springLoadLastSeen = Environment.TickCount64;
+		springLoadTimer = DispatcherQueue.CreateTimer();
+		springLoadTimer.Interval = TimeSpan.FromMilliseconds(SpringLoadDelayMilliseconds);
+		springLoadTimer.IsRepeating = false;
+		springLoadTimer.Tick += SpringLoadTimer_Tick;
+		springLoadTimer.Start();
+	}
+
+	private void CancelSpringLoad()
+	{
+		if (springLoadTimer is Microsoft.UI.Dispatching.DispatcherQueueTimer timer)
+		{
+			timer.Stop();
+			timer.Tick -= SpringLoadTimer_Tick;
+		}
+		springLoadTimer = null;
+		springLoadPath = null;
+		springLoadBrowser = null;
+	}
+
+	private void SpringLoadTimer_Tick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+	{
+		string? path = springLoadPath;
+		DirectoryBrowserViewModel? browser = springLoadBrowser;
+		// DragOver keeps firing while the pointer hovers the target, so a stale
+		// timestamp means the pointer moved elsewhere without another DragOver.
+		bool stillHovering = Environment.TickCount64 - springLoadLastSeen is >= 0 and < SpringLoadHoverTimeoutMilliseconds;
+		CancelSpringLoad();
+		if (!stillHovering || path is null || browser is null || !Directory.Exists(path))
+		{
+			return;
+		}
+
+		ActivateBrowser(browser, GetVisibleItemsControl(browser));
+		_ = browser.NavigateAsync(path);
+	}
+
+	private static bool AutoScrollItemsControlDuringDrag(FrameworkElement control, Windows.Foundation.Point localPoint)
+	{
+		double direction;
+		double edgeDistance;
+		if (localPoint.Y < MarqueeAutoScrollEdge)
+		{
+			direction = -1;
+			edgeDistance = MarqueeAutoScrollEdge - localPoint.Y;
+		}
+		else if (localPoint.Y > control.ActualHeight - MarqueeAutoScrollEdge)
+		{
+			direction = 1;
+			edgeDistance = localPoint.Y - (control.ActualHeight - MarqueeAutoScrollEdge);
+		}
+		else
+		{
+			return false;
+		}
+
+		double step = direction * Math.Clamp(edgeDistance * 1.5, 4, MarqueeAutoScrollMaximumStep);
+		return ScrollItemsControlVertically(control, step);
+	}
+
+	private async Task AddFavoritePathsAsync(IReadOnlyList<string> paths)
+	{
+		var favorites = new HashSet<string>(currentSettings.FavoritePaths ?? [], StringComparer.OrdinalIgnoreCase);
+		int addedCount = 0;
+		foreach (string path in paths)
+		{
+			if (Directory.Exists(path) && favorites.Add(Path.GetFullPath(path)))
+			{
+				addedCount++;
+			}
+		}
+		if (addedCount is 0)
+		{
+			return;
+		}
+
+		var newSettings = currentSettings with { FavoritePaths = favorites.Order(StringComparer.CurrentCultureIgnoreCase).ToArray() };
+		try
+		{
+			newSettings = await PersistSettingsAsync(newSettings);
+			ViewModel.ApplySettings(newSettings);
+			if (Browser is not null)
+			{
+				Browser.StatusText = GetResource("FavoriteAddedMessage");
+			}
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("SaveSettingsErrorMessage") : ex.Message);
+		}
 	}
 
 	private void Items_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
@@ -4766,6 +4932,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void Items_Drop(object sender, DragEventArgs e)
 	{
+		CancelSpringLoad();
 		if (!e.DataView.Contains(StandardDataFormats.StorageItems) || fileTransferCancellation is not null)
 		{
 			return;
@@ -4788,6 +4955,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Pane_DragOver(object sender, DragEventArgs e)
 	{
+		CancelSpringLoad();
 		if (!e.DataView.Contains(StandardDataFormats.StorageItems) ||
 			fileTransferCancellation is not null ||
 			GetBrowserForPane(sender) is not DirectoryBrowserViewModel browser)
@@ -4808,11 +4976,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			e.DragUIOverride.IsCaptionVisible = true;
 			e.DragUIOverride.Caption = GetResource(mode is FileTransferMode.Move ? "DropMoveCaption" : "DropCopyCaption");
 			e.Handled = true;
+			AutoScrollItemsControlDuringDrag(GetVisibleItemsControl(browser), e.GetPosition(GetVisibleItemsControl(browser)));
 		}
 	}
 
 	private async void Pane_Drop(object sender, DragEventArgs e)
 	{
+		CancelSpringLoad();
 		if (!e.DataView.Contains(StandardDataFormats.StorageItems) || fileTransferCancellation is not null)
 		{
 			return;
