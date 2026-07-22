@@ -2682,7 +2682,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 					await ViewModel.NewTabAsync(location.Path);
 					break;
 				case "Reveal":
-					await WorkspaceService.RevealAsync(location.Path);
+					// Revealing the Trash itself would select the hidden .Trash folder in the
+					// home folder instead of opening it, so open it directly like Finder does.
+					if (IsTrashPath(location.Path))
+					{
+						await WorkspaceService.OpenAsync(location.Path);
+					}
+					else
+					{
+						await WorkspaceService.RevealAsync(location.Path);
+					}
 					break;
 				case "CopyPath":
 					var data = new DataPackage { RequestedOperation = DataPackageOperation.Copy };
@@ -4611,10 +4620,20 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Items_DragOver(object sender, DragEventArgs e)
 	{
-		if (e.DataView.Contains(StandardDataFormats.StorageItems) &&
-			fileTransferCancellation is null &&
-			GetBrowserForItemsControl(sender) is DirectoryBrowserViewModel browser &&
-			!IsInvalidInternalDropTarget(e.DataView, browser.CurrentPath))
+		if (!e.DataView.Contains(StandardDataFormats.StorageItems) ||
+			fileTransferCancellation is not null ||
+			GetBrowserForItemsControl(sender) is not DirectoryBrowserViewModel browser)
+		{
+			return;
+		}
+
+		if (IsTrashPath(browser.CurrentPath))
+		{
+			SetTrashDropFeedback(e, browser.CurrentPath);
+			return;
+		}
+
+		if (!IsInvalidInternalDropTarget(e.DataView, browser.CurrentPath))
 		{
 			FileTransferMode mode = GetDropTransferMode(e.DataView);
 			e.AcceptedOperation = GetDataPackageOperation(mode);
@@ -4622,6 +4641,19 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			e.DragUIOverride.Caption = GetResource(mode is FileTransferMode.Move ? "DropMoveCaption" : "DropCopyCaption");
 			e.Handled = true;
 		}
+	}
+
+	private void SetTrashDropFeedback(DragEventArgs e, string trashPath)
+	{
+		if (e.DataView.Contains(InternalFileDragFormat) &&
+			selectedItems.Any(item => IsSameOrDescendantPath(item.Path, trashPath)))
+		{
+			return;
+		}
+		e.AcceptedOperation = DataPackageOperation.Move;
+		e.DragUIOverride.IsCaptionVisible = true;
+		e.DragUIOverride.Caption = GetResource("DropTrashCaption");
+		e.Handled = true;
 	}
 
 	private void FolderItem_DragOver(object sender, DragEventArgs e)
@@ -4677,15 +4709,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		if (IsTrashPath(location.Path))
 		{
-			if (e.DataView.Contains(InternalFileDragFormat) &&
-				selectedItems.Any(item => IsSameOrDescendantPath(item.Path, location.Path)))
-			{
-				return;
-			}
-			e.AcceptedOperation = DataPackageOperation.Move;
-			e.DragUIOverride.IsCaptionVisible = true;
-			e.DragUIOverride.Caption = GetResource("DropTrashCaption");
-			e.Handled = true;
+			SetTrashDropFeedback(e, location.Path);
 			return;
 		}
 
@@ -4923,15 +4947,30 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		e.Handled = true;
 		ActivateBrowser(browser, sender as FrameworkElement);
+		if (IsTrashPath(browser.CurrentPath))
+		{
+			await HandleTrashDropAsync(e);
+			return;
+		}
 		await HandleItemsDropAsync(e, browser, browser.CurrentPath);
 	}
 
 	private void Pane_DragOver(object sender, DragEventArgs e)
 	{
-		if (e.DataView.Contains(StandardDataFormats.StorageItems) &&
-			fileTransferCancellation is null &&
-			GetBrowserForPane(sender) is DirectoryBrowserViewModel browser &&
-			!IsInvalidInternalDropTarget(e.DataView, browser.CurrentPath))
+		if (!e.DataView.Contains(StandardDataFormats.StorageItems) ||
+			fileTransferCancellation is not null ||
+			GetBrowserForPane(sender) is not DirectoryBrowserViewModel browser)
+		{
+			return;
+		}
+
+		if (IsTrashPath(browser.CurrentPath))
+		{
+			SetTrashDropFeedback(e, browser.CurrentPath);
+			return;
+		}
+
+		if (!IsInvalidInternalDropTarget(e.DataView, browser.CurrentPath))
 		{
 			FileTransferMode mode = GetDropTransferMode(e.DataView);
 			e.AcceptedOperation = GetDataPackageOperation(mode);
@@ -4955,6 +4994,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		e.Handled = true;
 		ActivateBrowser(browser, GetVisibleItemsControl(browser));
+		if (IsTrashPath(browser.CurrentPath))
+		{
+			await HandleTrashDropAsync(e);
+			return;
+		}
 		await HandleItemsDropAsync(e, browser, browser.CurrentPath);
 	}
 
@@ -5994,9 +6038,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ActivateBrowser(browser, sender as FrameworkElement);
 		if (e.Key is VirtualKey.Space)
 		{
+			// Always consume Space: with multiple items selected the ListView default
+			// would toggle the focused item's selection, which Finder never does.
+			e.Handled = true;
 			if (selectedItems is [LocalFileSystemItem item])
 			{
-				e.Handled = true;
 				_ = ToggleQuickLookAsync(item);
 			}
 			return;
@@ -6612,10 +6658,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
+		// The dialog count should match what the user sees in the Trash view, which hides
+		// dotfiles like .DS_Store; deletion below still removes every entry including hidden ones.
+		int visibleCount = paths.Count(static path => !Path.GetFileName(path).StartsWith('.'));
 		var dialog = new ContentDialog
 		{
 			Title = GetResource("EmptyTrashDialogTitle"),
-			Content = string.Format(GetResource("EmptyTrashDialogMessageFormat"), paths.Count),
+			Content = string.Format(GetResource("EmptyTrashDialogMessageFormat"), visibleCount is 0 ? paths.Count : visibleCount),
 			PrimaryButtonText = GetResource("EmptyTrashButtonText"),
 			CloseButtonText = GetResource("CancelButtonText"),
 			DefaultButton = ContentDialogButton.Close,
