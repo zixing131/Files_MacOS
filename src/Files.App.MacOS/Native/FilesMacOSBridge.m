@@ -239,6 +239,35 @@ static void files_macos_clear_pending_file_drag(void)
 	pendingFileDragWindow = nil;
 }
 
+static NSImage *files_macos_badged_drag_icon(NSImage *baseIcon, NSInteger count)
+{
+	// Finder draws a red count badge at the top-right of the drag image when
+	// more than one item is being dragged.
+	return [NSImage imageWithSize:baseIcon.size flipped:YES drawingHandler:^BOOL(NSRect dstRect) {
+		[baseIcon drawInRect:dstRect];
+
+		CGFloat badgeDiameter = 22;
+		NSRect badgeRect = NSMakeRect(NSMaxX(dstRect) - badgeDiameter - 1, NSMinY(dstRect) + 1, badgeDiameter, badgeDiameter);
+		[NSColor.systemRedColor setFill];
+		[[NSBezierPath bezierPathWithOvalInRect:badgeRect] fill];
+
+		NSString *text = [NSString stringWithFormat:@"%ld", (long)count];
+		CGFloat fontSize = count > 99 ? 10 : 13;
+		NSDictionary<NSAttributedStringKey, id> *attributes = @{
+			NSFontAttributeName: [NSFont boldSystemFontOfSize:fontSize],
+			NSForegroundColorAttributeName: NSColor.whiteColor,
+		};
+		NSSize textSize = [text sizeWithAttributes:attributes];
+		NSRect textRect = NSMakeRect(
+			NSMidX(badgeRect) - textSize.width / 2,
+			NSMidY(badgeRect) - textSize.height / 2,
+			textSize.width,
+			textSize.height);
+		[text drawInRect:textRect withAttributes:attributes];
+		return YES;
+	}];
+}
+
 static BOOL files_macos_begin_pending_file_drag(NSEvent *event)
 {
 	NSWindow *window = pendingFileDragWindow;
@@ -250,20 +279,28 @@ static BOOL files_macos_begin_pending_file_drag(NSEvent *event)
 		return NO;
 	}
 
-	NSMutableArray<NSDraggingItem *> *items = [NSMutableArray arrayWithCapacity:paths.count];
-	NSPoint location = [view convertPoint:event.locationInWindow fromView:nil];
-	NSInteger index = 0;
+	NSMutableArray<NSString *> *validPaths = [NSMutableArray arrayWithCapacity:paths.count];
 	for (NSString *path in paths)
 	{
-		NSURL *url = [NSURL fileURLWithPath:path];
-		if (![NSFileManager.defaultManager fileExistsAtPath:url.path])
+		if ([NSFileManager.defaultManager fileExistsAtPath:path])
 		{
-			continue;
+			[validPaths addObject:path];
 		}
+	}
 
+	NSMutableArray<NSDraggingItem *> *items = [NSMutableArray arrayWithCapacity:validPaths.count];
+	NSPoint location = [view convertPoint:event.locationInWindow fromView:nil];
+	NSInteger index = 0;
+	for (NSString *path in validPaths)
+	{
+		NSURL *url = [NSURL fileURLWithPath:path];
 		NSDraggingItem *item = [[NSDraggingItem alloc] initWithPasteboardWriter:url];
 		NSImage *icon = [NSWorkspace.sharedWorkspace iconForFile:path];
 		icon.size = NSMakeSize(64, 64);
+		if (validPaths.count > 1 && index == validPaths.count - 1)
+		{
+			icon = files_macos_badged_drag_icon(icon, validPaths.count);
+		}
 		CGFloat offset = MIN(index, 4) * 4;
 		[item setDraggingFrame:NSMakeRect(location.x - 32 + offset, location.y - 32 - offset, 64, 64) contents:icon];
 		[items addObject:item];
