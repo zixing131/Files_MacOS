@@ -87,6 +87,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private bool isUpdatingSelection;
 	private bool isUpdatingSidebarSelection;
 	private bool isEditingAddress;
+	private bool suppressAddressSuggestions;
 	private bool isPointerOverPrimaryPane;
 	private bool isPointerOverSecondaryPane;
 	private bool isSidebarOpen = true;
@@ -2182,16 +2183,139 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void AddressBox_KeyDown(object sender, KeyRoutedEventArgs e)
 	{
+		if (e.Key is VirtualKey.Down or VirtualKey.Up && AddressSuggestionPopup.IsOpen &&
+			AddressSuggestionList.ItemsSource is System.Collections.Generic.IList<string> suggestions && suggestions.Count > 0)
+		{
+			e.Handled = true;
+			int index = AddressSuggestionList.SelectedIndex;
+			index = e.Key is VirtualKey.Down
+				? Math.Min(index + 1, suggestions.Count - 1)
+				: Math.Max(index - 1, 0);
+			AddressSuggestionList.SelectedIndex = index;
+			AddressSuggestionList.ScrollIntoView(suggestions[index]);
+			return;
+		}
+
 		if (e.Key is VirtualKey.Enter && Browser is not null)
 		{
 			e.Handled = true;
+			if (AddressSuggestionPopup.IsOpen && AddressSuggestionList.SelectedItem is string selected)
+			{
+				ApplyAddressSuggestion(selected);
+			}
 			await NavigateFromAddressAsync(Browser, AddressBox.Text);
 		}
 		else if (e.Key is VirtualKey.Escape)
 		{
 			e.Handled = true;
+			if (AddressSuggestionPopup.IsOpen)
+			{
+				AddressSuggestionPopup.IsOpen = false;
+				return;
+			}
 			EndAddressEdit();
 		}
+	}
+
+	private void AddressBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateAddressSuggestions();
+
+	private void AddressSuggestionList_ItemClick(object sender, ItemClickEventArgs e)
+	{
+		if (e.ClickedItem is string path && Browser is not null)
+		{
+			ApplyAddressSuggestion(path);
+			_ = NavigateFromAddressAsync(Browser, path);
+		}
+	}
+
+	private void UpdateAddressSuggestions()
+	{
+		if (suppressAddressSuggestions || !isEditingAddress)
+		{
+			return;
+		}
+
+		string[] suggestions = GetAddressSuggestions(AddressBox.Text);
+		if (suggestions.Length is 0)
+		{
+			AddressSuggestionPopup.IsOpen = false;
+			return;
+		}
+
+		AddressSuggestionBorder.Width = AddressBox.ActualWidth;
+		AddressSuggestionList.ItemsSource = suggestions;
+		AddressSuggestionList.SelectedIndex = -1;
+		AddressSuggestionPopup.IsOpen = true;
+	}
+
+	private static string[] GetAddressSuggestions(string input)
+	{
+		if (string.IsNullOrWhiteSpace(input))
+		{
+			return [];
+		}
+
+		bool typedHome = input.StartsWith('~');
+		string expanded = ExpandHomePath(input.Trim());
+		string directoryPart;
+		string prefix;
+		int lastSeparator = expanded.LastIndexOf('/');
+		if (lastSeparator < 0)
+		{
+			return [];
+		}
+		else if (lastSeparator is 0)
+		{
+			directoryPart = "/";
+			prefix = expanded[1..];
+		}
+		else
+		{
+			directoryPart = expanded[..lastSeparator];
+			prefix = expanded[(lastSeparator + 1)..];
+		}
+
+		if (!Directory.Exists(directoryPart))
+		{
+			return [];
+		}
+
+		bool includeHidden = prefix.StartsWith('.');
+		try
+		{
+			string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+			string Collapse(string path) => typedHome && IsSameOrDescendantPath(path, home)
+				? path.Length == home.Length ? "~" : "~" + path[home.Length..]
+				: path;
+			string[] directories = Directory.GetDirectories(directoryPart)
+				.Where(path => includeHidden || !Path.GetFileName(path).StartsWith('.'))
+				.Where(path => Path.GetFileName(path).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+				.OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+				.ToArray();
+			string[] files = Directory.GetFiles(directoryPart)
+				.Where(path => includeHidden || !Path.GetFileName(path).StartsWith('.'))
+				.Where(path => Path.GetFileName(path).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+				.OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+				.ToArray();
+			return directories
+				.Select(path => Collapse(path) + "/")
+				.Concat(files.Select(Collapse))
+				.Take(8)
+				.ToArray();
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			return [];
+		}
+	}
+
+	private void ApplyAddressSuggestion(string path)
+	{
+		suppressAddressSuggestions = true;
+		AddressBox.Text = path;
+		AddressBox.SelectionStart = path.Length;
+		suppressAddressSuggestions = false;
+		AddressSuggestionPopup.IsOpen = false;
 	}
 
 	private void AddressBar_DragOver(object sender, DragEventArgs e)
@@ -2428,6 +2552,19 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void AddressBox_LostFocus(object sender, RoutedEventArgs e)
 	{
+		// Clicking a suggestion moves focus into the popup; that is not leaving the editor.
+		if (AddressSuggestionPopup.IsOpen &&
+			XamlRoot is { } xamlRoot &&
+			FocusManager.GetFocusedElement(xamlRoot) is DependencyObject focused)
+		{
+			for (DependencyObject? current = focused; current is not null; current = VisualTreeHelper.GetParent(current))
+			{
+				if (ReferenceEquals(current, AddressSuggestionList))
+				{
+					return;
+				}
+			}
+		}
 		EndAddressEdit();
 	}
 
@@ -2461,6 +2598,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 		isEditingAddress = false;
+		AddressSuggestionPopup.IsOpen = false;
 		AddressBox.Visibility = Visibility.Collapsed;
 		BreadcrumbScrollViewer.Visibility = Visibility.Visible;
 		UpdateAddressBar();

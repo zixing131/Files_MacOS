@@ -266,7 +266,33 @@
 						VerticalContentAlignment="Center"
 						KeyDown="AddressBox_KeyDown"
 						LostFocus="AddressBox_LostFocus"
+						TextChanged="AddressBox_TextChanged"
 						Visibility="Collapsed" />
+					<Popup
+						x:Name="AddressSuggestionPopup"
+						IsLightDismissEnabled="True"
+						VerticalOffset="36">
+						<Border
+							x:Name="AddressSuggestionBorder"
+							Background="{ThemeResource FilesCardBrush}"
+							BorderBrush="{ThemeResource FilesCardBorderBrush}"
+							BorderThickness="1"
+							CornerRadius="6"
+							MaxHeight="240"
+							Padding="2">
+							<ListView
+								x:Name="AddressSuggestionList"
+								IsItemClickEnabled="True"
+								ItemClick="AddressSuggestionList_ItemClick"
+								SelectionMode="Single">
+								<ListView.ItemTemplate>
+									<DataTemplate>
+										<TextBlock Padding="8,4" Text="{Binding}" TextTrimming="CharacterEllipsis" />
+									</DataTemplate>
+								</ListView.ItemTemplate>
+							</ListView>
+						</Border>
+					</Popup>
 				</Grid>
 			</Border>
 
