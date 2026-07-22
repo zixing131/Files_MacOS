@@ -14,6 +14,7 @@
 		<models:DetailColumnWidthState x:Key="DetailColumnWidthState" />
 		<models:GridItemSizeState x:Key="GridItemSizeState" />
 		<converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+		<converters:DepthToThicknessConverter x:Key="DepthToThicknessConverter" />
 		<converters:FileSystemItemToIconConverter x:Key="FileSystemItemToIconConverter" />
 		<converters:SidebarGlyphToIconConverter x:Key="SidebarGlyphToIconConverter" />
 		<MenuFlyout x:Key="ItemContextFlyout" Opening="ItemContextFlyout_Opening">
@@ -726,7 +727,7 @@
 								BorderBrush="{ThemeResource FilesCardBorderBrush}"
 								BorderThickness="0,0,0,1"
 								RightTapped="DetailsHeader_RightTapped">
-								<Grid Padding="8,0" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+								<Grid Padding="8,0" ColumnDefinitions="44,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 									<Button x:Name="PrimaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
 										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="PrimaryNameSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 									</Button>
@@ -765,12 +766,22 @@
 								</ListView.ItemsPanel>
 								<ListView.ItemTemplate>
 									<DataTemplate>
-						<Grid MinHeight="36" Padding="8,4" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
-											<Grid Grid.Column="0" Width="24" Height="24" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
-												<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
-												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
-											</Grid>
-											<StackPanel Grid.Column="1" VerticalAlignment="Center">
+						<Grid MinHeight="36" Padding="8,4" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="44,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+											<StackPanel Grid.Column="0" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" Orientation="Horizontal" VerticalAlignment="Center">
+												<Grid Width="16">
+													<Button x:Name="DisclosureButton" Width="16" Height="24" Padding="0" Click="DisclosureButton_Click" HorizontalContentAlignment="Center" IsTabStop="False" Style="{StaticResource FilesFlatButtonStyle}" VerticalContentAlignment="Center" Visibility="{Binding ShowDisclosure, Converter={StaticResource BooleanToVisibilityConverter}}">
+														<Grid Width="12" Height="12">
+															<PathIcon Width="12" Height="12" Data="M4,1.5 L10,6 L4,10.5 Z" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+															<PathIcon Width="12" Height="12" Data="M1.5,4 L10.5,4 L6,10.5 Z" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+														</Grid>
+													</Button>
+												</Grid>
+												<Grid Width="24" Height="24" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
+													<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+													<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+												</Grid>
+											</StackPanel>
+											<StackPanel Grid.Column="1" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" VerticalAlignment="Center">
 												<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 												<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
 												<TextBlock
@@ -977,7 +988,7 @@
 									BorderBrush="{ThemeResource FilesCardBorderBrush}"
 									BorderThickness="0,0,0,1"
 									RightTapped="DetailsHeader_RightTapped">
-									<Grid Padding="8,0" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+									<Grid Padding="8,0" ColumnDefinitions="44,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 										<Button x:Name="SecondaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
 											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="SecondaryNameSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 										</Button>
@@ -1016,12 +1027,22 @@
 									</ListView.ItemsPanel>
 									<ListView.ItemTemplate>
 										<DataTemplate>
-							<Grid MinHeight="36" Padding="8,4" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="28,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
-												<Grid Grid.Column="0" Width="24" Height="24" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
-												<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
-													<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
-												</Grid>
-												<StackPanel Grid.Column="1" VerticalAlignment="Center">
+							<Grid MinHeight="36" Padding="8,4" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="44,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+												<StackPanel Grid.Column="0" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" Orientation="Horizontal" VerticalAlignment="Center">
+													<Grid Width="16">
+														<Button x:Name="DisclosureButton" Width="16" Height="24" Padding="0" Click="DisclosureButton_Click" HorizontalContentAlignment="Center" IsTabStop="False" Style="{StaticResource FilesFlatButtonStyle}" VerticalContentAlignment="Center" Visibility="{Binding ShowDisclosure, Converter={StaticResource BooleanToVisibilityConverter}}">
+															<Grid Width="12" Height="12">
+																<PathIcon Width="12" Height="12" Data="M4,1.5 L10,6 L4,10.5 Z" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+																<PathIcon Width="12" Height="12" Data="M1.5,4 L10.5,4 L6,10.5 Z" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+															</Grid>
+														</Button>
+													</Grid>
+													<Grid Width="24" Height="24" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
+														<PathIcon Width="20" Height="20" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+														<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+													</Grid>
+												</StackPanel>
+												<StackPanel Grid.Column="1" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" VerticalAlignment="Center">
 													<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 													<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
 													<TextBlock

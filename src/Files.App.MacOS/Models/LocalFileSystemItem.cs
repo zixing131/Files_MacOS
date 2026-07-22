@@ -115,6 +115,18 @@ public sealed partial class LocalFileSystemItem(
 	[ObservableProperty]
 	public partial bool IsInlineEditing { get; set; }
 
+	// Hierarchy state for the details view tree: Depth drives the name column
+	// indent, IsExpanded mirrors the disclosure triangle, and ShowDisclosure
+	// marks directories that can be expanded in place.
+	[ObservableProperty]
+	public partial int Depth { get; set; }
+
+	[ObservableProperty]
+	public partial bool IsExpanded { get; set; }
+
+	[ObservableProperty]
+	public partial bool ShowDisclosure { get; set; }
+
 	public string ModifiedText => Modified.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
 
 	public string CreatedText => Created.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);

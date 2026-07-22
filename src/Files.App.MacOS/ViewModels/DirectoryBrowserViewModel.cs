@@ -56,11 +56,22 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	private CancellationTokenSource? searchCancellation;
 	private CancellationTokenSource? thumbnailCancellation;
 	private CancellationTokenSource? metadataCancellation;
+	private CancellationTokenSource? expansionCancellation;
 	private bool searchRefreshPending;
 	private volatile bool isDisposed;
 	private string itemCountStatus = string.Empty;
 	private IReadOnlyList<LocalFileSystemItem> sourceItems = [];
 	private string[] rememberedSelectedPaths = [];
+	// Details view tree state: expandedPaths remembers which folders are expanded
+	// (per view model, never persisted), expandedChildren caches their listings,
+	// pendingExpansions deduplicates in-flight loads, and expansionGeneration
+	// invalidates loads that race a navigation.
+	private readonly HashSet<string> expandedPaths = new(StringComparer.Ordinal);
+	private readonly Dictionary<string, IReadOnlyList<LocalFileSystemItem>> expandedChildren = new(StringComparer.Ordinal);
+	private readonly HashSet<string> pendingExpansions = new(StringComparer.Ordinal);
+	private int expansionGeneration;
+	private bool isShowingSearchResults;
+	private int topLevelItemCount;
 	private readonly record struct ThumbnailCacheKey(string Path, DateTimeOffset Modified, long? Size);
 
 	public DirectoryBrowserViewModel(
@@ -198,6 +209,14 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 				return;
 			}
 
+			isShowingSearchResults = false;
+			expansionGeneration++;
+			pendingExpansions.Clear();
+			expansionCancellation?.Cancel();
+			expansionCancellation?.Dispose();
+			expansionCancellation = null;
+			// Set the path before rebuilding Items so tree pruning sees the new root.
+			CurrentPath = fullPath;
 			StartThumbnailLoading();
 			ReplaceItems(items);
 			StartMetadataEnrichment(Items);
@@ -210,10 +229,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 				OnPropertyChanged(nameof(CanGoForward));
 			}
 
-			CurrentPath = fullPath;
 			directoryChangeMonitor.Watch(fullPath);
 			SearchText = string.Empty;
-			itemCountStatus = string.Format(GetResource("ItemCountFormat"), Items.Count);
+			itemCountStatus = string.Format(GetResource("ItemCountFormat"), topLevelItemCount);
 			StatusText = itemCountStatus;
 		}
 		catch (OperationCanceledException)
@@ -358,6 +376,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			return;
 		}
 
+		isShowingSearchResults = true;
 		var cancellation = new CancellationTokenSource();
 		searchCancellation = cancellation;
 		StartThumbnailLoading();
@@ -437,6 +456,70 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		ApplyView();
 	}
 
+	// Finder-style disclosure toggle: expands a folder in place (details view
+	// only) or collapses it, never navigating. Collapsing drops only the folder's
+	// own cached children so a later expand re-reads it; descendant expansion
+	// state is kept.
+	public async Task ToggleExpandedAsync(LocalFileSystemItem item)
+	{
+		if (isDisposed || !ShowDetailsView || isShowingSearchResults || !item.IsNavigableDirectory)
+		{
+			return;
+		}
+
+		if (expandedPaths.Remove(item.Path))
+		{
+			expandedChildren.Remove(item.Path);
+			item.IsExpanded = false;
+			ApplyView();
+			return;
+		}
+
+		if (!pendingExpansions.Add(item.Path))
+		{
+			return;
+		}
+
+		int generation = expansionGeneration;
+		expansionCancellation ??= new CancellationTokenSource();
+		item.IsExpanded = true;
+		expandedPaths.Add(item.Path);
+		try
+		{
+			IReadOnlyList<LocalFileSystemItem> children = await directoryService.GetItemsAsync(item.Path, expansionCancellation.Token);
+			if (isDisposed || generation != expansionGeneration)
+			{
+				return;
+			}
+
+			pendingExpansions.Remove(item.Path);
+			RestoreCachedThumbnails(children);
+			PrepareAccessibilityNames(children);
+			expandedChildren[item.Path] = children;
+			// Children get the same Finder metadata enrichment as a navigated
+			// listing; an untracked token keeps this from cancelling the top-level
+			// enrichment that may still be running.
+			_ = EnrichMetadataAsync(children, new CancellationTokenSource());
+			// Skip the rebuild when the folder was collapsed again while loading.
+			if (expandedPaths.Contains(item.Path))
+			{
+				ApplyView();
+			}
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			pendingExpansions.Remove(item.Path);
+			if (generation == expansionGeneration && expandedPaths.Remove(item.Path))
+			{
+				item.IsExpanded = false;
+				ApplyView();
+			}
+		}
+	}
+
 	private void ReplaceItems(IEnumerable<LocalFileSystemItem> items)
 	{
 		LocalFileSystemItem[] replacementItems = items.ToArray();
@@ -486,7 +569,97 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		IEnumerable<LocalFileSystemItem> visibleItems = ShowHiddenFiles
 			? sourceItems
 			: sourceItems.Where(static item => !item.IsHidden);
-		IOrderedEnumerable<LocalFileSystemItem> orderedItems = visibleItems.OrderByDescending(static item => item.IsNavigableDirectory);
+		List<LocalFileSystemItem> topLevelItems = SortItems(visibleItems);
+		topLevelItemCount = topLevelItems.Count;
+		List<LocalFileSystemItem> flatItems;
+		if (ShowDetailsView && !isShowingSearchResults)
+		{
+			var treeItems = new List<LocalFileSystemItem>(topLevelItems.Count);
+			var placedPaths = new HashSet<string>(StringComparer.Ordinal);
+			AppendTreeItems(topLevelItems, depth: 0, treeItems, placedPaths);
+			PruneExpandedPaths(placedPaths);
+			flatItems = treeItems;
+		}
+		else
+		{
+			// Grid, column and search results stay a single flat, unindented level.
+			foreach (LocalFileSystemItem item in topLevelItems)
+			{
+				item.Depth = 0;
+				item.IsExpanded = false;
+				item.ShowDisclosure = false;
+			}
+			flatItems = topLevelItems;
+		}
+
+		string[] pathsToRestore = rememberedSelectedPaths;
+		Items = new ObservableCollection<LocalFileSystemItem>(flatItems);
+		OnPropertyChanged(nameof(Items));
+		if (pathsToRestore.Length > 0)
+		{
+			ItemsReplaced?.Invoke(this, new ItemsReplacedEventArgs(pathsToRestore));
+		}
+	}
+
+	// Appends items plus the cached children of every expanded folder in display
+	// order, assigning Depth/IsExpanded/ShowDisclosure along the way.
+	private void AppendTreeItems(
+		IReadOnlyList<LocalFileSystemItem> items,
+		int depth,
+		List<LocalFileSystemItem> treeItems,
+		HashSet<string> placedPaths)
+	{
+		foreach (LocalFileSystemItem item in items)
+		{
+			bool isExpanded = false;
+			if (item.IsNavigableDirectory && expandedPaths.Contains(item.Path))
+			{
+				if (expandedChildren.ContainsKey(item.Path))
+				{
+					isExpanded = true;
+				}
+				else
+				{
+					// Cache entry is gone; drop the stale expansion marker.
+					expandedPaths.Remove(item.Path);
+				}
+			}
+
+			item.Depth = depth;
+			item.IsExpanded = isExpanded;
+			item.ShowDisclosure = item.IsNavigableDirectory;
+			treeItems.Add(item);
+			placedPaths.Add(item.Path);
+			if (isExpanded && expandedChildren.TryGetValue(item.Path, out IReadOnlyList<LocalFileSystemItem>? children))
+			{
+				IEnumerable<LocalFileSystemItem> visibleChildren = ShowHiddenFiles
+					? children
+					: children.Where(static child => !child.IsHidden);
+				AppendTreeItems(SortItems(visibleChildren), depth + 1, treeItems, placedPaths);
+			}
+		}
+	}
+
+	// Drops expansion entries whose folder vanished from the current directory;
+	// entries belonging to other directories survive navigating away and back.
+	private void PruneExpandedPaths(HashSet<string> placedPaths)
+	{
+		string rootPrefix = CurrentPath.EndsWith(Path.DirectorySeparatorChar)
+			? CurrentPath
+			: CurrentPath + Path.DirectorySeparatorChar;
+		foreach (string path in expandedPaths.ToArray())
+		{
+			if (!placedPaths.Contains(path) && path.StartsWith(rootPrefix, StringComparison.Ordinal))
+			{
+				expandedPaths.Remove(path);
+				expandedChildren.Remove(path);
+			}
+		}
+	}
+
+	private List<LocalFileSystemItem> SortItems(IEnumerable<LocalFileSystemItem> items)
+	{
+		IOrderedEnumerable<LocalFileSystemItem> orderedItems = items.OrderByDescending(static item => item.IsNavigableDirectory);
 		orderedItems = (SortField, SortDirection) switch
 		{
 			(FileSortField.Modified, FileSortDirection.Ascending) => orderedItems.ThenBy(static item => item.Modified),
@@ -510,21 +683,24 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			(FileSortField.Name, FileSortDirection.Descending) => orderedItems.ThenByDescending(static item => item.Name, StringComparer.CurrentCultureIgnoreCase),
 			_ => orderedItems.ThenBy(static item => item.Name, StringComparer.CurrentCultureIgnoreCase),
 		};
+		return orderedItems.ToList();
+	}
 
-		string[] pathsToRestore = rememberedSelectedPaths;
-		Items = new ObservableCollection<LocalFileSystemItem>(orderedItems);
-		OnPropertyChanged(nameof(Items));
-		if (pathsToRestore.Length > 0)
-		{
-			ItemsReplaced?.Invoke(this, new ItemsReplacedEventArgs(pathsToRestore));
-		}
+	partial void OnIsGridViewChanged(bool value)
+	{
+		ApplyView();
+	}
+
+	partial void OnIsColumnViewChanged(bool value)
+	{
+		ApplyView();
 	}
 
 	partial void OnShowHiddenFilesChanged(bool value)
 	{
 		ApplyView();
 		UpdateEmptyState();
-		itemCountStatus = string.Format(GetResource("ItemCountFormat"), Items.Count);
+		itemCountStatus = string.Format(GetResource("ItemCountFormat"), topLevelItemCount);
 		StatusText = itemCountStatus;
 	}
 
@@ -565,6 +741,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		metadataCancellation?.Cancel();
 		metadataCancellation?.Dispose();
 		metadataCancellation = null;
+		expansionCancellation?.Cancel();
+		expansionCancellation?.Dispose();
+		expansionCancellation = null;
 		lock (thumbnailCacheLock)
 		{
 			pendingThumbnailLoads.Clear();

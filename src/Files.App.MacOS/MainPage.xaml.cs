@@ -3153,11 +3153,30 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void Items_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
 	{
+		// Double-tapping a disclosure triangle must not open the selected row.
+		if (IsWithinDisclosureButton(e.OriginalSource as DependencyObject))
+		{
+			return;
+		}
+
 		if (sender is ListViewBase { SelectedItem: LocalFileSystemItem item } list && GetBrowserForItemsControl(list) is DirectoryBrowserViewModel browser)
 		{
 			ActivateBrowser(browser, list);
 			await OpenItemAsync(browser, item);
 		}
+	}
+
+	private static bool IsWithinDisclosureButton(DependencyObject? source)
+	{
+		while (source is not null)
+		{
+			if (source is FrameworkElement { Name: "DisclosureButton" })
+			{
+				return true;
+			}
+			source = VisualTreeHelper.GetParent(source);
+		}
+		return false;
 	}
 
 	private async void GridItems_ItemInvoked(ItemsView sender, ItemsViewItemInvokedEventArgs e)
@@ -5464,6 +5483,21 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		e.Handled = true;
 	}
 
+	// Disclosure triangle in the details tree: toggles expansion without
+	// selecting the row and keeps keyboard focus on the list.
+	private void DisclosureButton_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is not FrameworkElement { DataContext: LocalFileSystemItem item } ||
+			GetBrowserForItem(item) is not DirectoryBrowserViewModel browser)
+		{
+			return;
+		}
+
+		ActivateBrowser(browser);
+		GetVisibleItemsControl(browser).Focus(FocusState.Programmatic);
+		_ = browser.ToggleExpandedAsync(item);
+	}
+
 	private void ToggleModifiedSelection(DirectoryBrowserViewModel browser, LocalFileSystemItem item)
 	{
 		FrameworkElement control = GetVisibleItemsControl(browser);
@@ -6295,10 +6329,61 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
+		if (e.Key is VirtualKey.Left or VirtualKey.Right &&
+			browser.ShowDetailsView &&
+			sender is ListViewBase { SelectedItems.Count: 1 } detailsList &&
+			detailsList.SelectedItem is LocalFileSystemItem arrowItem &&
+			HandleDetailsArrowKey(browser, detailsList, arrowItem, e.Key))
+		{
+			e.Handled = true;
+			return;
+		}
+
 		if (TryTypeSelect(browser, sender as FrameworkElement, e.Key))
 		{
 			e.Handled = true;
 		}
+	}
+
+	// Finder arrow keys in the details tree (single selection only): Right expands
+	// the selected folder, Left collapses it or, for a child row, selects its parent.
+	private bool HandleDetailsArrowKey(
+		DirectoryBrowserViewModel browser,
+		ListViewBase list,
+		LocalFileSystemItem item,
+		VirtualKey key)
+	{
+		if (key is VirtualKey.Right)
+		{
+			if (item is { ShowDisclosure: true, IsExpanded: false })
+			{
+				_ = browser.ToggleExpandedAsync(item);
+				return true;
+			}
+			return false;
+		}
+
+		if (item is { ShowDisclosure: true, IsExpanded: true })
+		{
+			_ = browser.ToggleExpandedAsync(item);
+			return true;
+		}
+
+		if (item.Depth > 0)
+		{
+			int index = browser.Items.IndexOf(item);
+			for (int candidate = index - 1; candidate >= 0; candidate--)
+			{
+				if (browser.Items[candidate].Depth == item.Depth - 1)
+				{
+					list.SelectedItems.Clear();
+					list.SelectedItem = browser.Items[candidate];
+					list.ScrollIntoView(browser.Items[candidate]);
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private bool TryTypeSelect(DirectoryBrowserViewModel browser, FrameworkElement? control, VirtualKey key)
