@@ -668,14 +668,24 @@
 											<PathIcon Width="{Binding GlyphSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding GlyphSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 											<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 										</Grid>
-										<TextBlock
-											Grid.Row="1"
-											HorizontalAlignment="Center"
-											MaxLines="2"
-											Text="{Binding Name}"
-											TextAlignment="Center"
-											TextTrimming="CharacterEllipsis"
-											TextWrapping="Wrap" />
+										<Grid Grid.Row="1">
+											<TextBlock
+												HorizontalAlignment="Center"
+												MaxLines="2"
+												Text="{Binding Name}"
+												TextAlignment="Center"
+												TextTrimming="CharacterEllipsis"
+												TextWrapping="Wrap"
+												Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+											<TextBox
+												x:Name="InlineRenameBox"
+												Padding="4,2"
+												FontSize="12"
+												KeyDown="InlineRenameBox_KeyDown"
+												LostFocus="InlineRenameBox_LostFocus"
+												TextAlignment="Center"
+												Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+										</Grid>
 									</Grid>
 									</ItemContainer>
 								</DataTemplate>
@@ -740,7 +750,8 @@
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 											</Grid>
 											<StackPanel Grid.Column="1" VerticalAlignment="Center">
-												<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+												<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+												<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
 												<TextBlock
 													FontSize="11"
 													Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -892,7 +903,10 @@
 											<PathIcon Width="{Binding GlyphSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding GlyphSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 											</Grid>
-											<TextBlock Grid.Row="1" HorizontalAlignment="Center" MaxLines="2" Text="{Binding Name}" TextAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" />
+											<Grid Grid.Row="1">
+												<TextBlock HorizontalAlignment="Center" MaxLines="2" Text="{Binding Name}" TextAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+												<TextBox x:Name="InlineRenameBox" Padding="4,2" FontSize="12" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" TextAlignment="Center" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+											</Grid>
 										</Grid>
 										</ItemContainer>
 									</DataTemplate>
@@ -954,7 +968,8 @@
 													<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 												</Grid>
 												<StackPanel Grid.Column="1" VerticalAlignment="Center">
-													<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+													<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+													<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
 													<TextBlock
 														FontSize="11"
 														Foreground="{ThemeResource TextFillColorSecondaryBrush}"

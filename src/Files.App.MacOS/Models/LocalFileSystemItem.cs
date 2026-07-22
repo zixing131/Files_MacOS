@@ -110,6 +110,11 @@ public sealed partial class LocalFileSystemItem(
 
 	public bool IsSearchResult => !string.IsNullOrEmpty(SearchLocation);
 
+	// Set while the item name is being edited in place; the templates swap the
+	// read-only label for an edit box based on this flag.
+	[ObservableProperty]
+	public partial bool IsInlineEditing { get; set; }
+
 	public string ModifiedText => Modified.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
 
 	public string CreatedText => Created.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);

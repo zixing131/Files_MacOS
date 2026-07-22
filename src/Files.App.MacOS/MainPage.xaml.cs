@@ -63,6 +63,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private readonly ResourceLoader resourceLoader = ResourceLoader.GetForViewIndependentUse();
 	private static readonly SemaphoreSlim SettingsSaveLock = new(1, 1);
 	private IReadOnlyList<LocalFileSystemItem> selectedItems = [];
+	private LocalFileSystemItem? inlineEditingItem;
 	private CancellationTokenSource? fileTransferCancellation;
 	private CancellationTokenSource? searchInputCancellation;
 	private CancellationTokenSource? previewImageCancellation;
@@ -6447,23 +6448,15 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		var input = new TextBox
-		{
-			Text = GetResource("NewFolderDefaultName"),
-		};
-		var dialog = CreateTextInputDialog("CreateFolderDialogTitle", "CreateButtonText", input);
-
-		if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
-		{
-			return;
-		}
-
+		// Finder creates the folder immediately with a default name and opens the
+		// inline rename editor so the name can be typed right away.
 		try
 		{
-			string path = await FileOperationService.CreateFolderAsync(targetBrowser.CurrentPath, input.Text.Trim());
+			string path = await FileOperationService.CreateFolderAsync(targetBrowser.CurrentPath, GetResource("NewFolderDefaultName"));
 			RecordCreatedItemHistory(path, isDirectory: true);
 			await targetBrowser.RefreshAsync();
 			SelectAndRevealPath(targetBrowser, path);
+			BeginInlineRenameForPath(targetBrowser, path);
 		}
 		catch (FileOperationException ex)
 		{
@@ -6475,7 +6468,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
-	private async void RenameButton_Click(object sender, RoutedEventArgs e)
+	private void RenameButton_Click(object sender, RoutedEventArgs e)
 	{
 		if (Browser is null || selectedItems.Count is 0)
 		{
@@ -6483,30 +6476,167 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		if (selectedItems.Count > 1)
 		{
-			await BulkRenameAsync();
+			_ = BulkRenameAsync();
 			return;
 		}
 
-		LocalFileSystemItem item = selectedItems[0];
+		BeginInlineRename(selectedItems[0]);
+	}
 
-		var input = new TextBox
+	private void BeginInlineRenameForPath(DirectoryBrowserViewModel browser, string path)
+	{
+		DispatcherQueue.TryEnqueue(() =>
 		{
-			Text = item.Name,
-			SelectionStart = item.Name.Length,
-		};
-		var dialog = CreateTextInputDialog("RenameDialogTitle", "RenameButtonText", input);
-		dialog.Opened += (_, _) => input.Select(item.Name.Length, 0);
+			LocalFileSystemItem? item = browser.Items.FirstOrDefault(
+				candidate => string.Equals(candidate.Path, path, StringComparison.Ordinal));
+			if (item is not null)
+			{
+				BeginInlineRename(item);
+			}
+		});
+	}
 
-		if (await dialog.ShowAsync() is not ContentDialogResult.Primary || string.Equals(input.Text.Trim(), item.Name, StringComparison.Ordinal))
+	private void BeginInlineRename(LocalFileSystemItem item)
+	{
+		if (Browser is not DirectoryBrowserViewModel browser)
 		{
 			return;
 		}
 
+		CancelInlineRename();
+		FrameworkElement control = GetVisibleItemsControl(browser);
+		int index = browser.Items.IndexOf(item);
+		if (index < 0)
+		{
+			return;
+		}
+
+		if (control is ItemsView view)
+		{
+			RevealGridItem(view, index);
+		}
+		else if (control is ListViewBase list)
+		{
+			list.ScrollIntoView(item);
+		}
+
+		inlineEditingItem = item;
+		item.IsInlineEditing = true;
+		control.UpdateLayout();
+		FocusInlineRenameBox(browser, control, item, attempt: 0);
+	}
+
+	private void FocusInlineRenameBox(DirectoryBrowserViewModel browser, FrameworkElement control, LocalFileSystemItem item, int attempt)
+	{
+		DispatcherQueue.TryEnqueue(() =>
+		{
+			if (!ReferenceEquals(inlineEditingItem, item))
+			{
+				return;
+			}
+
+			DependencyObject? container = null;
+			if (control is ItemsView itemsView &&
+				FindVisualDescendant<ItemsRepeater>(itemsView) is ItemsRepeater repeater)
+			{
+				int index = browser.Items.IndexOf(item);
+				container = index >= 0 ? repeater.TryGetElement(index) : null;
+			}
+			else if (control is ListViewBase list)
+			{
+				container = list.ContainerFromItem(item) as DependencyObject;
+			}
+
+			TextBox? box = container is null ? null : FindVisualDescendant<TextBox>(container);
+			if (box is null)
+			{
+				if (attempt < 3)
+				{
+					FocusInlineRenameBox(browser, control, item, attempt + 1);
+				}
+				return;
+			}
+
+			box.Text = item.Name;
+			box.Focus(FocusState.Programmatic);
+
+			// Finder preselects the base name and keeps the extension out of the selection.
+			int selectionLength = item.Name.Length;
+			if (!item.IsDirectory)
+			{
+				int dotIndex = item.Name.LastIndexOf('.');
+				if (dotIndex > 0)
+				{
+					selectionLength = dotIndex;
+				}
+			}
+			box.Select(0, selectionLength);
+		});
+	}
+
+	private void InlineRenameBox_KeyDown(object sender, KeyRoutedEventArgs e)
+	{
+		if (sender is not TextBox box)
+		{
+			return;
+		}
+		if (e.Key is VirtualKey.Enter)
+		{
+			e.Handled = true;
+			CommitInlineRename(box);
+		}
+		else if (e.Key is VirtualKey.Escape)
+		{
+			e.Handled = true;
+			CancelInlineRename();
+		}
+	}
+
+	private void InlineRenameBox_LostFocus(object sender, RoutedEventArgs e)
+	{
+		if (sender is TextBox box && inlineEditingItem is not null)
+		{
+			CommitInlineRename(box);
+		}
+	}
+
+	private void CancelInlineRename()
+	{
+		if (inlineEditingItem is { } item)
+		{
+			inlineEditingItem = null;
+			item.IsInlineEditing = false;
+		}
+	}
+
+	private void CommitInlineRename(TextBox box)
+	{
+		if (inlineEditingItem is not { } item)
+		{
+			return;
+		}
+
+		string newName = box.Text.Trim();
+		inlineEditingItem = null;
+		item.IsInlineEditing = false;
+
+		if (newName.Length is 0 ||
+			string.Equals(newName, item.Name, StringComparison.Ordinal) ||
+			Browser is not DirectoryBrowserViewModel browser)
+		{
+			return;
+		}
+
+		_ = CommitInlineRenameAsync(browser, item, newName);
+	}
+
+	private async Task CommitInlineRenameAsync(DirectoryBrowserViewModel browser, LocalFileSystemItem item, string newName)
+	{
 		try
 		{
-			FilePathRename rename = await FileRenameService.RenameAsync(item.Path, input.Text.Trim());
+			FilePathRename rename = await FileRenameService.RenameAsync(item.Path, newName);
 			RecordRenameHistory([rename]);
-			await Browser.RefreshAsync();
+			await browser.RefreshAsync();
 		}
 		catch (FileOperationException ex)
 		{
@@ -7019,24 +7149,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		args.Handled = true;
 		string[] paths = selectedItems.Select(static selected => selected.Path).ToArray();
-		var input = new TextBox
-		{
-			Text = GetResource("NewFolderDefaultName"),
-		};
-		var dialog = CreateTextInputDialog("NewFolderWithSelectionDialogTitle", "CreateButtonText", input);
-		if (await dialog.ShowAsync() is not ContentDialogResult.Primary || string.IsNullOrWhiteSpace(input.Text))
-		{
-			return;
-		}
 
 		try
 		{
-			string folderPath = await FileOperationService.CreateFolderAsync(browser.CurrentPath, input.Text.Trim());
+			string folderPath = await FileOperationService.CreateFolderAsync(browser.CurrentPath, GetResource("NewFolderDefaultName"));
 			await TransferItemsAsync(
 				new FileClipboardContent(paths, FileTransferMode.Move, 0),
 				clearClipboardAfterMove: false,
 				destinationDirectory: folderPath);
 			SelectAndRevealPath(browser, folderPath);
+			BeginInlineRenameForPath(browser, folderPath);
 		}
 		catch (FileOperationException ex)
 		{
@@ -7153,22 +7275,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		var input = new TextBox
-		{
-			Text = GetResource("NewTextFileDefaultName"),
-		};
-		var dialog = CreateTextInputDialog("CreateTextFileDialogTitle", "CreateButtonText", input);
-		if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
-		{
-			return;
-		}
-
 		try
 		{
-			string path = await FileOperationService.CreateFileAsync(targetBrowser.CurrentPath, input.Text.Trim());
+			string path = await FileOperationService.CreateFileAsync(targetBrowser.CurrentPath, GetResource("NewTextFileDefaultName"));
 			RecordCreatedItemHistory(path, isDirectory: false);
 			await targetBrowser.RefreshAsync();
 			SelectAndRevealPath(targetBrowser, path);
+			BeginInlineRenameForPath(targetBrowser, path);
 		}
 		catch (FileOperationException ex)
 		{
