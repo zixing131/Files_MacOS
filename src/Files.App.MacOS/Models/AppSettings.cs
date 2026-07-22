@@ -89,6 +89,7 @@ public sealed record AppSettings(
 	string[]? DetailColumns = null,
 	DetailColumnWidthSetting[]? DetailColumnWidths = null,
 	ContextMenuActionSetting[]? ContextMenuActions = null,
+	int GridIconSizeLevel = 1,
 	int SchemaVersion = 18);
 
 public sealed record DetailColumnWidthSetting(string Column, double Width);

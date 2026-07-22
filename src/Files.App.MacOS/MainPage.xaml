@@ -12,6 +12,7 @@
 	<Page.Resources>
 		<models:DetailColumnVisibilityState x:Key="DetailColumnVisibilityState" />
 		<models:DetailColumnWidthState x:Key="DetailColumnWidthState" />
+		<models:GridItemSizeState x:Key="GridItemSizeState" />
 		<converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 		<converters:FileSystemItemToIconConverter x:Key="FileSystemItemToIconConverter" />
 		<converters:SidebarGlyphToIconConverter x:Key="SidebarGlyphToIconConverter" />
@@ -633,10 +634,10 @@
 							</ItemsView.Layout>
 							<ItemsView.ItemTemplate>
 								<DataTemplate>
-									<ItemContainer Width="116" Height="108" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
-					<Grid AllowDrop="{Binding IsNavigableDirectory}" CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RowDefinitions="72,*" ToolTipService.ToolTip="{Binding Path}">
-										<Grid Width="64" Height="64" HorizontalAlignment="Center" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
-											<PathIcon Width="44" Height="44" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+									<ItemContainer Width="{Binding ItemWidth, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding ItemHeight, Source={StaticResource GridItemSizeState}, Mode=OneWay}" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
+					<Grid AllowDrop="{Binding IsNavigableDirectory}" CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RowDefinitions="Auto,*" ToolTipService.ToolTip="{Binding Path}">
+										<Grid Width="{Binding IconSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding IconSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" HorizontalAlignment="Center" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
+											<PathIcon Width="{Binding GlyphSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding GlyphSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 											<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 										</Grid>
 										<TextBlock
@@ -857,10 +858,10 @@
 								</ItemsView.Layout>
 								<ItemsView.ItemTemplate>
 									<DataTemplate>
-										<ItemContainer Width="116" Height="108" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
-						<Grid AllowDrop="{Binding IsNavigableDirectory}" CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RowDefinitions="72,*" ToolTipService.ToolTip="{Binding Path}">
-											<Grid Width="64" Height="64" HorizontalAlignment="Center" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
-											<PathIcon Width="44" Height="44" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+										<ItemContainer Width="{Binding ItemWidth, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding ItemHeight, Source={StaticResource GridItemSizeState}, Mode=OneWay}" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
+						<Grid AllowDrop="{Binding IsNavigableDirectory}" CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RowDefinitions="Auto,*" ToolTipService.ToolTip="{Binding Path}">
+											<Grid Width="{Binding IconSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding IconSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" HorizontalAlignment="Center" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
+											<PathIcon Width="{Binding GlyphSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding GlyphSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" Visibility="{Binding HasThumbnail, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 												<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 											</Grid>
 											<TextBlock Grid.Row="1" HorizontalAlignment="Center" MaxLines="2" Text="{Binding Name}" TextAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" />

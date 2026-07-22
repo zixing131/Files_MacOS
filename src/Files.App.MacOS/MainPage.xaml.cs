@@ -58,6 +58,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		(DetailColumnVisibilityState)Resources["DetailColumnVisibilityState"];
 	private DetailColumnWidthState DetailColumnWidths =>
 		(DetailColumnWidthState)Resources["DetailColumnWidthState"];
+	private GridItemSizeState GridItemSizes =>
+		(GridItemSizeState)Resources["GridItemSizeState"];
 	private readonly ResourceLoader resourceLoader = ResourceLoader.GetForViewIndependentUse();
 	private static readonly SemaphoreSlim SettingsSaveLock = new(1, 1);
 	private IReadOnlyList<LocalFileSystemItem> selectedItems = [];
@@ -336,6 +338,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		persistedSettingsBaseline = currentSettings;
 		DetailColumnState.Apply(currentSettings.DetailColumns);
 		DetailColumnWidths.Apply(currentSettings.DetailColumnWidths);
+		ApplyGridIconSizeLevel(currentSettings.GridIconSizeLevel);
 		isSidebarOpen = currentSettings.IsSidebarOpen;
 		sidebarWidth = currentSettings.SidebarWidth;
 		isPreviewPaneOpen = currentSettings.IsPreviewPaneOpen;
@@ -8358,6 +8361,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
+		// Explorer-style Ctrl+wheel adjusts the grid icon size instead of scrolling.
+		if (control is ItemsView && IsKeyDown(VirtualKey.Control))
+		{
+			_ = ChangeGridIconSizeLevelAsync(GridItemSizes.Level + (delta > 0 ? 1 : -1));
+			e.Handled = true;
+			return;
+		}
+
 		double distance = GetAcceleratedWheelDistance(delta);
 		if (control is ItemsView { ScrollView: ScrollView scrollView })
 		{
@@ -8391,6 +8402,40 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		return false;
+	}
+
+	private async Task ChangeGridIconSizeLevelAsync(int level)
+	{
+		int clamped = Math.Clamp(level, GridItemSizeState.MinimumLevel, GridItemSizeState.MaximumLevel);
+		if (clamped == GridItemSizes.Level)
+		{
+			return;
+		}
+
+		ApplyGridIconSizeLevel(clamped);
+		var newSettings = currentSettings with { GridIconSizeLevel = clamped };
+		try
+		{
+			newSettings = await PersistSettingsAsync(newSettings);
+			ViewModel.ApplySettings(newSettings);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("SaveSettingsErrorMessage") : ex.Message);
+		}
+	}
+
+	private void ApplyGridIconSizeLevel(int level)
+	{
+		GridItemSizes.Apply(level);
+		foreach (ItemsView view in new[] { GridItems, SecondaryGridItems })
+		{
+			if (view.Layout is UniformGridLayout layout)
+			{
+				layout.MinItemWidth = GridItemSizes.ItemWidth;
+				layout.MinItemHeight = GridItemSizes.ItemHeight;
+			}
+		}
 	}
 
 	private double GetAcceleratedWheelDistance(int delta)
@@ -9395,6 +9440,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			CollapsedSidebarSections = HasSequenceChanged(requested.CollapsedSidebarSections, baseline.CollapsedSidebarSections, StringComparer.Ordinal) ? requested.CollapsedSidebarSections : latest.CollapsedSidebarSections,
 			HiddenDefaultSidebarLocations = HasSequenceChanged(requested.HiddenDefaultSidebarLocations, baseline.HiddenDefaultSidebarLocations, StringComparer.Ordinal) ? requested.HiddenDefaultSidebarLocations : latest.HiddenDefaultSidebarLocations,
 			Terminal = requested.Terminal != baseline.Terminal ? requested.Terminal : latest.Terminal,
+			GridIconSizeLevel = requested.GridIconSizeLevel != baseline.GridIconSizeLevel ? requested.GridIconSizeLevel : latest.GridIconSizeLevel,
 		};
 	}
 
