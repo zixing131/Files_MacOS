@@ -2304,6 +2304,21 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		return null;
 	}
 
+	private static string ExpandHomePath(string path)
+	{
+		if (path is "~")
+		{
+			return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		}
+		if (path.StartsWith("~/", StringComparison.Ordinal))
+		{
+			return Path.Combine(
+				Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+				path[2..]);
+		}
+		return path;
+	}
+
 	private static string? NormalizeDroppedPath(string? droppedText)
 	{
 		string? firstEntry = droppedText?
@@ -2319,12 +2334,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			candidate = uri.LocalPath;
 		}
-		if (candidate.StartsWith("~/", StringComparison.Ordinal))
-		{
-			candidate = Path.Combine(
-				Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-				candidate[2..]);
-		}
+		candidate = ExpandHomePath(candidate);
 		if (!Path.IsPathFullyQualified(candidate))
 		{
 			return null;
@@ -2351,11 +2361,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async Task NavigateFromAddressAsync(DirectoryBrowserViewModel browser, string address)
 	{
-		string navigationPath = address;
+		string navigationPath = ExpandHomePath(address.Trim());
 		string? revealPath = null;
 		try
 		{
-			string fullPath = Path.GetFullPath(address.Trim());
+			string fullPath = Path.GetFullPath(navigationPath);
 			bool isPackage = Directory.Exists(fullPath) && MacOSFilePackage.IsPackage(new DirectoryInfo(fullPath));
 			if (File.Exists(fullPath) || isPackage)
 			{
@@ -9038,10 +9048,23 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool isSecondary = ReferenceEquals(browser, ViewModel.ActiveTab?.SecondaryBrowser);
 		FrameworkElement gridControl = isSecondary ? SecondaryGridItems : GridItems;
 		FrameworkElement detailsControl = isSecondary ? SecondaryDetailsItems : DetailsItems;
+
+		// A stale scroll offset from a larger folder must be cleared before the ScrollView
+		// re-layouts with the smaller content, otherwise the viewport stays anchored beyond
+		// the new extent and renders blank.
+		ResetItemsScrollPosition(gridControl);
+		ResetItemsScrollPosition(detailsControl);
 		DispatcherQueue.TryEnqueue(() =>
 		{
+			gridControl.UpdateLayout();
 			ResetItemsScrollPosition(gridControl);
+			detailsControl.UpdateLayout();
 			ResetItemsScrollPosition(detailsControl);
+			DispatcherQueue.TryEnqueue(() =>
+			{
+				ResetItemsScrollPosition(gridControl);
+				ResetItemsScrollPosition(detailsControl);
+			});
 		});
 	}
 
