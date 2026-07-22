@@ -22,9 +22,12 @@ public sealed class BrowserTabViewModel : ObservableObject, IDisposable
 		activeBrowser = browser;
 		header = defaultHeader;
 		Browser.PropertyChanged += Browser_PropertyChanged;
+		Browser.ItemsReplaced += Browser_ItemsReplaced;
 	}
 
 	public event EventHandler? StateChanged;
+
+	public event EventHandler<ItemsReplacedEventArgs>? ItemsReplaced;
 
 	public DirectoryBrowserViewModel Browser { get; }
 
@@ -41,12 +44,14 @@ public sealed class BrowserTabViewModel : ObservableObject, IDisposable
 			if (secondaryBrowser is not null)
 			{
 				secondaryBrowser.PropertyChanged -= Browser_PropertyChanged;
+				secondaryBrowser.ItemsReplaced -= Browser_ItemsReplaced;
 			}
 			if (SetProperty(ref secondaryBrowser, value))
 			{
 				if (secondaryBrowser is not null)
 				{
 					secondaryBrowser.PropertyChanged += Browser_PropertyChanged;
+					secondaryBrowser.ItemsReplaced += Browser_ItemsReplaced;
 				}
 				OnPropertyChanged(nameof(IsSplitView));
 				StateChanged?.Invoke(this, EventArgs.Empty);
@@ -115,11 +120,15 @@ public sealed class BrowserTabViewModel : ObservableObject, IDisposable
 	public void Dispose()
 	{
 		Browser.PropertyChanged -= Browser_PropertyChanged;
+		Browser.ItemsReplaced -= Browser_ItemsReplaced;
 		StateChanged = null;
 		Browser.Dispose();
 		SecondaryBrowser?.Dispose();
 		SecondaryBrowser = null;
 	}
+
+	private void Browser_ItemsReplaced(object? sender, ItemsReplacedEventArgs e) =>
+		ItemsReplaced?.Invoke(sender, e);
 
 	public void EnableSplitView(DirectoryBrowserViewModel browser)
 	{

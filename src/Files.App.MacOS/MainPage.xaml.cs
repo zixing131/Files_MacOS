@@ -5,6 +5,7 @@ using Files.App.MacOS.Services;
 using Files.App.MacOS.ViewModels;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using System.Collections.Specialized;
 using System.Text.Json;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.ApplicationModel.Resources;
@@ -150,6 +151,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		FileTrashHistoryService = new(WorkspaceService, FileTransferHistoryService);
 		InitializeComponent();
 		DataContext = ViewModel;
+		HookTabsForSelectionRestore();
 		AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), handledEventsToo: true);
 		RegisterContentWheelHandler(GridItems);
 		RegisterContentWheelHandler(DetailsItems);
@@ -6194,8 +6196,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		var input = new TextBox
 		{
 			Text = item.Name,
+			SelectionStart = item.Name.Length,
 		};
 		var dialog = CreateTextInputDialog("RenameDialogTitle", "RenameButtonText", input);
+		dialog.Opened += (_, _) => input.Select(item.Name.Length, 0);
 
 		if (await dialog.ShowAsync() is not ContentDialogResult.Primary || string.Equals(input.Text.Trim(), item.Name, StringComparison.Ordinal))
 		{
@@ -8516,6 +8520,66 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				list.SelectedItems.Add(item);
 			}
 		}
+	}
+
+	private void HookTabsForSelectionRestore()
+	{
+		foreach (BrowserTabViewModel tab in ViewModel.Tabs)
+		{
+			tab.ItemsReplaced += Tab_ItemsReplaced;
+		}
+		ViewModel.Tabs.CollectionChanged += Tabs_CollectionChanged;
+	}
+
+	private void Tabs_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+	{
+		if (e.OldItems is not null)
+		{
+			foreach (BrowserTabViewModel tab in e.OldItems)
+			{
+				tab.ItemsReplaced -= Tab_ItemsReplaced;
+			}
+		}
+		if (e.NewItems is not null)
+		{
+			foreach (BrowserTabViewModel tab in e.NewItems)
+			{
+				tab.ItemsReplaced += Tab_ItemsReplaced;
+			}
+		}
+	}
+
+	private void Tab_ItemsReplaced(object? sender, ItemsReplacedEventArgs e)
+	{
+		if (sender is not DirectoryBrowserViewModel browser || e.SelectedPaths.Count is 0)
+		{
+			return;
+		}
+
+		DispatcherQueue.TryEnqueue(() =>
+		{
+			// The item controls are shared across tabs, so only restore the visible browsers.
+			if (!ReferenceEquals(browser, ViewModel.ActiveTab?.Browser) &&
+				!ReferenceEquals(browser, ViewModel.ActiveTab?.SecondaryBrowser))
+			{
+				return;
+			}
+
+			var selection = new List<LocalFileSystemItem>(e.SelectedPaths.Count);
+			foreach (string path in e.SelectedPaths)
+			{
+				if (browser.Items.FirstOrDefault(item => string.Equals(item.Path, path, StringComparison.Ordinal)) is { } item)
+				{
+					selection.Add(item);
+				}
+			}
+			if (selection.Count is 0)
+			{
+				return;
+			}
+
+			RestoreSelection(browser, GetVisibleItemsControl(browser), selection);
+		});
 	}
 
 	private static bool RevealSelection(

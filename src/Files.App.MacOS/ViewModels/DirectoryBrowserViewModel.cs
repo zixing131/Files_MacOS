@@ -31,6 +31,11 @@ public enum FileSortDirection
 	Descending,
 }
 
+public sealed class ItemsReplacedEventArgs(IReadOnlyList<string> selectedPaths) : EventArgs
+{
+	public IReadOnlyList<string> SelectedPaths { get; } = selectedPaths;
+}
+
 public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDisposable
 {
 	private const int MaximumThumbnailCacheEntries = 256;
@@ -55,6 +60,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	private volatile bool isDisposed;
 	private string itemCountStatus = string.Empty;
 	private IReadOnlyList<LocalFileSystemItem> sourceItems = [];
+	private string[] rememberedSelectedPaths = [];
 	private readonly record struct ThumbnailCacheKey(string Path, DateTimeOffset Modified, long? Size);
 
 	public DirectoryBrowserViewModel(
@@ -72,6 +78,8 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	}
 
 	public ObservableCollection<LocalFileSystemItem> Items { get; private set; } = [];
+
+	public event EventHandler<ItemsReplacedEventArgs>? ItemsReplaced;
 
 	[ObservableProperty]
 	public partial string CurrentPath { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -253,6 +261,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	public void UpdateSelection(IReadOnlyCollection<LocalFileSystemItem> selectedItems)
 	{
+		rememberedSelectedPaths = selectedItems.Select(static item => item.Path).ToArray();
 		if (selectedItems.Count is 0)
 		{
 			StatusText = itemCountStatus;
@@ -439,8 +448,13 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			_ => orderedItems.ThenBy(static item => item.Name, StringComparer.CurrentCultureIgnoreCase),
 		};
 
+		string[] pathsToRestore = rememberedSelectedPaths;
 		Items = new ObservableCollection<LocalFileSystemItem>(orderedItems);
 		OnPropertyChanged(nameof(Items));
+		if (pathsToRestore.Length > 0)
+		{
+			ItemsReplaced?.Invoke(this, new ItemsReplacedEventArgs(pathsToRestore));
+		}
 	}
 
 	partial void OnShowHiddenFilesChanged(bool value)
