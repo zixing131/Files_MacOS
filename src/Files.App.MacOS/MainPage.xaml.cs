@@ -9256,15 +9256,55 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			.ToArray();
 		columnList.ItemsSource = orderedItems;
 		isColumnViewSelectionSync = true;
+		int selectedIndex;
 		try
 		{
-			columnList.SelectedItem = orderedItems.FirstOrDefault(
-				item => string.Equals(item.Path, selectedChildPath, StringComparison.Ordinal));
+			selectedIndex = Array.FindIndex(orderedItems, item => string.Equals(item.Path, selectedChildPath, StringComparison.Ordinal));
+			columnList.SelectedItem = selectedIndex >= 0 ? orderedItems[selectedIndex] : null;
 		}
 		finally
 		{
 			isColumnViewSelectionSync = false;
 		}
+
+		if (selectedIndex >= 0)
+		{
+			CenterColumnViewSelection(columnList, orderedItems.Length, selectedIndex, generation, isSecondary, attempt: 0);
+		}
+	}
+
+	// Finder keeps the selected ancestor row centered in its column instead of pinned
+	// to the top, so the rows above it stay visible.
+	private void CenterColumnViewSelection(ListView columnList, int itemCount, int selectedIndex, int generation, bool isSecondary, int attempt)
+	{
+		DispatcherQueue.TryEnqueue(() =>
+		{
+			if (generation != (isSecondary ? secondaryColumnViewGeneration : primaryColumnViewGeneration))
+			{
+				return;
+			}
+
+			columnList.UpdateLayout();
+			if (FindVisualDescendant<ScrollViewer>(columnList) is not ScrollViewer scrollViewer)
+			{
+				return;
+			}
+			if (scrollViewer.ExtentHeight <= 0 || scrollViewer.ViewportHeight <= 0)
+			{
+				if (attempt < 3)
+				{
+					CenterColumnViewSelection(columnList, itemCount, selectedIndex, generation, isSecondary, attempt + 1);
+				}
+				return;
+			}
+
+			double rowHeight = scrollViewer.ExtentHeight / Math.Max(1, itemCount);
+			double targetOffset = Math.Clamp(
+				(selectedIndex + 0.5) * rowHeight - scrollViewer.ViewportHeight / 2,
+				0,
+				scrollViewer.ScrollableHeight);
+			scrollViewer.ChangeView(null, targetOffset, null, disableAnimation: true);
+		});
 	}
 
 	// Ancestor columns navigate on folder selection but never touch the pane's item selection.
