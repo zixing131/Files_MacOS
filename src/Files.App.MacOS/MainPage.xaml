@@ -75,7 +75,7 @@
 		</DataTemplate>
 		<!--  Column view: lightweight ancestor column items without the shared item handlers.  -->
 		<DataTemplate x:Key="ColumnViewAncestorItemTemplate">
-			<Grid MinHeight="28" Padding="8,2" Background="Transparent" ColumnDefinitions="24,*" ColumnSpacing="6" ToolTipService.ToolTip="{Binding Path}">
+			<Grid MinHeight="28" Padding="8,2" AllowDrop="{Binding IsNavigableDirectory}" Background="Transparent" ColumnDefinitions="24,*" ColumnSpacing="6" DragOver="ColumnViewFolderItem_DragOver" Drop="ColumnViewFolderItem_Drop" ToolTipService.ToolTip="{Binding Path}">
 				<PathIcon Grid.Column="0" Width="16" Height="16" Data="{Binding Converter={StaticResource FileSystemItemToIconConverter}}" Foreground="{ThemeResource FilesAccentBrush}" Opacity="0.72" VerticalAlignment="Center" />
 				<TextBlock Grid.Column="1" FontSize="13" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
 			</Grid>

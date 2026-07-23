@@ -3854,15 +3854,23 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			: 0;
 	}
 
-	private static Windows.Foundation.Point ClampToMarqueeControl(
+	// In column view the rubber band may sweep across the whole column strip
+	// (selection still only applies to the trailing column's items), matching Finder.
+	private FrameworkElement GetMarqueeSurface(FrameworkElement control) =>
+		ReferenceEquals(control, PrimaryColumnItems) ? PrimaryColumnScrollViewer :
+		ReferenceEquals(control, SecondaryColumnItems) ? SecondaryColumnScrollViewer :
+		control;
+
+	private Windows.Foundation.Point ClampToMarqueeControl(
 		Windows.Foundation.Point point,
 		FrameworkElement control,
 		FrameworkElement layer)
 	{
-		Windows.Foundation.Point origin = control.TransformToVisual(layer).TransformPoint(default);
+		FrameworkElement surface = GetMarqueeSurface(control);
+		Windows.Foundation.Point origin = surface.TransformToVisual(layer).TransformPoint(default);
 		return new(
-			Math.Clamp(point.X, origin.X, origin.X + control.ActualWidth),
-			Math.Clamp(point.Y, origin.Y, origin.Y + control.ActualHeight));
+			Math.Clamp(point.X, origin.X, origin.X + surface.ActualWidth),
+			Math.Clamp(point.Y, origin.Y, origin.Y + surface.ActualHeight));
 	}
 
 	private static IReadOnlyList<LocalFileSystemItem> GetSelectedItems(FrameworkElement control) => control switch
@@ -3942,7 +3950,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Math.Abs(second.X - first.X),
 			Math.Abs(second.Y - first.Y));
 
-	private static void DrawMarqueeRectangle(
+	private void DrawMarqueeRectangle(
 		FrameworkElement control,
 		FrameworkElement layer,
 		Border rectangle,
@@ -3955,21 +3963,53 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			controlOrigin.X + originContentPoint.X - horizontalOffset,
 			controlOrigin.Y + originContentPoint.Y - verticalOffset);
 		Windows.Foundation.Rect unclippedBounds = CreateMarqueeBounds(originPoint, currentPoint);
-		double left = Math.Max(unclippedBounds.X, controlOrigin.X);
-		double top = Math.Max(unclippedBounds.Y, controlOrigin.Y);
-		double right = Math.Min(unclippedBounds.X + unclippedBounds.Width, controlOrigin.X + control.ActualWidth);
-		double bottom = Math.Min(unclippedBounds.Y + unclippedBounds.Height, controlOrigin.Y + control.ActualHeight);
+		FrameworkElement surface = GetMarqueeSurface(control);
+		Windows.Foundation.Point surfaceOrigin = surface.TransformToVisual(layer).TransformPoint(default);
+		double left = Math.Max(unclippedBounds.X, surfaceOrigin.X);
+		double top = Math.Max(unclippedBounds.Y, surfaceOrigin.Y);
+		double right = Math.Min(unclippedBounds.X + unclippedBounds.Width, surfaceOrigin.X + surface.ActualWidth);
+		double bottom = Math.Min(unclippedBounds.Y + unclippedBounds.Height, surfaceOrigin.Y + surface.ActualHeight);
 		Canvas.SetLeft(rectangle, left);
 		Canvas.SetTop(rectangle, top);
 		rectangle.Width = Math.Max(0, right - left);
 		rectangle.Height = Math.Max(0, bottom - top);
 	}
 
-	private static bool ScrollMarqueeAtViewportEdge(
+	private bool ScrollMarqueeAtViewportEdge(
 		FrameworkElement control,
 		FrameworkElement layer,
 		Windows.Foundation.Point pointerPoint)
 	{
+		bool scrolled = false;
+		FrameworkElement surface = GetMarqueeSurface(control);
+		if (surface is ScrollViewer columnScroller && !ReferenceEquals(surface, control))
+		{
+			// Column view: dragging toward the pane's left/right edge scrolls the column strip.
+			Windows.Foundation.Point surfaceOrigin = columnScroller.TransformToVisual(layer).TransformPoint(default);
+			double localX = pointerPoint.X - surfaceOrigin.X;
+			double horizontalStep = 0;
+			if (localX < MarqueeAutoScrollEdge)
+			{
+				horizontalStep = -Math.Clamp((MarqueeAutoScrollEdge - localX) * 1.5, 4, MarqueeAutoScrollMaximumStep);
+			}
+			else if (localX > columnScroller.ActualWidth - MarqueeAutoScrollEdge)
+			{
+				horizontalStep = Math.Clamp((localX - (columnScroller.ActualWidth - MarqueeAutoScrollEdge)) * 1.5, 4, MarqueeAutoScrollMaximumStep);
+			}
+			if (horizontalStep is not 0)
+			{
+				double targetOffset = Math.Clamp(
+					columnScroller.HorizontalOffset + horizontalStep,
+					0,
+					columnScroller.ScrollableWidth);
+				if (Math.Abs(targetOffset - columnScroller.HorizontalOffset) >= 0.1)
+				{
+					columnScroller.ChangeView(targetOffset, null, null, disableAnimation: true);
+					scrolled = true;
+				}
+			}
+		}
+
 		Windows.Foundation.Point controlOrigin = control.TransformToVisual(layer).TransformPoint(default);
 		double localY = pointerPoint.Y - controlOrigin.Y;
 		double direction;
@@ -3986,11 +4026,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		else
 		{
-			return false;
+			return scrolled;
 		}
 
 		double step = direction * Math.Clamp(edgeDistance * 1.5, 4, MarqueeAutoScrollMaximumStep);
-		return ScrollItemsControlVertically(control, step);
+		return ScrollItemsControlVertically(control, step) || scrolled;
 	}
 
 	private static bool ScrollItemsControlVertically(FrameworkElement control, double step)
@@ -9146,9 +9186,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			string selectedChildPath = index + 1 < ancestorPaths.Length ? ancestorPaths[index + 1] : browser.CurrentPath;
 			var columnList = new ListView
 			{
+				AllowDrop = true,
 				ItemTemplate = (DataTemplate)Resources["ColumnViewAncestorItemTemplate"],
 				SelectionMode = ListViewSelectionMode.Single,
+				Tag = columnPath,
 			};
+			columnList.DragOver += ColumnViewBackground_DragOver;
+			columnList.Drop += ColumnViewBackground_Drop;
 			columnList.SelectionChanged += ColumnViewAncestor_SelectionChanged;
 			var columnBorder = new Border
 			{
@@ -9231,15 +9275,88 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		DirectoryBrowserViewModel? browser = IsDescendantOf(list, SecondaryPaneBorder)
-			? ViewModel.ActiveTab?.SecondaryBrowser
-			: ViewModel.ActiveTab?.Browser;
+		DirectoryBrowserViewModel? browser = GetColumnViewPaneBrowser(list);
 		if (browser is null || !item.IsNavigableDirectory)
 		{
 			return;
 		}
 
 		await browser.NavigateAsync(item.Path);
+	}
+
+	private DirectoryBrowserViewModel? GetColumnViewPaneBrowser(DependencyObject element) =>
+		IsDescendantOf(element, SecondaryPaneBorder)
+			? ViewModel.ActiveTab?.SecondaryBrowser
+			: ViewModel.ActiveTab?.Browser;
+
+	// Dropping on an ancestor column's empty area moves/copies into that folder,
+	// like dropping on a Finder column; dropping on a folder row targets that folder.
+	private void ColumnViewBackground_DragOver(object sender, DragEventArgs e)
+	{
+		if (sender is not FrameworkElement { Tag: string path } element ||
+			GetColumnViewPaneBrowser(element) is not DirectoryBrowserViewModel browser ||
+			IsTrashPath(path) ||
+			!Directory.Exists(path) ||
+			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
+			IsInvalidInternalDropTarget(e.DataView, path) ||
+			fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		SetFolderDropFeedback(e, GetPathMenuTitle(path), path);
+		ScheduleSpringLoad(browser, path);
+	}
+
+	private async void ColumnViewBackground_Drop(object sender, DragEventArgs e)
+	{
+		CancelSpringLoad();
+		if (sender is not FrameworkElement { Tag: string path } element ||
+			GetColumnViewPaneBrowser(element) is not DirectoryBrowserViewModel browser ||
+			IsTrashPath(path) ||
+			!Directory.Exists(path) ||
+			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
+			IsInvalidInternalDropTarget(e.DataView, path) ||
+			fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		e.Handled = true;
+		await HandleItemsDropAsync(e, browser, path);
+	}
+
+	private void ColumnViewFolderItem_DragOver(object sender, DragEventArgs e)
+	{
+		if (sender is not FrameworkElement { DataContext: LocalFileSystemItem { IsNavigableDirectory: true } folder } element ||
+			GetColumnViewPaneBrowser(element) is not DirectoryBrowserViewModel browser ||
+			!Directory.Exists(folder.Path) ||
+			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
+			IsInvalidInternalDropTarget(e.DataView, folder.Path) ||
+			fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		SetFolderDropFeedback(e, folder.Name, folder.Path);
+		ScheduleSpringLoad(browser, folder.Path);
+	}
+
+	private async void ColumnViewFolderItem_Drop(object sender, DragEventArgs e)
+	{
+		CancelSpringLoad();
+		if (sender is not FrameworkElement { DataContext: LocalFileSystemItem { IsNavigableDirectory: true } folder } element ||
+			GetColumnViewPaneBrowser(element) is not DirectoryBrowserViewModel browser ||
+			!Directory.Exists(folder.Path) ||
+			!e.DataView.Contains(StandardDataFormats.StorageItems) ||
+			IsInvalidInternalDropTarget(e.DataView, folder.Path) ||
+			fileTransferCancellation is not null)
+		{
+			return;
+		}
+
+		e.Handled = true;
+		await HandleItemsDropAsync(e, browser, folder.Path);
 	}
 
 	private async void SplitViewButton_Click(object sender, RoutedEventArgs e)
