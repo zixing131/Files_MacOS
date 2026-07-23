@@ -142,6 +142,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private bool marqueePreservesSelection;
 	private bool marqueeTogglesSelection;
 	private bool hasMarqueeMoved;
+	private LocalFileSystemItem? marqueePressedItem;
+	private LocalFileSystemItem? pendingClickCollapseItem;
+	private DirectoryBrowserViewModel? pendingClickCollapseBrowser;
+	private FrameworkElement? pendingClickCollapseControl;
+	private Windows.Foundation.Point pendingClickCollapsePoint;
 	private Microsoft.UI.Dispatching.DispatcherQueueTimer? marqueeAutoScrollTimer;
 	private Microsoft.UI.Dispatching.DispatcherQueueTimer? springLoadTimer;
 	private string? springLoadPath;
@@ -3637,21 +3642,58 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
+		// 新的按下使上一次点击的收拢判定失效
+		ClearPendingClickCollapse();
+
 		FrameworkElement control = GetVisibleItemsControl(browser);
 		(Canvas layer, Border rectangle) = ReferenceEquals(pane, SecondaryPaneBorder)
 			? (SecondaryMarqueeLayer, SecondaryMarqueeRectangle)
 			: (PrimaryMarqueeLayer, PrimaryMarqueeRectangle);
 		Windows.Foundation.Point pointerPoint = e.GetCurrentPoint(layer).Position;
-		int targetKind = GetMarqueeTargetKind(e.OriginalSource as DependencyObject, control, layer, pointerPoint);
-		if (targetKind is not 1)
-		{
-			// Pressing on an item starts the native item drag immediately (single motion,
-			// per Apple HIG); marquee selection only ever starts from empty space.
-			return;
-		}
-		Windows.Foundation.Point startPoint = ClampToMarqueeControl(pointerPoint, control, layer);
+		int targetKind = GetMarqueeTargetKind(e.OriginalSource as DependencyObject, control, layer, pointerPoint, out LocalFileSystemItem? pressedItem);
 		bool togglesSelection = IsSelectionToggleModifierDown();
 		bool preservesSelection = togglesSelection || IsKeyDown(VirtualKey.Shift);
+		if (targetKind is 0)
+		{
+			return;
+		}
+
+		if (targetKind is 2)
+		{
+			// ⌘/⇧ 修饰键沿用单项切换与范围选择逻辑，不在此处介入
+			if (preservesSelection || pressedItem is null)
+			{
+				return;
+			}
+
+			if (GetSelectedItems(control).Contains(pressedItem))
+			{
+				// 按在已选中项上：保留原生拖拽；若未发生拖动，松手时收拢选择到该项（访达行为）
+				pendingClickCollapseItem = pressedItem;
+				pendingClickCollapseBrowser = browser;
+				pendingClickCollapseControl = control;
+				pendingClickCollapsePoint = e.GetCurrentPoint(this).Position;
+				return;
+			}
+
+			// 按在未选中项上直接开始框选，而不是拖动该文件
+			Windows.Foundation.Point itemStartPoint = ClampToMarqueeControl(pointerPoint, control, layer);
+			BeginMarqueeSelection(
+				control,
+				browser,
+				layer,
+				rectangle,
+				e,
+				itemStartPoint,
+				preservesSelection: false,
+				togglesSelection: false,
+				startedFromItem: true);
+			marqueePressedItem = pressedItem;
+			e.Handled = true;
+			return;
+		}
+
+		Windows.Foundation.Point startPoint = ClampToMarqueeControl(pointerPoint, control, layer);
 
 		BeginMarqueeSelection(
 			control,
@@ -3709,6 +3751,17 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Marquee_PointerMoved(object sender, PointerRoutedEventArgs e)
 	{
+		if (pendingClickCollapseItem is not null)
+		{
+			// 移动超过阈值说明是在拖动而非单击，取消松手收拢
+			Windows.Foundation.Point currentPoint = e.GetCurrentPoint(this).Position;
+			if (Math.Abs(currentPoint.X - pendingClickCollapsePoint.X) > MarqueeDragThreshold ||
+				Math.Abs(currentPoint.Y - pendingClickCollapsePoint.Y) > MarqueeDragThreshold)
+			{
+				ClearPendingClickCollapse();
+			}
+		}
+
 		if (!IsMarqueePane(sender, marqueeControl) || marqueeLayer is not Canvas layer || marqueeRectangle is not Border rectangle ||
 			marqueeBrowser is not DirectoryBrowserViewModel browser || marqueeControl is not FrameworkElement control)
 		{
@@ -3778,22 +3831,73 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Marquee_PointerReleased(object sender, PointerRoutedEventArgs e)
 	{
+		if (pendingClickCollapseItem is LocalFileSystemItem collapseItem &&
+			pendingClickCollapseBrowser is DirectoryBrowserViewModel collapseBrowser &&
+			pendingClickCollapseControl is FrameworkElement collapseControl &&
+			IsMarqueePane(sender, collapseControl))
+		{
+			// 单击已选中项且未拖动：收拢选择到该项
+			SelectSingleMarqueeItem(collapseBrowser, collapseControl, collapseItem);
+			e.Handled = true;
+		}
+		ClearPendingClickCollapse();
+
 		if (!IsMarqueePane(sender, marqueeControl) || marqueeControl is not FrameworkElement control)
 		{
 			return;
 		}
 
+		LocalFileSystemItem? pressedItem = marqueePressedItem;
+		DirectoryBrowserViewModel? pressedBrowser = marqueeBrowser;
+		bool clickedWithoutDrag = !hasMarqueeMoved;
 		control.ReleasePointerCapture(e.Pointer);
 		EndMarqueeSelection();
+		if (clickedWithoutDrag && pressedItem is not null && pressedBrowser is not null)
+		{
+			// 框选没有移动即为单击：选择仅按下的那一项
+			SelectSingleMarqueeItem(pressedBrowser, control, pressedItem);
+		}
 		e.Handled = true;
 	}
 
 	private void Marquee_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
 	{
+		ClearPendingClickCollapse();
 		if (IsMarqueePane(sender, marqueeControl))
 		{
 			EndMarqueeSelection();
 		}
+	}
+
+	private void ClearPendingClickCollapse()
+	{
+		pendingClickCollapseItem = null;
+		pendingClickCollapseBrowser = null;
+		pendingClickCollapseControl = null;
+	}
+
+	// 与框选共用的单项选择：折叠为仅指定项，并同步选中状态与窗格视觉
+	private void SelectSingleMarqueeItem(DirectoryBrowserViewModel browser, FrameworkElement control, LocalFileSystemItem item)
+	{
+		ActivateBrowser(browser, control);
+		control.Focus(FocusState.Pointer);
+		if (GetSelectedItems(control).SequenceEqual(new[] { item }))
+		{
+			return;
+		}
+
+		isUpdatingSelection = true;
+		try
+		{
+			RestoreSelection(browser, control, [item]);
+		}
+		finally
+		{
+			isUpdatingSelection = false;
+		}
+		selectedItems = browser.Items.Where(item.Equals).ToArray();
+		browser.UpdateSelection(selectedItems);
+		UpdatePaneVisuals();
 	}
 
 	private void EndMarqueeSelection()
@@ -3814,6 +3918,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		marqueeBrowser = null;
 		marqueeLayer = null;
 		marqueeRectangle = null;
+		marqueePressedItem = null;
 		marqueeItemBounds.Clear();
 		marqueeInitialSelection = [];
 		marqueePreservesSelection = false;
@@ -3841,18 +3946,21 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		DependencyObject? source,
 		FrameworkElement control,
 		FrameworkElement layer,
-		Windows.Foundation.Point point)
+		Windows.Foundation.Point point,
+		out LocalFileSystemItem? pressedItem)
 	{
 		bool isItem = false;
+		pressedItem = null;
 		for (DependencyObject? current = source; current is not null; current = VisualTreeHelper.GetParent(current))
 		{
-			if (current is Microsoft.UI.Xaml.Controls.Primitives.ScrollBar or TextBox)
+			if (current is Microsoft.UI.Xaml.Controls.Primitives.ScrollBar or TextBox or Button)
 			{
 				return 0;
 			}
-			if (current is FrameworkElement { DataContext: LocalFileSystemItem })
+			if (current is FrameworkElement { DataContext: LocalFileSystemItem item })
 			{
 				isItem = true;
+				pressedItem ??= item;
 			}
 			if (ReferenceEquals(current, control))
 			{
@@ -5145,6 +5253,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Items_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
 	{
+		ClearPendingClickCollapse();
 		if (sender is ListViewBase list && GetBrowserForItemsControl(list) is DirectoryBrowserViewModel browser)
 		{
 			if (ShouldCancelItemDragForMarquee(list))
@@ -5167,6 +5276,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void GridItem_DragStarting(UIElement sender, DragStartingEventArgs e)
 	{
+		ClearPendingClickCollapse();
 		if (sender is not FrameworkElement { DataContext: LocalFileSystemItem item } ||
 			GetBrowserForItem(item) is not DirectoryBrowserViewModel browser ||
 			GetVisibleItemsControl(browser) is not ItemsView view)
