@@ -79,7 +79,6 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private string? secondaryColumnViewPath;
 	private int primaryColumnViewGeneration;
 	private int secondaryColumnViewGeneration;
-	private bool isColumnViewSelectionSync;
 	private AppSettings currentSettings = new();
 	private AppSettings persistedSettingsBaseline = new();
 	private bool isResizingSplit;
@@ -9255,20 +9254,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			.ThenBy(static item => item.Name, StringComparer.CurrentCultureIgnoreCase)
 			.ToArray();
 		columnList.ItemsSource = orderedItems;
-		isColumnViewSelectionSync = true;
-		int selectedIndex;
-		try
-		{
-			selectedIndex = Array.FindIndex(orderedItems, item => string.Equals(item.Path, selectedChildPath, StringComparison.Ordinal));
-			columnList.SelectedItem = selectedIndex >= 0 ? orderedItems[selectedIndex] : null;
-		}
-		finally
-		{
-			isColumnViewSelectionSync = false;
-		}
-
+		int selectedIndex = Array.FindIndex(orderedItems, item => string.Equals(item.Path, selectedChildPath, StringComparison.Ordinal));
 		if (selectedIndex >= 0)
 		{
+			// Highlight the chain row through the item flag; assigning SelectedItem here
+			// would make the ListView scroll the row to the top and hide the rows above.
+			orderedItems[selectedIndex].IsColumnViewChainSelected = true;
 			CenterColumnViewSelection(columnList, orderedItems.Length, selectedIndex, generation, isSecondary, attempt: 0);
 		}
 	}
@@ -9310,7 +9301,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	// Ancestor columns navigate on folder selection but never touch the pane's item selection.
 	private async void ColumnViewAncestor_SelectionChanged(object sender, SelectionChangedEventArgs e)
 	{
-		if (isColumnViewSelectionSync || sender is not ListView { SelectedItem: LocalFileSystemItem item } list)
+		if (sender is not ListView { SelectedItem: LocalFileSystemItem item } list)
 		{
 			return;
 		}

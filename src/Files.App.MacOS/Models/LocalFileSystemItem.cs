@@ -115,6 +115,12 @@ public sealed partial class LocalFileSystemItem(
 	[ObservableProperty]
 	public partial bool IsInlineEditing { get; set; }
 
+	// Marks the item that leads to the current path in a column view ancestor column.
+	// The ancestor template paints its own highlight from this flag instead of using
+	// ListView selection, whose ScrollIntoView would pin the row to the viewport top.
+	[ObservableProperty]
+	public partial bool IsColumnViewChainSelected { get; set; }
+
 	// Hierarchy state for the details view tree: Depth drives the name column
 	// indent, IsExpanded mirrors the disclosure triangle, and ShowDisclosure
 	// marks directories that can be expanded in place.
