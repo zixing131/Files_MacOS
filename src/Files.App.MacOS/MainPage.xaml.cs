@@ -89,6 +89,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private double detailColumnResizeStartWidth;
 	private double detailColumnResizeDirection = 1;
 	private bool suppressDetailsHeaderClick;
+	private double detailsHeaderPressX;
 	private bool isDetailsResizeCursorVisible;
 	private bool isConnectingServer;
 	private bool isHistoryOperationRunning;
@@ -9853,6 +9854,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void DetailsHeaderResize_PointerPressed(object sender, PointerRoutedEventArgs e)
 	{
+		// 每次按下先重置抑制标记并记录按下位置，横向拖动或按住列宽手柄时都不应触发排序
+		suppressDetailsHeaderClick = false;
+		detailsHeaderPressX = e.GetCurrentPoint(this).Position.X;
 		if (sender is not Button { Tag: string fieldName } button || !IsOverDetailsHeaderResizeHandle(button, fieldName, e))
 		{
 			return;
@@ -9881,6 +9885,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
+		// 按在列宽手柄上本身就视为拖拽操作，即使不移动也不排序
+		suppressDetailsHeaderClick = true;
 		e.Handled = true;
 	}
 
@@ -9891,32 +9897,41 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			if (sender is Button { Tag: string fieldName } button)
 			{
 				SetDetailsResizeCursor(IsOverDetailsHeaderResizeHandle(button, fieldName, e));
+				// 按住表头横向拖动超过阈值视为拖拽，松开时不排序
+				if (e.Pointer.IsInContact && Math.Abs(e.GetCurrentPoint(this).Position.X - detailsHeaderPressX) > 6)
+				{
+					suppressDetailsHeaderClick = true;
+				}
 			}
 			return;
 		}
 
 		double delta = (e.GetCurrentPoint(this).Position.X - detailColumnResizeStartX) * detailColumnResizeDirection;
 		DetailColumnWidths.SetWidth(resizingDetailColumn, Math.Clamp(detailColumnResizeStartWidth + delta, 72, 480));
+		suppressDetailsHeaderClick = true;
 		e.Handled = true;
 	}
 
 	private void DetailsHeaderResize_PointerReleased(object sender, PointerRoutedEventArgs e)
 	{
-		if (resizingDetailsHeader is null)
+		if (resizingDetailsHeader is not null)
 		{
-			return;
+			Button resizedButton = resizingDetailsHeader;
+			resizingDetailsHeader = null;
+			resizingDetailColumn = null;
+			suppressDetailsHeaderClick = true;
+			resizedButton.ReleasePointerCapture(e.Pointer);
+			currentSettings = currentSettings with { DetailColumnWidths = DetailColumnWidths.Capture() };
+			ScheduleWorkspaceSave();
+			SetDetailsResizeCursor(true);
+			e.Handled = true;
 		}
 
-		Button resizedButton = resizingDetailsHeader;
-		resizingDetailsHeader = null;
-		resizingDetailColumn = null;
-		suppressDetailsHeaderClick = true;
-		resizedButton.ReleasePointerCapture(e.Pointer);
-		currentSettings = currentSettings with { DetailColumnWidths = DetailColumnWidths.Capture() };
-		ScheduleWorkspaceSave();
-		SetDetailsResizeCursor(true);
-		DispatcherQueue.TryEnqueue(() => suppressDetailsHeaderClick = false);
-		e.Handled = true;
+		// Button 的 Click 先于 PointerReleased 实例处理器触发，抑制标记要等 Click 判定完再异步清除
+		if (suppressDetailsHeaderClick)
+		{
+			DispatcherQueue.TryEnqueue(() => suppressDetailsHeaderClick = false);
+		}
 	}
 
 	private void DetailsHeaderResize_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
