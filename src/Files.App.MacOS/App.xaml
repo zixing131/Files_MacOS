@@ -123,8 +123,13 @@
 			<Style x:Key="DetailsHeaderButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
 				<Setter Property="Height" Value="35" />
 				<Setter Property="Padding" Value="8,0" />
+				<Setter Property="Margin" Value="0" />
+				<Setter Property="MinWidth" Value="0" />
 				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
 				<Setter Property="FontWeight" Value="SemiBold" />
+			</Style>
+			<Style x:Key="DetailsListViewItemStyle" TargetType="ListViewItem">
+				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
 			</Style>
 
 			<Style x:Key="StatusViewButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">

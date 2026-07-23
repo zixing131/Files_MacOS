@@ -10126,16 +10126,26 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		if (fieldName is "Name")
-		{
-			fieldName = new[] { "Modified", "Created", "LastOpened", "Added", "Size", "Kind", "Version", "Comments", "Tags" }
-				.FirstOrDefault(DetailColumnState.IsVisible) ?? string.Empty;
-		}
-		detailColumnResizeDirection = -1;
-
-		if (string.IsNullOrEmpty(fieldName))
+		// 手柄挂在列的左缘：优先调整左边相邻的可见列，被拖边界跟随指针移动；
+		// 首个数据列的左邻是星宽名称列，无法直接设宽，此时改为调整自身
+		var visibleColumns = DetailColumnOrderState.Supported
+			.Where(DetailColumnState.IsVisible)
+			.OrderBy(DetailColumnOrder.GetOrder)
+			.ToList();
+		int columnIndex = visibleColumns.IndexOf(fieldName);
+		if (columnIndex < 0)
 		{
 			return;
+		}
+
+		if (columnIndex > 0)
+		{
+			fieldName = visibleColumns[columnIndex - 1];
+			detailColumnResizeDirection = 1;
+		}
+		else
+		{
+			detailColumnResizeDirection = -1;
 		}
 
 		resizingDetailsHeader = button;
@@ -10240,7 +10250,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			suppressDetailsHeaderClick = true;
 			resizedButton.ReleasePointerCapture(e.Pointer);
 			SaveFolderViewPreference(GetDetailsHeaderBrowser(resizedButton));
-			SetDetailsResizeCursor(true);
+			// 松手后先复位光标，仍停留在手柄上时由后续 PointerMoved 悬停重新设置
+			SetDetailsResizeCursor(false);
 			e.Handled = true;
 		}
 
@@ -10272,6 +10283,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			reorderingDetailsHeader = null;
 			reorderingDetailColumn = null;
 		}
+
+		// 拖拽被取消（Esc、焦点丢失等）不会触发 PointerReleased，这里兜底复位光标
+		SetDetailsResizeCursor(false);
 	}
 
 	private void DetailsHeaderResize_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -10284,8 +10298,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private static bool IsOverDetailsHeaderResizeHandle(Button button, string fieldName, PointerRoutedEventArgs e)
 	{
+		// 每个列边界只保留一个拖拽手柄，统一挂在边界右侧那一列的左缘，名称列不再提供手柄
+		if (fieldName is "Name")
+		{
+			return false;
+		}
+
 		double pointerX = e.GetCurrentPoint(button).Position.X;
-		return fieldName is "Name" ? pointerX >= button.ActualWidth - 12 : pointerX <= 12;
+		return pointerX is >= 0 and <= 12;
 	}
 
 	private void SetDetailsResizeCursor(bool isVisible)
