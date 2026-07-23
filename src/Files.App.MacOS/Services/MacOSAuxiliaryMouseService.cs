@@ -11,6 +11,7 @@ internal sealed class MacOSAuxiliaryMouseService : IDisposable
 	private readonly DispatcherQueue dispatcherQueue;
 	private readonly Action<int> auxiliaryMouseCallback;
 	private readonly Func<double, double, bool, bool> scrollWheelCallback;
+	private readonly Func<double, int, bool> magnifyCallback;
 	private readonly Func<bool, bool> spaceKeyCallback;
 	private readonly Action quickLookClosedCallback;
 	private bool isDisposed;
@@ -19,18 +20,21 @@ internal sealed class MacOSAuxiliaryMouseService : IDisposable
 		DispatcherQueue dispatcherQueue,
 		Action<int> auxiliaryMouseCallback,
 		Func<double, double, bool, bool> scrollWheelCallback,
+		Func<double, int, bool> magnifyCallback,
 		Func<bool, bool> spaceKeyCallback,
 		Action quickLookClosedCallback)
 	{
 		this.dispatcherQueue = dispatcherQueue;
 		this.auxiliaryMouseCallback = auxiliaryMouseCallback;
 		this.scrollWheelCallback = scrollWheelCallback;
+		this.magnifyCallback = magnifyCallback;
 		this.spaceKeyCallback = spaceKeyCallback;
 		this.quickLookClosedCallback = quickLookClosedCallback;
 		callbackHandle = GCHandle.Alloc(this);
 		MacOSNativeMethods.InstallAuxiliaryMouseHandler(
 			&HandleAuxiliaryMouseButton,
 			&HandleScrollWheel,
+			&HandleMagnify,
 			&HandleSpaceKey,
 			GCHandle.ToIntPtr(callbackHandle));
 	}
@@ -60,6 +64,25 @@ internal sealed class MacOSAuxiliaryMouseService : IDisposable
 
 			return service.dispatcherQueue.TryEnqueue(() =>
 				service.scrollWheelCallback(deltaX, deltaY, hasPreciseDeltas is not 0)) ? 1 : 0;
+		}
+		catch
+		{
+			return 0;
+		}
+	}
+
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+	private static int HandleMagnify(nint context, double magnification, int phase)
+	{
+		try
+		{
+			if (GCHandle.FromIntPtr(context).Target is not MacOSAuxiliaryMouseService service ||
+				!service.dispatcherQueue.HasThreadAccess)
+			{
+				return 0;
+			}
+
+			return service.magnifyCallback(magnification, phase) ? 1 : 0;
 		}
 		catch
 		{

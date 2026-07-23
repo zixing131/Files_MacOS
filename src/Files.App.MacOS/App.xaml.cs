@@ -108,6 +108,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 			page.DispatcherQueue,
 			buttonNumber => activePage?.HandleAuxiliaryMouseButton(buttonNumber),
 			(deltaX, deltaY, hasPreciseDeltas) => activePage?.HandleNativeScrollWheel(deltaX, deltaY, hasPreciseDeltas) is true,
+			(magnification, phase) => activePage?.HandleNativeMagnifyGesture(magnification, phase) is true,
 			quickLookVisible => activePage?.HandleNativeSpaceKey(quickLookVisible) is true,
 			() => activePage?.HandleNativeQuickLookClosed());
 

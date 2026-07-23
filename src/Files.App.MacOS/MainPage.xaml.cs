@@ -9166,6 +9166,35 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
+	private double pinchMagnificationAccumulator;
+
+	// 触控板捏合：原生桥转发 NSEventTypeMagnify，累积跨过阈值后按档位缩放网格图标
+	internal bool HandleNativeMagnifyGesture(double magnification, int phase)
+	{
+		if (Browser is not DirectoryBrowserViewModel { IsGridView: true })
+		{
+			return false;
+		}
+
+		const int NSEventPhaseBegan = 1;
+		if ((phase & NSEventPhaseBegan) is not 0)
+		{
+			pinchMagnificationAccumulator = 0;
+		}
+		pinchMagnificationAccumulator += magnification;
+
+		const double LevelStepThreshold = 0.3;
+		if (Math.Abs(pinchMagnificationAccumulator) < LevelStepThreshold)
+		{
+			return true;
+		}
+
+		int levelDelta = pinchMagnificationAccumulator > 0 ? 1 : -1;
+		pinchMagnificationAccumulator = 0;
+		_ = ChangeGridIconSizeLevelAsync(GridItemSizes.Level + levelDelta);
+		return true;
+	}
+
 	private double GetAcceleratedWheelDistance(int delta)
 	{
 		long timestamp = Environment.TickCount64;

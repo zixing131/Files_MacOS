@@ -44,6 +44,7 @@ typedef void (*FilesMenuCommandCallback)(void *context, int command);
 typedef int (*FilesMenuValidationCallback)(void *context, int command);
 typedef void (*FilesAuxiliaryMouseCallback)(void *context, int buttonNumber);
 typedef int (*FilesScrollWheelCallback)(void *context, double deltaX, double deltaY, int hasPreciseDeltas);
+typedef int (*FilesMagnifyCallback)(void *context, double magnification, int phase);
 typedef int (*FilesSpaceKeyCallback)(void *context, int quickLookVisible);
 typedef void (*FilesOpenPathsCallback)(void *context, const char *pathsJson);
 
@@ -448,6 +449,7 @@ __attribute__((visibility("default"))) int files_macos_register_symbol_font(void
 static id auxiliaryMouseMonitor;
 static FilesAuxiliaryMouseCallback auxiliaryMouseCallback;
 static FilesScrollWheelCallback scrollWheelCallback;
+static FilesMagnifyCallback magnifyCallback;
 static FilesSpaceKeyCallback spaceKeyCallback;
 static void *auxiliaryMouseCallbackContext;
 static atomic_bool mainMenuInstalled;
@@ -465,6 +467,7 @@ static NSString *const FilesMetadataItemUserTagsKey = @"kMDItemUserTags";
 __attribute__((visibility("default"))) void files_macos_install_auxiliary_mouse_handler(
 	FilesAuxiliaryMouseCallback callback,
 	FilesScrollWheelCallback scrollCallback,
+	FilesMagnifyCallback magnifyGestureCallback,
 	FilesSpaceKeyCallback keyCallback,
 	void *callbackContext)
 {
@@ -476,14 +479,15 @@ __attribute__((visibility("default"))) void files_macos_install_auxiliary_mouse_
 		}
 		auxiliaryMouseCallback = callback;
 		scrollWheelCallback = scrollCallback;
+		magnifyCallback = magnifyGestureCallback;
 		spaceKeyCallback = keyCallback;
 		auxiliaryMouseCallbackContext = callbackContext;
-		if (callback == NULL && scrollCallback == NULL && keyCallback == NULL)
+		if (callback == NULL && scrollCallback == NULL && magnifyGestureCallback == NULL && keyCallback == NULL)
 		{
 			return;
 		}
 
-		NSEventMask eventMask = NSEventMaskOtherMouseDown | NSEventMaskScrollWheel | NSEventMaskKeyDown;
+		NSEventMask eventMask = NSEventMaskOtherMouseDown | NSEventMaskScrollWheel | NSEventMaskMagnify | NSEventMaskKeyDown;
 		auxiliaryMouseMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:eventMask handler:^NSEvent *(NSEvent *event) {
 			if (event.type == NSEventTypeOtherMouseDown)
 			{
@@ -500,6 +504,14 @@ __attribute__((visibility("default"))) void files_macos_install_auxiliary_mouse_
 					event.scrollingDeltaX,
 					event.scrollingDeltaY,
 					event.hasPreciseScrollingDeltas ? 1 : 0) != 0)
+			{
+				return nil;
+			}
+			else if (event.type == NSEventTypeMagnify && atomic_load(&gridScrollCaptureEnabled) && magnifyCallback != NULL &&
+				magnifyCallback(
+					auxiliaryMouseCallbackContext,
+					event.magnification,
+					(int)event.phase) != 0)
 			{
 				return nil;
 			}
@@ -530,6 +542,7 @@ __attribute__((visibility("default"))) void files_macos_uninstall_auxiliary_mous
 		}
 		auxiliaryMouseCallback = NULL;
 		scrollWheelCallback = NULL;
+		magnifyCallback = NULL;
 		spaceKeyCallback = NULL;
 		auxiliaryMouseCallbackContext = NULL;
 	});

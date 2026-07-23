@@ -43,6 +43,7 @@ internal static partial class MacOSNativeMethods
 	internal static unsafe partial void InstallAuxiliaryMouseHandler(
 		delegate* unmanaged[Cdecl]<nint, int, void> callback,
 		delegate* unmanaged[Cdecl]<nint, double, double, int, int> scrollCallback,
+		delegate* unmanaged[Cdecl]<nint, double, int, int> magnifyCallback,
 		delegate* unmanaged[Cdecl]<nint, int, int> spaceKeyCallback,
 		nint context);
 
