@@ -58,6 +58,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		(DetailColumnVisibilityState)Resources["DetailColumnVisibilityState"];
 	private DetailColumnWidthState DetailColumnWidths =>
 		(DetailColumnWidthState)Resources["DetailColumnWidthState"];
+	private DetailColumnOrderState DetailColumnOrder =>
+		(DetailColumnOrderState)Resources["DetailColumnOrderState"];
 	private GridItemSizeState GridItemSizes =>
 		(GridItemSizeState)Resources["GridItemSizeState"];
 	private readonly ResourceLoader resourceLoader = ResourceLoader.GetForViewIndependentUse();
@@ -90,6 +92,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private double detailColumnResizeDirection = 1;
 	private bool suppressDetailsHeaderClick;
 	private double detailsHeaderPressX;
+	private Button? reorderingDetailsHeader;
+	private string? reorderingDetailColumn;
+	private readonly Dictionary<string, Button> primaryDetailsHeaderButtons = new(StringComparer.Ordinal);
+	private readonly Dictionary<string, Button> secondaryDetailsHeaderButtons = new(StringComparer.Ordinal);
 	private bool isDetailsResizeCursorVisible;
 	private bool isConnectingServer;
 	private bool isHistoryOperationRunning;
@@ -299,6 +305,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			button.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(DetailsHeaderResize_PointerReleased), handledEventsToo: true);
 			button.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler(DetailsHeaderResize_PointerCaptureLost), handledEventsToo: true);
 			button.PointerExited += DetailsHeaderResize_PointerExited;
+			if (button.Tag is string column && column is not "Name")
+			{
+				(button.Name.StartsWith("Secondary", StringComparison.Ordinal)
+					? secondaryDetailsHeaderButtons
+					: primaryDetailsHeaderButtons)[column] = button;
+			}
 		}
 	}
 
@@ -353,6 +365,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		persistedSettingsBaseline = currentSettings;
 		DetailColumnState.Apply(currentSettings.DetailColumns);
 		DetailColumnWidths.Apply(currentSettings.DetailColumnWidths);
+		DetailColumnOrder.Apply(currentSettings.DetailColumnOrder);
 		ApplyGridIconSizeLevel(currentSettings.GridIconSizeLevel);
 		ApplyStatusBarVisibility(currentSettings.ShowStatusBar);
 		isSidebarOpen = currentSettings.IsSidebarOpen;
@@ -9896,11 +9909,28 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			if (sender is Button { Tag: string fieldName } button)
 			{
+				if (reorderingDetailsHeader is not null)
+				{
+					UpdateDetailsHeaderReorder(e);
+					e.Handled = true;
+					return;
+				}
+
 				SetDetailsResizeCursor(IsOverDetailsHeaderResizeHandle(button, fieldName, e));
 				// 按住表头横向拖动超过阈值视为拖拽，松开时不排序
 				if (e.Pointer.IsInContact && Math.Abs(e.GetCurrentPoint(this).Position.X - detailsHeaderPressX) > 6)
 				{
 					suppressDetailsHeaderClick = true;
+					// 名称列固定在最前不参与重排，其余列进入拖拽重排
+					if (fieldName is not "Name" && button.CapturePointer(e.Pointer))
+					{
+						reorderingDetailsHeader = button;
+						reorderingDetailColumn = fieldName;
+						button.Opacity = 0.75;
+						SetDetailsResizeCursor(false);
+						UpdateDetailsHeaderReorder(e);
+						e.Handled = true;
+					}
 				}
 			}
 			return;
@@ -9910,6 +9940,43 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		DetailColumnWidths.SetWidth(resizingDetailColumn, Math.Clamp(detailColumnResizeStartWidth + delta, 72, 480));
 		suppressDetailsHeaderClick = true;
 		e.Handled = true;
+	}
+
+	// 拖拽重排：指针越过相邻列中线时实时交换位置，与访达行为一致
+	private void UpdateDetailsHeaderReorder(PointerRoutedEventArgs e)
+	{
+		if (reorderingDetailColumn is not string dragged || reorderingDetailsHeader is not Button draggedButton)
+		{
+			return;
+		}
+
+		bool isSecondary = draggedButton.Name.StartsWith("Secondary", StringComparison.Ordinal);
+		FrameworkElement header = isSecondary ? SecondaryDetailsHeader : PrimaryDetailsHeader;
+		Dictionary<string, Button> buttons = isSecondary ? secondaryDetailsHeaderButtons : primaryDetailsHeaderButtons;
+		double pointerX = e.GetCurrentPoint(header).Position.X;
+
+		var others = DetailColumnOrderState.Supported
+			.Where(DetailColumnState.IsVisible)
+			.OrderBy(DetailColumnOrder.GetOrder)
+			.Where(column => column != dragged)
+			.ToList();
+		int targetIndex = 0;
+		foreach (string column in others)
+		{
+			if (!buttons.TryGetValue(column, out Button? columnButton))
+			{
+				continue;
+			}
+
+			double columnLeft = columnButton.TransformToVisual(header).TransformPoint(default).X;
+			if (pointerX > columnLeft + (columnButton.ActualWidth / 2))
+			{
+				targetIndex++;
+			}
+		}
+
+		others.Insert(targetIndex, dragged);
+		DetailColumnOrder.ApplyVisibleOrder(others, DetailColumnState.IsVisible);
 	}
 
 	private void DetailsHeaderResize_PointerReleased(object sender, PointerRoutedEventArgs e)
@@ -9927,6 +9994,18 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			e.Handled = true;
 		}
 
+		if (reorderingDetailsHeader is not null)
+		{
+			Button reorderedButton = reorderingDetailsHeader;
+			reorderingDetailsHeader = null;
+			reorderingDetailColumn = null;
+			reorderedButton.Opacity = 1;
+			reorderedButton.ReleasePointerCapture(e.Pointer);
+			currentSettings = currentSettings with { DetailColumnOrder = DetailColumnOrder.Capture() };
+			ScheduleWorkspaceSave();
+			e.Handled = true;
+		}
+
 		// Button 的 Click 先于 PointerReleased 实例处理器触发，抑制标记要等 Click 判定完再异步清除
 		if (suppressDetailsHeaderClick)
 		{
@@ -9938,6 +10017,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		resizingDetailsHeader = null;
 		resizingDetailColumn = null;
+		if (reorderingDetailsHeader is not null)
+		{
+			reorderingDetailsHeader.Opacity = 1;
+			reorderingDetailsHeader = null;
+			reorderingDetailColumn = null;
+		}
 	}
 
 	private void DetailsHeaderResize_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -10292,6 +10377,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ConfirmMoveToTrash = requested.ConfirmMoveToTrash != baseline.ConfirmMoveToTrash ? requested.ConfirmMoveToTrash : latest.ConfirmMoveToTrash,
 			DetailColumns = HasSequenceChanged(requested.DetailColumns, baseline.DetailColumns, StringComparer.Ordinal) ? requested.DetailColumns : latest.DetailColumns,
 			DetailColumnWidths = HasSequenceChanged(requested.DetailColumnWidths, baseline.DetailColumnWidths) ? requested.DetailColumnWidths : latest.DetailColumnWidths,
+			DetailColumnOrder = HasSequenceChanged(requested.DetailColumnOrder, baseline.DetailColumnOrder, StringComparer.Ordinal) ? requested.DetailColumnOrder : latest.DetailColumnOrder,
 			ContextMenuActions = HasSequenceChanged(requested.ContextMenuActions, baseline.ContextMenuActions) ? requested.ContextMenuActions : latest.ContextMenuActions,
 			FavoritePaths = HasSequenceChanged(requested.FavoritePaths, baseline.FavoritePaths, StringComparer.OrdinalIgnoreCase) ? requested.FavoritePaths : latest.FavoritePaths,
 			RecentPaths = HasSequenceChanged(requested.RecentPaths, baseline.RecentPaths, StringComparer.Ordinal) ? requested.RecentPaths : latest.RecentPaths,

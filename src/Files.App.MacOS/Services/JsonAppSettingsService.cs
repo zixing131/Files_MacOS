@@ -100,6 +100,11 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			.GroupBy(static item => item.Column, StringComparer.Ordinal)
 			.Select(static group => new DetailColumnWidthSetting(group.Key, Math.Clamp(group.Last().Width, 72, 480)))
 			.ToArray();
+		string[]? detailColumnOrder = settings.DetailColumnOrder is null
+			? null
+			: NormalizeStrings(settings.DetailColumnOrder, 9, StringComparer.Ordinal)
+				.Where(static column => column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
+				.ToArray();
 		ContextMenuActionSetting[] contextMenuActions = NormalizeContextMenuActions(settings.ContextMenuActions);
 		SavedSearch[] savedSearches = (settings.SavedSearches ?? [])
 			.Where(static search => search is not null &&
@@ -143,6 +148,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			HiddenDefaultSidebarLocations = hiddenDefaultSidebarLocations,
 			DetailColumns = detailColumns,
 			DetailColumnWidths = detailColumnWidths,
+			DetailColumnOrder = detailColumnOrder,
 			ContextMenuActions = contextMenuActions,
 			SavedSearches = savedSearches,
 			Workspace = workspace,

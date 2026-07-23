@@ -88,6 +88,7 @@ public sealed record AppSettings(
 	bool ConfirmMoveToTrash = true,
 	string[]? DetailColumns = null,
 	DetailColumnWidthSetting[]? DetailColumnWidths = null,
+	string[]? DetailColumnOrder = null,
 	ContextMenuActionSetting[]? ContextMenuActions = null,
 	int GridIconSizeLevel = 1,
 	bool ShowStatusBar = true,
