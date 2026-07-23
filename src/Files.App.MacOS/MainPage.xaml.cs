@@ -143,6 +143,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private bool marqueeTogglesSelection;
 	private bool hasMarqueeMoved;
 	private LocalFileSystemItem? marqueePressedItem;
+	private bool marqueeStartedWithRightButton;
+	private bool suppressNextRightTapped;
 	private LocalFileSystemItem? pendingClickCollapseItem;
 	private DirectoryBrowserViewModel? pendingClickCollapseBrowser;
 	private FrameworkElement? pendingClickCollapseControl;
@@ -3628,10 +3630,20 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	{
 		if (marqueeControl is not null ||
 			sender is not FrameworkElement pane ||
-			!IsLeftPointerPress(e, pane) ||
 			e.Pointer.PointerDeviceType is Microsoft.UI.Input.PointerDeviceType.Touch)
 		{
 			return;
+		}
+
+		// 触控板双指按压等同右键：右键（双指）按压拖移也作为框选手势
+		bool isRightPress = IsRightPointerPress(e, pane);
+		if (!isRightPress && !IsLeftPointerPress(e, pane))
+		{
+			return;
+		}
+		if (isRightPress)
+		{
+			suppressNextRightTapped = false;
 		}
 
 		DirectoryBrowserViewModel? browser = pane is { Tag: "Secondary" }
@@ -3651,8 +3663,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			: (PrimaryMarqueeLayer, PrimaryMarqueeRectangle);
 		Windows.Foundation.Point pointerPoint = e.GetCurrentPoint(layer).Position;
 		int targetKind = GetMarqueeTargetKind(e.OriginalSource as DependencyObject, control, layer, pointerPoint, out LocalFileSystemItem? pressedItem);
-		bool togglesSelection = IsSelectionToggleModifierDown();
-		bool preservesSelection = togglesSelection || IsKeyDown(VirtualKey.Shift);
+		bool togglesSelection = !isRightPress && IsSelectionToggleModifierDown();
+		bool preservesSelection = togglesSelection || (!isRightPress && IsKeyDown(VirtualKey.Shift));
 		if (targetKind is 0)
 		{
 			return;
@@ -3666,7 +3678,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				return;
 			}
 
-			if (GetSelectedItems(control).Contains(pressedItem))
+			if (!isRightPress && GetSelectedItems(control).Contains(pressedItem))
 			{
 				// 按在已选中项上：保留原生拖拽；若未发生拖动，松手时收拢选择到该项（访达行为）
 				pendingClickCollapseItem = pressedItem;
@@ -3676,7 +3688,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				return;
 			}
 
-			// 按在未选中项上直接开始框选，而不是拖动该文件
+			// 按在未选中项上（或右键按在任意项上）直接开始框选，而不是拖动该文件
 			Windows.Foundation.Point itemStartPoint = ClampToMarqueeControl(pointerPoint, control, layer);
 			BeginMarqueeSelection(
 				control,
@@ -3687,7 +3699,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				itemStartPoint,
 				preservesSelection: false,
 				togglesSelection: false,
-				startedFromItem: true);
+				startedFromItem: true,
+				isRightButton: isRightPress);
 			marqueePressedItem = pressedItem;
 			e.Handled = true;
 			return;
@@ -3704,7 +3717,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			startPoint,
 			preservesSelection,
 			togglesSelection,
-			startedFromItem: false);
+			startedFromItem: false,
+			isRightButton: isRightPress);
 		e.Handled = true;
 	}
 
@@ -3713,6 +3727,13 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		var properties = e.GetCurrentPoint(relativeTo).Properties;
 		return properties.IsLeftButtonPressed ||
 			properties.PointerUpdateKind is Microsoft.UI.Input.PointerUpdateKind.LeftButtonPressed;
+	}
+
+	private static bool IsRightPointerPress(PointerRoutedEventArgs e, UIElement relativeTo)
+	{
+		var properties = e.GetCurrentPoint(relativeTo).Properties;
+		return properties.IsRightButtonPressed ||
+			properties.PointerUpdateKind is Microsoft.UI.Input.PointerUpdateKind.RightButtonPressed;
 	}
 
 	private void BeginMarqueeSelection(
@@ -3724,7 +3745,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		Windows.Foundation.Point startPoint,
 		bool preservesSelection,
 		bool togglesSelection,
-		bool startedFromItem)
+		bool startedFromItem,
+		bool isRightButton = false)
 	{
 		ActivateBrowser(browser, control);
 		control.Focus(FocusState.Pointer);
@@ -3740,9 +3762,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		marqueeInitialSelection = GetSelectedItems(control).ToHashSet();
 		marqueeTogglesSelection = togglesSelection;
 		marqueePreservesSelection = preservesSelection;
+		marqueeStartedWithRightButton = isRightButton;
 		hasMarqueeMoved = false;
 
-		if (!marqueePreservesSelection && !startedFromItem)
+		if (!marqueePreservesSelection && !startedFromItem && !isRightButton)
 		{
 			ApplyMarqueeSelection(browser, control, []);
 		}
@@ -3850,12 +3873,18 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		LocalFileSystemItem? pressedItem = marqueePressedItem;
 		DirectoryBrowserViewModel? pressedBrowser = marqueeBrowser;
 		bool clickedWithoutDrag = !hasMarqueeMoved;
+		bool startedWithRightButton = marqueeStartedWithRightButton;
 		control.ReleasePointerCapture(e.Pointer);
 		EndMarqueeSelection();
-		if (clickedWithoutDrag && pressedItem is not null && pressedBrowser is not null)
+		if (clickedWithoutDrag && !startedWithRightButton && pressedItem is not null && pressedBrowser is not null)
 		{
-			// 框选没有移动即为单击：选择仅按下的那一项
+			// 框选没有移动即为单击：选择仅按下的那一项（右键点击的选择交由右键菜单逻辑处理）
 			SelectSingleMarqueeItem(pressedBrowser, control, pressedItem);
+		}
+		if (startedWithRightButton && !clickedWithoutDrag)
+		{
+			// 右键（双指按压）拖拽框选后吞掉这次 RightTapped，避免误弹上下文菜单
+			suppressNextRightTapped = true;
 		}
 		e.Handled = true;
 	}
@@ -3919,6 +3948,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		marqueeLayer = null;
 		marqueeRectangle = null;
 		marqueePressedItem = null;
+		marqueeStartedWithRightButton = false;
 		marqueeItemBounds.Clear();
 		marqueeInitialSelection = [];
 		marqueePreservesSelection = false;
@@ -5599,6 +5629,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Item_RightTapped(object sender, RightTappedRoutedEventArgs e)
 	{
+		if (ConsumeSuppressRightTapped())
+		{
+			e.Handled = true;
+			return;
+		}
 		if (sender is not FrameworkElement { DataContext: LocalFileSystemItem item } || GetBrowserForItem(item) is not DirectoryBrowserViewModel browser)
 		{
 			return;
@@ -5707,11 +5742,33 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ActivateBrowser(browser, control);
 	}
 
-	private void PrimaryPane_RightTapped(object sender, RightTappedRoutedEventArgs e) =>
+	private void PrimaryPane_RightTapped(object sender, RightTappedRoutedEventArgs e)
+	{
+		if (ConsumeSuppressRightTapped())
+		{
+			return;
+		}
 		ShowBackgroundContextMenu(e, ViewModel.ActiveTab?.Browser, PrimaryPaneBorder, PrimaryBackgroundContextFlyout);
+	}
 
-	private void SecondaryPane_RightTapped(object sender, RightTappedRoutedEventArgs e) =>
+	private void SecondaryPane_RightTapped(object sender, RightTappedRoutedEventArgs e)
+	{
+		if (ConsumeSuppressRightTapped())
+		{
+			return;
+		}
 		ShowBackgroundContextMenu(e, ViewModel.ActiveTab?.SecondaryBrowser, SecondaryPaneBorder, SecondaryBackgroundContextFlyout);
+	}
+
+	private bool ConsumeSuppressRightTapped()
+	{
+		if (!suppressNextRightTapped)
+		{
+			return false;
+		}
+		suppressNextRightTapped = false;
+		return true;
+	}
 
 	private void ShowBackgroundContextMenu(
 		RightTappedRoutedEventArgs e,
