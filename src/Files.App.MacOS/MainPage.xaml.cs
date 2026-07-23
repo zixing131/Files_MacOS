@@ -96,6 +96,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private string? reorderingDetailColumn;
 	private readonly Dictionary<string, Button> primaryDetailsHeaderButtons = new(StringComparer.Ordinal);
 	private readonly Dictionary<string, Button> secondaryDetailsHeaderButtons = new(StringComparer.Ordinal);
+	private readonly Dictionary<string, FolderViewPreference> folderViewPreferences = new(StringComparer.Ordinal);
+	private readonly Dictionary<DirectoryBrowserViewModel, string?> lastFolderPreferencePaths = [];
+	private DirectoryBrowserViewModel? detailColumnsFlyoutBrowser;
 	private bool isDetailsResizeCursorVisible;
 	private bool isConnectingServer;
 	private bool isHistoryOperationRunning;
@@ -366,6 +369,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		DetailColumnState.Apply(currentSettings.DetailColumns);
 		DetailColumnWidths.Apply(currentSettings.DetailColumnWidths);
 		DetailColumnOrder.Apply(currentSettings.DetailColumnOrder);
+		folderViewPreferences.Clear();
+		foreach (FolderViewPreference preference in currentSettings.FolderViewPreferences ?? [])
+		{
+			folderViewPreferences[preference.Path] = preference;
+		}
 		ApplyGridIconSizeLevel(currentSettings.GridIconSizeLevel);
 		ApplyStatusBarVisibility(currentSettings.ShowStatusBar);
 		isSidebarOpen = currentSettings.IsSidebarOpen;
@@ -381,6 +389,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ApplyTheme(currentSettings.Theme);
 		await ViewModel.InitializeAsync();
 		ViewModel.WorkspaceChanged += ViewModel_WorkspaceChanged;
+		ApplyFolderViewPreferencesOnPathChange();
 		RecordRecentLocation();
 		UpdatePaneVisuals();
 		UpdateSidebarVisuals();
@@ -9092,6 +9101,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		IReadOnlyList<LocalFileSystemItem> selection = selectedItems.Where(browser.Items.Contains).ToArray();
 		browser.IsGridView = viewMode is BrowserViewMode.Grid;
 		browser.IsColumnView = viewMode is BrowserViewMode.Columns;
+		SaveFolderViewPreference(browser);
 		FrameworkElement targetControl = GetVisibleItemsControl(browser);
 		RestoreSelection(browser, targetControl, selection);
 		ActivateBrowser(browser, targetControl);
@@ -9808,24 +9818,15 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		AnnounceSortState(Browser);
 	}
 
-	private async void DetailColumnMenuItem_Click(object sender, RoutedEventArgs e)
+	private void DetailColumnMenuItem_Click(object sender, RoutedEventArgs e)
 	{
 		if (sender is not ToggleMenuFlyoutItem { Tag: string column } toggle)
 		{
 			return;
 		}
 
-		string[] previousColumns = DetailColumnState.Capture();
 		DetailColumnState.SetVisible(column, toggle.IsChecked);
-		try
-		{
-			await PersistSettingsAsync(currentSettings with { DetailColumns = DetailColumnState.Capture() });
-		}
-		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-		{
-			DetailColumnState.Apply(previousColumns);
-			await ShowErrorAsync(string.IsNullOrEmpty(ex.Message) ? GetResource("SaveSettingsErrorMessage") : ex.Message);
-		}
+		SaveFolderViewPreference(detailColumnsFlyoutBrowser);
 	}
 
 	private void DetailsHeader_RightTapped(object sender, RightTappedRoutedEventArgs e)
@@ -9836,6 +9837,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
+		detailColumnsFlyoutBrowser = GetDetailsHeaderBrowser(header);
+		ApplyFolderColumnPreference(detailColumnsFlyoutBrowser);
 		flyout.ShowAt(
 			header,
 			new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = e.GetPosition(header) });
@@ -9870,6 +9873,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		// 每次按下先重置抑制标记并记录按下位置，横向拖动或按住列宽手柄时都不应触发排序
 		suppressDetailsHeaderClick = false;
 		detailsHeaderPressX = e.GetCurrentPoint(this).Position.X;
+		if (sender is Button headerButton)
+		{
+			// 列配置按文件夹记忆，编辑前先切换到该窗格对应文件夹的配置
+			ApplyFolderColumnPreference(GetDetailsHeaderBrowser(headerButton));
+		}
 		if (sender is not Button { Tag: string fieldName } button || !IsOverDetailsHeaderResizeHandle(button, fieldName, e))
 		{
 			return;
@@ -9988,8 +9996,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			resizingDetailColumn = null;
 			suppressDetailsHeaderClick = true;
 			resizedButton.ReleasePointerCapture(e.Pointer);
-			currentSettings = currentSettings with { DetailColumnWidths = DetailColumnWidths.Capture() };
-			ScheduleWorkspaceSave();
+			SaveFolderViewPreference(GetDetailsHeaderBrowser(resizedButton));
 			SetDetailsResizeCursor(true);
 			e.Handled = true;
 		}
@@ -10001,8 +10008,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			reorderingDetailColumn = null;
 			reorderedButton.Opacity = 1;
 			reorderedButton.ReleasePointerCapture(e.Pointer);
-			currentSettings = currentSettings with { DetailColumnOrder = DetailColumnOrder.Capture() };
-			ScheduleWorkspaceSave();
+			SaveFolderViewPreference(GetDetailsHeaderBrowser(reorderedButton));
 			e.Handled = true;
 		}
 
@@ -10216,6 +10222,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void ViewModel_WorkspaceChanged(object? sender, EventArgs e)
 	{
+		ApplyFolderViewPreferencesOnPathChange();
 		ResetScrollForPathChange();
 		RecordRecentLocation();
 		UpdateAddressBar();
@@ -10224,6 +10231,75 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		UpdateViewModeVisuals();
 		UpdateColumnViewPanes();
 		ScheduleWorkspaceSave();
+	}
+
+	// 每个文件夹记忆独立的视图方式与列配置：路径变化时应用偏好，无偏好回退全局默认
+	private void ApplyFolderViewPreferencesOnPathChange()
+	{
+		foreach (BrowserTabViewModel tab in ViewModel.Tabs)
+		{
+			ApplyFolderViewPreferenceOnPathChange(tab.Browser);
+			if (tab.SecondaryBrowser is { } secondaryBrowser)
+			{
+				ApplyFolderViewPreferenceOnPathChange(secondaryBrowser);
+			}
+		}
+
+		// 列配置状态是双窗格共享的，始终跟随当前活动浏览器（切换标签/窗格时也要刷新）
+		ApplyFolderColumnPreference(ViewModel.ActiveBrowser);
+	}
+
+	private void ApplyFolderViewPreferenceOnPathChange(DirectoryBrowserViewModel browser)
+	{
+		string? path = browser.CurrentPath;
+		if (lastFolderPreferencePaths.TryGetValue(browser, out string? appliedPath) &&
+			string.Equals(appliedPath, path, StringComparison.Ordinal))
+		{
+			return;
+		}
+
+		lastFolderPreferencePaths[browser] = path;
+		browser.IsColumnView = false;
+		browser.IsGridView = folderViewPreferences.TryGetValue(path ?? string.Empty, out FolderViewPreference? preference)
+			? preference.IsGridView
+			: currentSettings.UseGridViewForNewTabs;
+	}
+
+	private void ApplyFolderColumnPreference(DirectoryBrowserViewModel? browser)
+	{
+		if (browser is null)
+		{
+			return;
+		}
+
+		folderViewPreferences.TryGetValue(browser.CurrentPath ?? string.Empty, out FolderViewPreference? preference);
+		DetailColumnState.Apply(preference?.DetailColumns ?? currentSettings.DetailColumns);
+		DetailColumnWidths.Apply(preference?.DetailColumnWidths ?? currentSettings.DetailColumnWidths);
+		DetailColumnOrder.Apply(preference?.DetailColumnOrder ?? currentSettings.DetailColumnOrder);
+	}
+
+	private void SaveFolderViewPreference(DirectoryBrowserViewModel? browser)
+	{
+		if (browser?.CurrentPath is not { Length: > 0 } path)
+		{
+			return;
+		}
+
+		folderViewPreferences[path] = new FolderViewPreference(
+			path,
+			browser.IsGridView,
+			DetailColumnState.Capture(),
+			DetailColumnWidths.Capture(),
+			DetailColumnOrder.Capture());
+		currentSettings = currentSettings with { FolderViewPreferences = folderViewPreferences.Values.TakeLast(200).ToArray() };
+		ScheduleWorkspaceSave();
+	}
+
+	private DirectoryBrowserViewModel? GetDetailsHeaderBrowser(FrameworkElement element)
+	{
+		return element.Name.StartsWith("Secondary", StringComparison.Ordinal)
+			? ViewModel.ActiveTab?.SecondaryBrowser
+			: ViewModel.ActiveTab?.Browser;
 	}
 
 	private void ResetScrollForPathChange()
@@ -10378,6 +10454,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			DetailColumns = HasSequenceChanged(requested.DetailColumns, baseline.DetailColumns, StringComparer.Ordinal) ? requested.DetailColumns : latest.DetailColumns,
 			DetailColumnWidths = HasSequenceChanged(requested.DetailColumnWidths, baseline.DetailColumnWidths) ? requested.DetailColumnWidths : latest.DetailColumnWidths,
 			DetailColumnOrder = HasSequenceChanged(requested.DetailColumnOrder, baseline.DetailColumnOrder, StringComparer.Ordinal) ? requested.DetailColumnOrder : latest.DetailColumnOrder,
+			FolderViewPreferences = HasSequenceChanged(requested.FolderViewPreferences, baseline.FolderViewPreferences) ? requested.FolderViewPreferences : latest.FolderViewPreferences,
 			ContextMenuActions = HasSequenceChanged(requested.ContextMenuActions, baseline.ContextMenuActions) ? requested.ContextMenuActions : latest.ContextMenuActions,
 			FavoritePaths = HasSequenceChanged(requested.FavoritePaths, baseline.FavoritePaths, StringComparer.OrdinalIgnoreCase) ? requested.FavoritePaths : latest.FavoritePaths,
 			RecentPaths = HasSequenceChanged(requested.RecentPaths, baseline.RecentPaths, StringComparer.Ordinal) ? requested.RecentPaths : latest.RecentPaths,

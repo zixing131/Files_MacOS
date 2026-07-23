@@ -90,21 +90,21 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 		string[] hiddenDefaultSidebarLocations = NormalizeStrings(settings.HiddenDefaultSidebarLocations, 12, StringComparer.Ordinal)
 			.Where(static id => id is "Home" or "Applications" or "Downloads" or "Documents" or "Desktop" or "Pictures" or "Music" or "Movies" or "Shared" or "ICloud" or "Trash")
 			.ToArray();
-		string[] detailColumns = settings.DetailColumns is null
-			? ["Modified", "Size"]
-			: NormalizeStrings(settings.DetailColumns, 9, StringComparer.Ordinal)
-				.Where(static column => column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
-				.ToArray();
-		DetailColumnWidthSetting[] detailColumnWidths = (settings.DetailColumnWidths ?? [])
-			.Where(static item => item is not null && item.Column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
-			.GroupBy(static item => item.Column, StringComparer.Ordinal)
-			.Select(static group => new DetailColumnWidthSetting(group.Key, Math.Clamp(group.Last().Width, 72, 480)))
+		string[] detailColumns = NormalizeDetailColumnNames(settings.DetailColumns) ?? ["Modified", "Size"];
+		DetailColumnWidthSetting[] detailColumnWidths = NormalizeDetailColumnWidths(settings.DetailColumnWidths);
+		string[]? detailColumnOrder = NormalizeDetailColumnNames(settings.DetailColumnOrder);
+		FolderViewPreference[] folderViewPreferences = (settings.FolderViewPreferences ?? [])
+			.Where(static preference => preference is not null && !string.IsNullOrWhiteSpace(preference.Path))
+			.Select(static preference => new FolderViewPreference(
+				preference.Path.Trim(),
+				preference.IsGridView,
+				NormalizeDetailColumnNames(preference.DetailColumns),
+				NormalizeDetailColumnWidths(preference.DetailColumnWidths),
+				NormalizeDetailColumnNames(preference.DetailColumnOrder)))
+			.GroupBy(static preference => preference.Path, StringComparer.Ordinal)
+			.Select(static group => group.Last())
+			.Take(200)
 			.ToArray();
-		string[]? detailColumnOrder = settings.DetailColumnOrder is null
-			? null
-			: NormalizeStrings(settings.DetailColumnOrder, 9, StringComparer.Ordinal)
-				.Where(static column => column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
-				.ToArray();
 		ContextMenuActionSetting[] contextMenuActions = NormalizeContextMenuActions(settings.ContextMenuActions);
 		SavedSearch[] savedSearches = (settings.SavedSearches ?? [])
 			.Where(static search => search is not null &&
@@ -149,6 +149,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			DetailColumns = detailColumns,
 			DetailColumnWidths = detailColumnWidths,
 			DetailColumnOrder = detailColumnOrder,
+			FolderViewPreferences = folderViewPreferences,
 			ContextMenuActions = contextMenuActions,
 			SavedSearches = savedSearches,
 			Workspace = workspace,
@@ -162,6 +163,24 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			ConfirmMoveToTrash = settings.SchemaVersion < 14 || settings.ConfirmMoveToTrash,
 			SchemaVersion = 18,
 		};
+	}
+
+	private static string[]? NormalizeDetailColumnNames(string[]? columns)
+	{
+		return columns is null
+			? null
+			: NormalizeStrings(columns, 9, StringComparer.Ordinal)
+				.Where(static column => column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
+				.ToArray();
+	}
+
+	private static DetailColumnWidthSetting[] NormalizeDetailColumnWidths(DetailColumnWidthSetting[]? widths)
+	{
+		return (widths ?? [])
+			.Where(static item => item is not null && item.Column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
+			.GroupBy(static item => item.Column, StringComparer.Ordinal)
+			.Select(static group => new DetailColumnWidthSetting(group.Key, Math.Clamp(group.Last().Width, 72, 480)))
+			.ToArray();
 	}
 
 	private static ContextMenuActionSetting[] NormalizeContextMenuActions(ContextMenuActionSetting[]? actions)

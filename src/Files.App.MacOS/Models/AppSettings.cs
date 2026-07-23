@@ -89,12 +89,20 @@ public sealed record AppSettings(
 	string[]? DetailColumns = null,
 	DetailColumnWidthSetting[]? DetailColumnWidths = null,
 	string[]? DetailColumnOrder = null,
+	FolderViewPreference[]? FolderViewPreferences = null,
 	ContextMenuActionSetting[]? ContextMenuActions = null,
 	int GridIconSizeLevel = 1,
 	bool ShowStatusBar = true,
 	int SchemaVersion = 18);
 
 public sealed record DetailColumnWidthSetting(string Column, double Width);
+
+public sealed record FolderViewPreference(
+	string Path,
+	bool IsGridView = true,
+	string[]? DetailColumns = null,
+	DetailColumnWidthSetting[]? DetailColumnWidths = null,
+	string[]? DetailColumnOrder = null);
 
 public sealed record FolderAccessGrant(string Path, string Bookmark);
 
