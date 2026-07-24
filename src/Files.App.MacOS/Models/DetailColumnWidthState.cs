@@ -6,9 +6,12 @@ public sealed partial class DetailColumnWidthState : ObservableObject
 {
 	private static readonly (string Column, double DefaultWidth)[] Defaults =
 	[
-		("Modified", 150), ("Created", 150), ("LastOpened", 160), ("Added", 150), ("Size", 100),
+		("Name", 320), ("Modified", 150), ("Created", 150), ("LastOpened", 160), ("Added", 150), ("Size", 100),
 		("Kind", 130), ("Version", 100), ("Comments", 160), ("Tags", 140),
 	];
+
+	[ObservableProperty]
+	public partial double Name { get; set; } = 320;
 
 	[ObservableProperty]
 	public partial double Modified { get; set; } = 150;
@@ -39,6 +42,7 @@ public sealed partial class DetailColumnWidthState : ObservableObject
 
 	public double GetWidth(string column) => column switch
 	{
+		"Name" => Name,
 		"Modified" => Modified,
 		"Created" => Created,
 		"LastOpened" => LastOpened,
@@ -55,6 +59,7 @@ public sealed partial class DetailColumnWidthState : ObservableObject
 	{
 		switch (column)
 		{
+			case "Name": Name = width; break;
 			case "Modified": Modified = width; break;
 			case "Created": Created = width; break;
 			case "LastOpened": LastOpened = width; break;

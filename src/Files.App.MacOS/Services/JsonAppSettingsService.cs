@@ -177,7 +177,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 	private static DetailColumnWidthSetting[] NormalizeDetailColumnWidths(DetailColumnWidthSetting[]? widths)
 	{
 		return (widths ?? [])
-			.Where(static item => item is not null && item.Column is "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
+			.Where(static item => item is not null && item.Column is "Name" or "Modified" or "Created" or "LastOpened" or "Added" or "Size" or "Kind" or "Version" or "Comments" or "Tags")
 			.GroupBy(static item => item.Column, StringComparer.Ordinal)
 			.Select(static group => new DetailColumnWidthSetting(group.Key, Math.Clamp(group.Last().Width, 72, 480)))
 			.ToArray();

@@ -738,8 +738,8 @@
 								BorderBrush="{ThemeResource FilesCardBorderBrush}"
 								BorderThickness="0,0,0,1"
 								RightTapped="DetailsHeader_RightTapped">
-								<Grid Padding="8,0" ColumnDefinitions="44,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-									<Button x:Name="PrimaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
+								<Grid Padding="8,0" ColumnDefinitions="44,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*">
+									<Button x:Name="PrimaryNameHeaderButton" Grid.Column="1" Width="{Binding Name, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
 										<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="PrimaryNameSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 									</Button>
 									<Button x:Name="PrimaryModifiedHeaderButton" Grid.Column="{Binding ModifiedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Modified, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Modified" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -778,7 +778,7 @@
 								</ListView.ItemsPanel>
 								<ListView.ItemTemplate>
 									<DataTemplate>
-						<Grid MinHeight="36" Padding="8,4" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="44,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+						<Grid MinHeight="36" Padding="8,4" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="44,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 											<StackPanel Grid.Column="0" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" Orientation="Horizontal" VerticalAlignment="Center">
 												<Grid Width="16">
 													<Button x:Name="DisclosureButton" Width="16" Height="24" Padding="0" Click="DisclosureButton_Click" HorizontalContentAlignment="Center" IsTabStop="False" Style="{StaticResource FilesFlatButtonStyle}" VerticalContentAlignment="Center" Visibility="{Binding ShowDisclosure, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -793,16 +793,18 @@
 													<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 												</Grid>
 											</StackPanel>
-											<StackPanel Grid.Column="1" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" VerticalAlignment="Center">
-												<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
-												<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
-												<TextBlock
-													FontSize="11"
-													Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-													Text="{Binding SearchLocation}"
-													TextTrimming="CharacterEllipsis"
-													Visibility="{Binding IsSearchResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
-											</StackPanel>
+											<Grid Grid.Column="1" Width="{Binding Name, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}">
+												<StackPanel Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" VerticalAlignment="Center">
+													<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+													<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+													<TextBlock
+														FontSize="11"
+														Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+														Text="{Binding SearchLocation}"
+														TextTrimming="CharacterEllipsis"
+														Visibility="{Binding IsSearchResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
+												</StackPanel>
+											</Grid>
 											<TextBlock Grid.Column="{Binding ModifiedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Modified, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 											<TextBlock Grid.Column="{Binding CreatedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Created, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding CreatedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 											<TextBlock Grid.Column="{Binding LastOpenedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding LastOpened, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding LastOpenedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -999,8 +1001,8 @@
 									BorderBrush="{ThemeResource FilesCardBorderBrush}"
 									BorderThickness="0,0,0,1"
 									RightTapped="DetailsHeader_RightTapped">
-									<Grid Padding="8,0" ColumnDefinitions="44,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-										<Button x:Name="SecondaryNameHeaderButton" Grid.Column="1" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
+									<Grid Padding="8,0" ColumnDefinitions="44,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*">
+										<Button x:Name="SecondaryNameHeaderButton" Grid.Column="1" Width="{Binding Name, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Name">
 											<StackPanel Orientation="Horizontal" Spacing="6"><TextBlock x:Uid="NameColumn" /><PathIcon x:Name="SecondaryNameSortIndicator" Width="12" Height="12" Visibility="Collapsed" /></StackPanel>
 										</Button>
 										<Button x:Name="SecondaryModifiedHeaderButton" Grid.Column="{Binding ModifiedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Modified, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Click="DetailsHeaderButton_Click" Style="{StaticResource DetailsHeaderButtonStyle}" Tag="Modified" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -1039,7 +1041,7 @@
 									</ListView.ItemsPanel>
 									<ListView.ItemTemplate>
 										<DataTemplate>
-							<Grid MinHeight="36" Padding="8,4" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="44,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
+							<Grid MinHeight="36" Padding="8,4" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="44,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
 												<StackPanel Grid.Column="0" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" Orientation="Horizontal" VerticalAlignment="Center">
 													<Grid Width="16">
 														<Button x:Name="DisclosureButton" Width="16" Height="24" Padding="0" Click="DisclosureButton_Click" HorizontalContentAlignment="Center" IsTabStop="False" Style="{StaticResource FilesFlatButtonStyle}" VerticalContentAlignment="Center" Visibility="{Binding ShowDisclosure, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -1054,16 +1056,18 @@
 														<Image Source="{Binding Thumbnail}" Stretch="Uniform" />
 													</Grid>
 												</StackPanel>
-												<StackPanel Grid.Column="1" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" VerticalAlignment="Center">
-													<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
-													<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
-													<TextBlock
-														FontSize="11"
-														Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-														Text="{Binding SearchLocation}"
-														TextTrimming="CharacterEllipsis"
-														Visibility="{Binding IsSearchResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
-												</StackPanel>
+												<Grid Grid.Column="1" Width="{Binding Name, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}">
+													<StackPanel Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" VerticalAlignment="Center">
+														<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+														<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+														<TextBlock
+															FontSize="11"
+															Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+															Text="{Binding SearchLocation}"
+															TextTrimming="CharacterEllipsis"
+															Visibility="{Binding IsSearchResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
+													</StackPanel>
+												</Grid>
 												<TextBlock Grid.Column="{Binding ModifiedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Modified, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 												<TextBlock Grid.Column="{Binding CreatedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Created, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding CreatedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 												<TextBlock Grid.Column="{Binding LastOpenedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding LastOpened, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding LastOpenedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />

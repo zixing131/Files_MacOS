@@ -9743,7 +9743,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		foreach (string column in new[] { "Modified", "Created", "LastOpened", "Added", "Size", "Kind", "Version", "Comments", "Tags" })
+		foreach (string column in new[] { "Name", "Modified", "Created", "LastOpened", "Added", "Size", "Kind", "Version", "Comments", "Tags" })
 		{
 			DetailColumnWidths.SetWidth(column, Math.Clamp(DetailColumnWidths.GetWidth(column) * ratio, 72, 480));
 		}
@@ -10126,27 +10126,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		// 手柄挂在列的左缘：优先调整左边相邻的可见列，被拖边界跟随指针移动；
-		// 首个数据列的左邻是星宽名称列，无法直接设宽，此时改为调整自身
-		var visibleColumns = DetailColumnOrderState.Supported
-			.Where(DetailColumnState.IsVisible)
-			.OrderBy(DetailColumnOrder.GetOrder)
-			.ToList();
-		int columnIndex = visibleColumns.IndexOf(fieldName);
-		if (columnIndex < 0)
-		{
-			return;
-		}
-
-		if (columnIndex > 0)
-		{
-			fieldName = visibleColumns[columnIndex - 1];
-			detailColumnResizeDirection = 1;
-		}
-		else
-		{
-			detailColumnResizeDirection = -1;
-		}
+		// 每列的手柄位于自身右缘，只修改当前列宽；后续列随边界移动，前序列保持不动
+		detailColumnResizeDirection = 1;
 
 		resizingDetailsHeader = button;
 		resizingDetailColumn = fieldName;
@@ -10298,14 +10279,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private static bool IsOverDetailsHeaderResizeHandle(Button button, string fieldName, PointerRoutedEventArgs e)
 	{
-		// 每个列边界只保留一个拖拽手柄，统一挂在边界右侧那一列的左缘，名称列不再提供手柄
-		if (fieldName is "Name")
-		{
-			return false;
-		}
-
+		// 手柄统一位于当前列右缘，拖动哪一列就只调整哪一列
 		double pointerX = e.GetCurrentPoint(button).Position.X;
-		return pointerX is >= 0 and <= 12;
+		return pointerX >= button.ActualWidth - 12;
 	}
 
 	private void SetDetailsResizeCursor(bool isVisible)
