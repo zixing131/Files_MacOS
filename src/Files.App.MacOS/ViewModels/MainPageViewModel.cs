@@ -31,6 +31,8 @@ public sealed class MainPageViewModel : ObservableObject
 
 	public event EventHandler? WorkspaceChanged;
 
+	public event EventHandler<BrowserTabViewModel>? TabRestored;
+
 	public BrowserTabViewModel? ActiveTab
 	{
 		get => activeTab;
@@ -382,15 +384,6 @@ public sealed class MainPageViewModel : ObservableObject
 		DirectoryBrowserViewModel primary = CreateBrowser();
 		ApplyPaneState(primary, state.Primary);
 		var tab = new BrowserTabViewModel(primary, GetResource("HomeTabHeader"), GetPathDisplayName);
-		tab.StateChanged += Tab_StateChanged;
-		if (insertIndex is int index)
-		{
-			Tabs.Insert(Math.Clamp(index, 0, Tabs.Count), tab);
-		}
-		else
-		{
-			Tabs.Add(tab);
-		}
 		try
 		{
 			await primary.NavigateAsync(GetRestorablePath(state.Primary.Path));
@@ -408,6 +401,17 @@ public sealed class MainPageViewModel : ObservableObject
 			}
 
 			tab.SplitRatio = state.SplitRatio;
+			// Publish the fully restored tab so bindings and folder defaults cannot overwrite it mid-restore.
+			TabRestored?.Invoke(this, tab);
+			tab.StateChanged += Tab_StateChanged;
+			if (insertIndex is int index)
+			{
+				Tabs.Insert(Math.Clamp(index, 0, Tabs.Count), tab);
+			}
+			else
+			{
+				Tabs.Add(tab);
+			}
 			return tab;
 		}
 		catch

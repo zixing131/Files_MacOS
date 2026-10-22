@@ -623,4 +623,7 @@
   <data name="MoveUpButtonText" xml:space="preserve"><value>上移</value></data>
   <data name="MoveDownButtonText" xml:space="preserve"><value>下移</value></data>
   <data name="ResetContextMenuButtonText" xml:space="preserve"><value>恢复默认菜单</value></data>
+  <data name="ClearSearchAction.Content" xml:space="preserve">
+    <value>清除搜索</value>
+  </data>
 </root>

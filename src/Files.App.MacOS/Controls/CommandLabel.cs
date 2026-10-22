@@ -16,6 +16,12 @@ public sealed class CommandLabel : Grid
 		typeof(CommandLabel),
 		new PropertyMetadata(null, OnIconDataChanged));
 
+	public static readonly DependencyProperty IsLabelVisibleProperty = DependencyProperty.Register(
+		nameof(IsLabelVisible),
+		typeof(bool),
+		typeof(CommandLabel),
+		new PropertyMetadata(true, OnIsLabelVisibleChanged));
+
 	private readonly PathIcon icon = new()
 	{
 		Width = 16,
@@ -47,6 +53,22 @@ public sealed class CommandLabel : Grid
 	{
 		get => (Geometry?)GetValue(IconDataProperty);
 		set => SetValue(IconDataProperty, value);
+	}
+
+	public bool IsLabelVisible
+	{
+		get => (bool)GetValue(IsLabelVisibleProperty);
+		set => SetValue(IsLabelVisibleProperty, value);
+	}
+
+	private static void OnIsLabelVisibleChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+	{
+		if (sender is CommandLabel control)
+		{
+			bool visible = (bool)args.NewValue;
+			control.label.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+			control.ColumnSpacing = visible ? 7 : 0;
+		}
 	}
 
 	private static void OnContentChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)

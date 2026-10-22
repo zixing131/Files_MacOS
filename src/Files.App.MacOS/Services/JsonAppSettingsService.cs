@@ -161,7 +161,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 			IsSidebarOpen = settings.SchemaVersion < 4 || settings.IsSidebarOpen,
 			SidebarWidth = Math.Clamp(settings.SidebarWidth, 180, 420),
 			ConfirmMoveToTrash = settings.SchemaVersion < 14 || settings.ConfirmMoveToTrash,
-			SchemaVersion = 18,
+			SchemaVersion = AppSettings.CurrentSchemaVersion,
 		};
 	}
 

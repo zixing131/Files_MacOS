@@ -263,8 +263,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			TerminalButton,
 			PreviewPaneButton,
 			SplitViewButton,
-			SortCommandButton,
-			ViewCommandButton);
+			SortCommandButton);
 		ToolTipService.SetToolTip(SearchBox, GetResource("SearchSyntaxHelp"));
 		Loaded += MainPage_Loaded;
 		Unloaded += MainPage_Unloaded;
@@ -289,6 +288,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			if (button.Content is CommandLabel { Content.Length: > 0 } label)
 			{
 				Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, label.Content);
+				ToolTipService.SetToolTip(button, label.Content);
 			}
 		}
 	}
@@ -394,6 +394,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Workspace = restoresWorkspace ? currentSettings.Workspace : initialWorkspace,
 		});
 		ApplyTheme(currentSettings.Theme);
+		ViewModel.TabRestored += ViewModel_TabRestored;
 		await ViewModel.InitializeAsync();
 		ViewModel.WorkspaceChanged += ViewModel_WorkspaceChanged;
 		ApplyFolderViewPreferencesOnPathChange();
@@ -530,9 +531,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool previewRoundtrip = previewChanged && PreviewPaneBorder.Visibility == (initialPreviewState ? Visibility.Visible : Visibility.Collapsed);
 		UpdateCommandToolbarLayout(2000);
 		bool toolbarWide = MoreCommandsButton.Visibility is Visibility.Collapsed && RevealButton.Visibility is Visibility.Visible && RenameButton.Visibility is Visibility.Visible;
-		UpdateCommandToolbarLayout(1400);
+		UpdateCommandToolbarLayout(1000);
 		bool toolbarOverflow = MoreCommandsButton.Visibility is Visibility.Visible && RevealButton.Visibility is Visibility.Collapsed && RenameButton.Visibility is Visibility.Visible;
-		UpdateCommandToolbarLayout(900);
+		UpdateCommandToolbarLayout(600);
 		bool toolbarCompact = MoreCommandsButton.Visibility is Visibility.Visible && RenameButton.Visibility is Visibility.Collapsed && MoreRenameItem.Visibility is Visibility.Visible;
 		UpdateCommandToolbarLayout(CommandToolbarBorder.ActualWidth);
 		bool toolbarBreakpoints = toolbarWide && toolbarOverflow && toolbarCompact;
@@ -556,7 +557,6 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			PreviewPaneButton,
 			SplitViewButton,
 			SortCommandButton,
-			ViewCommandButton,
 		];
 		bool toolbarIcons = iconCommandButtons.All(static button =>
 			button.Content is CommandLabel { IconData: not null, Content.Length: > 0 });
@@ -586,11 +586,24 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		double refreshRight = RefreshButton.TransformToVisual(AddressToolbarGrid).TransformPoint(default).X + RefreshButton.ActualWidth;
 		double addressLeft = AddressBarBorder.TransformToVisual(AddressToolbarGrid).TransformPoint(default).X;
 		bool navigationIconLayout = primaryNavigationButtons.All(static button =>
-			button.ActualWidth >= 40 && button.ActualHeight >= 34 &&
-			button.Content is PathIcon { ActualWidth: >= 20, ActualHeight: >= 20 }) &&
+			button.ActualWidth >= 32 && button.ActualHeight >= 34 &&
+			button.Content is PathIcon { ActualWidth: >= 8, ActualHeight: >= 14 }) &&
 			addressLeft - refreshRight >= 6;
 		bool tabIconLayout = NewTabButton is { ActualWidth: >= 36, ActualHeight: >= 32, Content: PathIcon { Data: not null, ActualWidth: >= 16, ActualHeight: >= 16 } };
-		bool breadcrumbHomeIcon = BreadcrumbPanel.Children.OfType<Button>().FirstOrDefault()?.Content is PathIcon { Data: not null, Width: >= 16, Height: >= 16 };
+		string diagnosticHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		string homeTitle = GetResource("SidebarHomeButton/Content");
+		PathBreadcrumbItem[] homeCrumbs = PathBreadcrumbBuilder.Build(diagnosticHome, diagnosticHome, homeTitle);
+		PathBreadcrumbItem[] childCrumbs = PathBreadcrumbBuilder.Build(Path.Combine(diagnosticHome, "Documents"), diagnosticHome, homeTitle);
+		PathBreadcrumbItem[] outsideCrumbs = PathBreadcrumbBuilder.Build(diagnosticHome + "-other", diagnosticHome, homeTitle);
+		PathBreadcrumbItem[] rootCrumbs = PathBreadcrumbBuilder.Build("/", diagnosticHome, homeTitle);
+		Button homeCrumb = CreateBreadcrumbButton(homeCrumbs[0]);
+		bool breadcrumbHomeIcon = homeCrumbs is [{ IsHome: true }] &&
+			childCrumbs is [{ IsHome: true }, { Title: "Documents", IsHome: false }] &&
+			outsideCrumbs.All(static item => !item.IsHome) && rootCrumbs is [{ Path: "/", IsHome: false }] &&
+			homeCrumb.Content is PathIcon { Data: not null, Width: 16, Height: 16 } &&
+			Equals(homeCrumb.Tag, diagnosticHome) &&
+			Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(homeCrumb) == homeTitle &&
+			CreateBreadcrumbButton(rootCrumbs[0]).Content is "/";
 		DependencyObject[] accessibilityRegions =
 		[
 			Tabs,
@@ -891,6 +904,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				destinationPage is not null && !ReferenceEquals(destinationPage, this) &&
 				destinationPage.CaptureWorkspaceState() is { ActiveTabIndex: 0, Tabs: [var transferredState] } &&
 				transferredState == expectedTransferredState;
+			if (!tabWindowTransfer)
+			{
+				Console.WriteLine($"FILES_MACOS_TAB_TRANSFER invoked={transferInvoked} windows={app.WindowCount}/{transferWindowCount + 1} tabs={ViewModel.Tabs.Count}/{transferSourceTabCount} history={ViewModel.CanReopenClosedTab}/{closedHistoryBeforeTransfer} destination={destinationPage is not null && !ReferenceEquals(destinationPage, this)} expected={expectedTransferredState} actual={destinationPage?.CaptureWorkspaceState().Tabs?.FirstOrDefault()}");
+			}
 			if (destinationPage is not null && !ReferenceEquals(destinationPage, this))
 			{
 				app.CloseWindow(destinationPage);
@@ -898,6 +915,25 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}
 			tabWindowTransfer &= app.WindowCount == transferWindowCount && ReferenceEquals(app.ActivePage, this);
 		}
+		await ViewModel.NewTabAsync(browser.CurrentPath);
+		BrowserTabViewModel restoreSourceTab = ViewModel.ActiveTab!;
+		restoreSourceTab.Browser.IsGridView = false;
+		await ViewModel.ToggleSplitViewAsync();
+		restoreSourceTab.SecondaryBrowser!.IsGridView = true;
+		restoreSourceTab.ActivateBrowser(restoreSourceTab.SecondaryBrowser);
+		restoreSourceTab.SplitRatio = 0.65;
+		ViewModel.TryCaptureTabState(restoreSourceTab, out BrowserTabState expectedRestoredState);
+		await ViewModel.DuplicateTabAsync(restoreSourceTab);
+		await Task.Delay(100);
+		bool tabRestoreViews = ViewModel.TryCaptureTabState(ViewModel.ActiveTab!, out BrowserTabState duplicateState) &&
+			duplicateState == expectedRestoredState;
+		ViewModel.CloseTab(ViewModel.ActiveTab!);
+		await ViewModel.ReopenClosedTabAsync();
+		await Task.Delay(100);
+		tabRestoreViews &= ViewModel.TryCaptureTabState(ViewModel.ActiveTab!, out BrowserTabState reopenedState) &&
+			reopenedState == expectedRestoredState;
+		ViewModel.DetachTabForTransfer(ViewModel.ActiveTab!);
+		ViewModel.DetachTabForTransfer(restoreSourceTab);
 		int switchSourceTabCount = ViewModel.Tabs.Count;
 		await ViewModel.NewTabAsync(browser.CurrentPath);
 		BrowserTabViewModel switchTab = ViewModel.ActiveTab!;
@@ -954,7 +990,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} sidebar_eject_buttons={renderedEjectButtons} sidebar_header_spacing={sidebarHeaderSpacing} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} tab_icon_layout={tabIconLayout} breadcrumb_home_icon={breadcrumbHomeIcon} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} symbol_font={app.IsSymbolFontAvailable} dynamic_labels={dynamicCommandLabels} item_context_compact={compactItemContextMenu} customized_context_menu={customizedContextMenu} background_context_menu={backgroundContextMenu} item_context_hit_targets={itemContextHitTargets} item_context_targets={itemContextTargets} external_file_drag={externalFileDrag} alias_app_thumbnail={aliasApplicationThumbnail} thumbnail_double_buffer={thumbnailDoubleBuffer} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} detail_columns={detailColumnCustomization} type_select={typeSelect} permission_matrix={permissionMatrix} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} detail_columns={detailColumnCustomization} type_select={typeSelect} permission_matrix={permissionMatrix} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_restore_views={tabRestoreViews} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -1220,7 +1256,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			AppSettings restoredSettings = await diagnosticSettingsService.LoadAsync();
 			recentLocations &= restoredSettings is
 			{
-				SchemaVersion: 16,
+				SchemaVersion: AppSettings.CurrentSchemaVersion,
 				RecentPaths: [var restoredRecentPath],
 				CollapsedSidebarSections: ["Recent"],
 				AdditionalWindowWorkspaces: [{ Tabs: [{ SplitRatio: 0.8 }] }],
@@ -1634,6 +1670,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private async void MainPage_Unloaded(object sender, RoutedEventArgs e)
 	{
 		ViewModel.WorkspaceChanged -= ViewModel_WorkspaceChanged;
+		ViewModel.TabRestored -= ViewModel_TabRestored;
 		if (accessibilityAnnouncementsRegistered)
 		{
 			StatusTextBlock.UnregisterPropertyChangedCallback(TextBlock.TextProperty, statusTextCallbackToken);
@@ -2756,30 +2793,36 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				});
 			}
 
-			var button = new Button
-			{
-				Content = item.IsHome
-					? new PathIcon
-					{
-						Width = 16,
-						Height = 16,
-						Data = (Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Geometry), HomeBreadcrumbIconData),
-					}
-					: item.Title,
-				Tag = item.Path,
-				AllowDrop = true,
-				Style = (Style)Application.Current.Resources["BreadcrumbButtonStyle"],
-			};
-			Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, item.Title);
-			ToolTipService.SetToolTip(button, item.Title);
-			button.Click += BreadcrumbButton_Click;
-			button.DragOver += Breadcrumb_DragOver;
-			button.Drop += Breadcrumb_Drop;
+			Button button = CreateBreadcrumbButton(item);
 			BreadcrumbPanel.Children.Add(button);
 		}
 
 		AddressBox.Text = browser.CurrentPath;
 		DispatcherQueue.TryEnqueue(() => BreadcrumbScrollViewer.ChangeView(BreadcrumbScrollViewer.ScrollableWidth, null, null, true));
+	}
+
+	private Button CreateBreadcrumbButton(PathBreadcrumbItem item)
+	{
+		var button = new Button
+		{
+			Content = item.IsHome
+				? new PathIcon
+				{
+					Width = 16,
+					Height = 16,
+					Data = (Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Geometry), HomeBreadcrumbIconData),
+				}
+				: item.Title,
+			Tag = item.Path,
+			AllowDrop = true,
+			Style = (Style)Application.Current.Resources["BreadcrumbButtonStyle"],
+		};
+		Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, item.Title);
+		ToolTipService.SetToolTip(button, item.Title);
+		button.Click += BreadcrumbButton_Click;
+		button.DragOver += Breadcrumb_DragOver;
+		button.Drop += Breadcrumb_Drop;
+		return button;
 	}
 
 	private async void SidebarList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -3601,6 +3644,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		if (sender is ListViewBase list && GetBrowserForItemsControl(list) is DirectoryBrowserViewModel browser)
 		{
+			if (!ReferenceEquals(browser, Browser) && list.SelectedItems.Count is 0)
+			{
+				browser.UpdateSelection([]);
+				return;
+			}
 			ActivateBrowser(browser, list);
 		}
 	}
@@ -3613,6 +3661,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		if (GetBrowserForItemsControl(sender) is DirectoryBrowserViewModel browser)
 		{
+			if (!ReferenceEquals(browser, Browser) && sender.SelectedItems.Count is 0)
+			{
+				browser.UpdateSelection([]);
+				return;
+			}
 			ActivateBrowser(browser, sender);
 		}
 	}
@@ -4757,6 +4810,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		((App)Application.Current).UpdateMainMenu(this);
 	}
 
+	private void AddressToolbarGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+	{
+		if (SearchContainer is not null)
+		{
+			SearchContainer.Width = Math.Clamp(e.NewSize.Width * 0.24, 160, 280);
+		}
+	}
+
 	private void CommandToolbarBorder_SizeChanged(object sender, SizeChangedEventArgs e)
 	{
 		UpdateCommandToolbarLayout(e.NewSize.Width);
@@ -4764,8 +4825,20 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void UpdateCommandToolbarLayout(double width)
 	{
-		bool useOverflow = width < 1800;
-		bool compact = width < 1120;
+		// Keep navigation and view controls in place; secondary actions remain in More.
+		bool useOverflow = width < 1100;
+		bool compact = width < 680;
+		foreach (Button button in new[] { UndoButton, RedoButton, NewCommandButton, CutButton, CopyButton,
+			PasteButton, RenameButton, ShareButton, DeleteButton, RevealButton, PropertiesButton,
+			SelectionButton, ArchiveButton, FavoriteButton, TerminalButton, PreviewPaneButton,
+			SplitViewButton, SortCommandButton })
+		{
+			if (button.Content is CommandLabel label)
+			{
+				label.IsLabelVisible = width >= 1800 || button == NewCommandButton && width >= 540;
+				button.Padding = new Thickness(label.IsLabelVisible ? 10 : 9, 0, label.IsLabelVisible ? 10 : 9, 0);
+			}
+		}
 		RenameButton.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
 		ShareButton.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
 		DeleteButton.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
@@ -6356,6 +6429,25 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		args.Handled = true;
 	}
 
+	private void SearchBox_KeyDown(object sender, KeyRoutedEventArgs e)
+	{
+		if (e.Key is Windows.System.VirtualKey.Escape && !string.IsNullOrEmpty(SearchBox.Text))
+		{
+			SearchBox.Text = string.Empty;
+			e.Handled = true;
+		}
+	}
+
+	private void ClearPaneSearchButton_Click(object sender, RoutedEventArgs e)
+	{
+		if (GetBrowserForPane(sender) is DirectoryBrowserViewModel browser)
+		{
+			ActivateBrowser(browser, GetVisibleItemsControl(browser));
+			SearchBox.Text = string.Empty;
+			SearchBox.Focus(FocusState.Keyboard);
+		}
+	}
+
 	private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
 	{
 		if (Browser is not DirectoryBrowserViewModel browser)
@@ -6370,7 +6462,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		string query = SearchBox.Text;
 		try
 		{
-			await Task.Delay(300, cancellation.Token);
+			await Task.Delay(string.IsNullOrWhiteSpace(query) ? 0 : 300, cancellation.Token);
 			await browser.SearchAsync(query);
 			if (!cancellation.IsCancellationRequested &&
 				ReferenceEquals(searchInputCancellation, cancellation) &&
@@ -8258,8 +8350,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		double borderWidth = increaseContrast ? 2 : 1;
 		AddressBarBorder.BorderThickness = new Thickness(borderWidth);
 		CommandToolbarBorder.BorderThickness = new Thickness(borderWidth);
+		SearchContainer.BorderThickness = new Thickness(borderWidth);
 		PreviewPaneBorder.BorderThickness = new Thickness(borderWidth);
-		SidebarBorder.BorderThickness = new Thickness(0, borderWidth, borderWidth, 0);
+		SidebarBorder.BorderThickness = new Thickness(0, 0, borderWidth, 0);
 		SidebarDividerLine.Width = borderWidth;
 		SplitDividerLine.Width = borderWidth;
 		PrimaryEmptyFolderIcon.Opacity = increaseContrast ? 0.52 : 0.32;
@@ -9250,19 +9343,6 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private static BrowserViewMode GetViewMode(DirectoryBrowserViewModel browser) =>
 		browser.IsColumnView ? BrowserViewMode.Columns : browser.IsGridView ? BrowserViewMode.Grid : BrowserViewMode.Details;
 
-	private void ViewButton_Click(object sender, RoutedEventArgs e)
-	{
-		if (Browser is DirectoryBrowserViewModel browser)
-		{
-			SetViewMode(browser, GetViewMode(browser) switch
-			{
-				// 分栏视图暂时下线：视图切换按钮恢复两态循环（网格 ↔ 详细信息）
-				BrowserViewMode.Grid => BrowserViewMode.Details,
-				_ => BrowserViewMode.Grid,
-			});
-		}
-	}
-
 	private void GridViewStatusButton_Click(object sender, RoutedEventArgs e)
 	{
 		if (Browser is DirectoryBrowserViewModel browser)
@@ -9927,9 +10007,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool secondaryIsActive = ReferenceEquals(Browser, ViewModel.ActiveTab?.SecondaryBrowser);
 		bool increaseContrast = accessibilityDisplayOptions.HasFlag(MacOSAccessibilityDisplayOptions.IncreaseContrast);
 		double inactiveBorderWidth = increaseContrast ? 2 : 1;
-		double activeBorderWidth = increaseContrast ? 3 : 2;
+		bool isSplitView = ViewModel.ActiveTab?.IsSplitView is true;
+		double activeBorderWidth = isSplitView ? (increaseContrast ? 3 : 2) : inactiveBorderWidth;
 		Brush defaultBorder = (Brush)Application.Current.Resources["FilesCardBorderBrush"];
-		Brush activeBorder = (Brush)Application.Current.Resources["FilesAccentBrush"];
+		Brush activeBorder = isSplitView ? (Brush)Application.Current.Resources["FilesAccentBrush"] : defaultBorder;
 		PrimaryPaneBorder.BorderThickness = new Thickness(secondaryIsActive ? inactiveBorderWidth : activeBorderWidth);
 		SecondaryPaneBorder.BorderThickness = new Thickness(secondaryIsActive ? activeBorderWidth : inactiveBorderWidth);
 		PrimaryPaneBorder.BorderBrush = secondaryIsActive ? defaultBorder : activeBorder;
@@ -9937,6 +10018,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (SplitViewButton.Content is CommandLabel splitViewLabel)
 		{
 			splitViewLabel.Content = GetResource(ViewModel.ActiveTab?.IsSplitView is true ? "CloseSplitViewButtonText" : "SplitViewButton/Content");
+			ConfigureCommandButtonAccessibility(SplitViewButton);
 		}
 		UpdateSortHeaderVisuals();
 		UpdateViewModeVisuals();
@@ -9963,10 +10045,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		double ratio = ClampSplitRatio(tab.SplitRatio, availableWidth);
-		if (!ratio.Equals(tab.SplitRatio))
-		{
-			tab.SplitRatio = ratio;
-		}
+		// Clamp only the rendered widths; resizing must preserve the preferred split ratio.
 
 		PrimaryPaneColumn.Width = new GridLength(availableWidth * ratio);
 		SplitDividerColumn.Width = new GridLength(SplitDividerWidth);
@@ -10400,7 +10479,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private void UpdateViewModeVisuals()
 	{
 		Brush selectedBrush = (Brush)Application.Current.Resources["FilesAccentSubtleBrush"];
-		Brush inactiveBrush = (Brush)Application.Current.Resources["FilesSubtleBrush"];
+		Brush inactiveBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
 		BrowserViewMode viewMode = Browser is DirectoryBrowserViewModel browser ? GetViewMode(browser) : BrowserViewMode.Grid;
 		GridViewStatusButton.Background = viewMode is BrowserViewMode.Grid ? selectedBrush : inactiveBrush;
 		DetailsViewStatusButton.Background = viewMode is BrowserViewMode.Details ? selectedBrush : inactiveBrush;
@@ -10457,6 +10536,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			DefaultButton = ContentDialogButton.Primary,
 			XamlRoot = XamlRoot,
 		};
+	}
+
+	private void ViewModel_TabRestored(object? sender, BrowserTabViewModel tab)
+	{
+		// An explicit workspace snapshot takes precedence over a folder's default view.
+		lastFolderPreferencePaths[tab.Browser] = tab.Browser.CurrentPath;
+		if (tab.SecondaryBrowser is { } secondaryBrowser)
+		{
+			lastFolderPreferencePaths[secondaryBrowser] = secondaryBrowser.CurrentPath;
+		}
 	}
 
 	private void ViewModel_WorkspaceChanged(object? sender, EventArgs e)
@@ -10668,7 +10757,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				WindowPlacement = windowSession.PrimaryWindowPlacement,
 				AdditionalWindowPlacements = windowSession.AdditionalWindowPlacements,
 				SidebarWidth = mergedSettings.SidebarWidth,
-				SchemaVersion = 18,
+				SchemaVersion = AppSettings.CurrentSchemaVersion,
 			};
 			await SettingsService.SaveAsync(updatedSettings, cancellationToken);
 			currentSettings = updatedSettings;

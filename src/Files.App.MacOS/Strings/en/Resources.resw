@@ -623,4 +623,7 @@
   <data name="MoveUpButtonText" xml:space="preserve"><value>Move up</value></data>
   <data name="MoveDownButtonText" xml:space="preserve"><value>Move down</value></data>
   <data name="ResetContextMenuButtonText" xml:space="preserve"><value>Restore default menu</value></data>
+  <data name="ClearSearchAction.Content" xml:space="preserve">
+    <value>Clear search</value>
+  </data>
 </root>

@@ -93,7 +93,10 @@ public sealed record AppSettings(
 	ContextMenuActionSetting[]? ContextMenuActions = null,
 	int GridIconSizeLevel = 1,
 	bool ShowStatusBar = true,
-	int SchemaVersion = 18);
+	int SchemaVersion = AppSettings.CurrentSchemaVersion)
+{
+	public const int CurrentSchemaVersion = 18;
+}
 
 public sealed record DetailColumnWidthSetting(string Column, double Width);
 

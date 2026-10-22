@@ -11,11 +11,11 @@
 
 			<ResourceDictionary.ThemeDictionaries>
 				<ResourceDictionary x:Key="Light">
-					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#F7F7F7" />
-					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#F3F3F3" />
-					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#FBFBFB" />
+					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#F7F7F8" />
+					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#EFF0F3" />
+					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#F7F7F8" />
 					<SolidColorBrush x:Key="FilesCardBrush" Color="#FFFFFF" />
-					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#18000000" />
+					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#12000000" />
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#08000000" />
 					<SolidColorBrush x:Key="FilesAccentBrush" Color="#007AFF" />
 					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#26007AFF" />
@@ -26,31 +26,31 @@
 					<SolidColorBrush x:Key="TabViewItemSeparator" Color="#16000000" />
 				</ResourceDictionary>
 				<ResourceDictionary x:Key="Dark">
-					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#202020" />
-					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#252525" />
-					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#292929" />
-					<SolidColorBrush x:Key="FilesCardBrush" Color="#2B2B2B" />
-					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#20FFFFFF" />
+					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#202124" />
+					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#26272B" />
+					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#202124" />
+					<SolidColorBrush x:Key="FilesCardBrush" Color="#292A2E" />
+					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#18FFFFFF" />
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#0CFFFFFF" />
 					<SolidColorBrush x:Key="FilesAccentBrush" Color="#0A84FF" />
 					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#330A84FF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackground" Color="Transparent" />
-					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FF323232" />
+					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FF36373C" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#12FFFFFF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#1CFFFFFF" />
 					<SolidColorBrush x:Key="TabViewItemSeparator" Color="#22FFFFFF" />
 				</ResourceDictionary>
 				<ResourceDictionary x:Key="Default">
-					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#202020" />
-					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#252525" />
-					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#292929" />
-					<SolidColorBrush x:Key="FilesCardBrush" Color="#2B2B2B" />
-					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#20FFFFFF" />
+					<SolidColorBrush x:Key="FilesBackgroundBrush" Color="#202124" />
+					<SolidColorBrush x:Key="FilesSidebarBrush" Color="#26272B" />
+					<SolidColorBrush x:Key="FilesToolbarBrush" Color="#202124" />
+					<SolidColorBrush x:Key="FilesCardBrush" Color="#292A2E" />
+					<SolidColorBrush x:Key="FilesCardBorderBrush" Color="#18FFFFFF" />
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#0CFFFFFF" />
 					<SolidColorBrush x:Key="FilesAccentBrush" Color="#0A84FF" />
 					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#330A84FF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackground" Color="Transparent" />
-					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FF323232" />
+					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FF36373C" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#12FFFFFF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#1CFFFFFF" />
 					<SolidColorBrush x:Key="TabViewItemSeparator" Color="#22FFFFFF" />
@@ -61,7 +61,7 @@
 				<Setter Property="Background" Value="Transparent" />
 				<Setter Property="BorderBrush" Value="Transparent" />
 				<Setter Property="BorderThickness" Value="0" />
-				<Setter Property="CornerRadius" Value="5" />
+				<Setter Property="CornerRadius" Value="7" />
 				<Setter Property="HorizontalContentAlignment" Value="Center" />
 				<Setter Property="UseSystemFocusVisuals" Value="True" />
 				<Setter Property="VerticalContentAlignment" Value="Center" />
@@ -101,7 +101,7 @@
 			</Style>
 
 			<Style x:Key="NavigationButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
-				<Setter Property="Width" Value="40" />
+				<Setter Property="Width" Value="32" />
 				<Setter Property="Height" Value="34" />
 				<Setter Property="Padding" Value="0" />
 				<Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -121,20 +121,22 @@
 			</Style>
 
 			<Style x:Key="DetailsHeaderButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
-				<Setter Property="Height" Value="35" />
+				<Setter Property="Height" Value="32" />
 				<Setter Property="Padding" Value="8,0" />
 				<Setter Property="Margin" Value="0" />
 				<Setter Property="MinWidth" Value="0" />
 				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
-				<Setter Property="FontWeight" Value="SemiBold" />
+				<Setter Property="FontSize" Value="12" />
+				<Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
 			</Style>
 			<Style x:Key="DetailsListViewItemStyle" TargetType="ListViewItem">
+				<Setter Property="CornerRadius" Value="5" />
 				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
 			</Style>
 
 			<Style x:Key="StatusViewButtonStyle" BasedOn="{StaticResource FilesFlatButtonStyle}" TargetType="Button">
-				<Setter Property="Width" Value="30" />
-				<Setter Property="Height" Value="26" />
+				<Setter Property="Width" Value="34" />
+				<Setter Property="Height" Value="28" />
 				<Setter Property="Padding" Value="0" />
 			</Style>
 
@@ -151,7 +153,7 @@
 				<Setter Property="Margin" Value="0,1" />
 				<Setter Property="Padding" Value="0" />
 				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
-				<Setter Property="CornerRadius" Value="6" />
+				<Setter Property="CornerRadius" Value="8" />
 			</Style>
 		</ResourceDictionary>
 	</Application.Resources>
