@@ -660,7 +660,7 @@
 					PointerPressed="PaneBorder_PointerPressed"
 					Tag="Primary">
 					<Border.ContextFlyout>
-						<MenuFlyout x:Name="PrimaryBackgroundContextFlyout" Opening="PrimaryBackgroundContextFlyout_Opening">
+						<MenuFlyout x:Name="PrimaryBackgroundContextFlyoutDefinition">
 							<MenuFlyoutSubItem Tag="New">
 								<MenuFlyoutItem x:Uid="NewFolderMenuItem" Click="NewButton_Click" Tag="NewFolder" />
 								<MenuFlyoutItem x:Uid="NewTextFileMenuItem" Click="NewTextFileButton_Click" Tag="NewTextFile" />
@@ -801,7 +801,9 @@
 								<ListView.ItemTemplate>
 									<DataTemplate>
 						<Grid MinHeight="30" Padding="8,2" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="44,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
-											<StackPanel Grid.Column="0" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" Orientation="Horizontal" VerticalAlignment="Center">
+											<Grid Grid.Column="1" Width="{Binding Name, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" IsHitTestVisible="False" />
+							<controls:TreeNamePanel Grid.ColumnSpan="2" Depth="{Binding Depth}">
+
 												<Grid Width="16">
 													<Button x:Name="DisclosureButton" Width="16" Height="24" Padding="0" Click="DisclosureButton_Click" HorizontalContentAlignment="Center" IsTabStop="False" Style="{StaticResource FilesFlatButtonStyle}" VerticalContentAlignment="Center" Visibility="{Binding ShowDisclosure, Converter={StaticResource BooleanToVisibilityConverter}}">
 														<Grid Width="12" Height="12">
@@ -810,12 +812,10 @@
 														</Grid>
 													</Button>
 												</Grid>
-												<Grid Width="24" Height="24" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
+												<Grid Grid.Column="1" Width="24" Height="24" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
 													<controls:FileItemIcon Item="{Binding}" />
 												</Grid>
-											</StackPanel>
-											<Grid Grid.Column="1" Width="{Binding Name, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}">
-												<StackPanel Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" VerticalAlignment="Center">
+											<StackPanel Grid.Column="2" VerticalAlignment="Center">
 													<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 													<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
 													<TextBlock
@@ -825,7 +825,7 @@
 														TextTrimming="CharacterEllipsis"
 														Visibility="{Binding IsSearchResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
 												</StackPanel>
-											</Grid>
+							</controls:TreeNamePanel>
 											<TextBlock Grid.Column="{Binding ModifiedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Modified, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 											<TextBlock Grid.Column="{Binding CreatedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Created, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding CreatedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 											<TextBlock Grid.Column="{Binding LastOpenedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding LastOpened, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding LastOpenedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -940,7 +940,7 @@
 						Tag="Secondary"
 						Visibility="{Binding ActiveTab.IsSplitView, Converter={StaticResource BooleanToVisibilityConverter}}">
 						<Border.ContextFlyout>
-							<MenuFlyout x:Name="SecondaryBackgroundContextFlyout" Opening="SecondaryBackgroundContextFlyout_Opening">
+							<MenuFlyout x:Name="SecondaryBackgroundContextFlyoutDefinition">
 								<MenuFlyoutSubItem Tag="New">
 									<MenuFlyoutItem x:Uid="NewFolderMenuItem" Click="NewButton_Click" Tag="NewFolder" />
 									<MenuFlyoutItem x:Uid="NewTextFileMenuItem" Click="NewTextFileButton_Click" Tag="NewTextFile" />
@@ -1064,7 +1064,9 @@
 									<ListView.ItemTemplate>
 										<DataTemplate>
 							<Grid MinHeight="30" Padding="8,2" AllowDrop="{Binding IsNavigableDirectory}" AutomationProperties.Name="{Binding AccessibilityName}" Background="Transparent" ColumnDefinitions="44,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RightTapped="Item_RightTapped" ToolTipService.ToolTip="{Binding Path}">
-												<StackPanel Grid.Column="0" Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" Orientation="Horizontal" VerticalAlignment="Center">
+												<Grid Grid.Column="1" Width="{Binding Name, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" IsHitTestVisible="False" />
+							<controls:TreeNamePanel Grid.ColumnSpan="2" Depth="{Binding Depth}">
+
 													<Grid Width="16">
 														<Button x:Name="DisclosureButton" Width="16" Height="24" Padding="0" Click="DisclosureButton_Click" HorizontalContentAlignment="Center" IsTabStop="False" Style="{StaticResource FilesFlatButtonStyle}" VerticalContentAlignment="Center" Visibility="{Binding ShowDisclosure, Converter={StaticResource BooleanToVisibilityConverter}}">
 															<Grid Width="12" Height="12">
@@ -1073,12 +1075,10 @@
 															</Grid>
 														</Button>
 													</Grid>
-													<Grid Width="24" Height="24" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
+													<Grid Grid.Column="1" Width="24" Height="24" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
 														<controls:FileItemIcon Item="{Binding}" />
 													</Grid>
-												</StackPanel>
-												<Grid Grid.Column="1" Width="{Binding Name, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}">
-													<StackPanel Margin="{Binding Depth, Converter={StaticResource DepthToThicknessConverter}}" VerticalAlignment="Center">
+												<StackPanel Grid.Column="2" VerticalAlignment="Center">
 														<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
 														<TextBox x:Name="InlineRenameBox" Padding="4,1" FontSize="13" KeyDown="InlineRenameBox_KeyDown" LostFocus="InlineRenameBox_LostFocus" Visibility="{Binding IsInlineEditing, Converter={StaticResource BooleanToVisibilityConverter}}" />
 														<TextBlock
@@ -1088,7 +1088,7 @@
 															TextTrimming="CharacterEllipsis"
 															Visibility="{Binding IsSearchResult, Converter={StaticResource BooleanToVisibilityConverter}}" />
 													</StackPanel>
-												</Grid>
+							</controls:TreeNamePanel>
 												<TextBlock Grid.Column="{Binding ModifiedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Modified, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowModified, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 												<TextBlock Grid.Column="{Binding CreatedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding Created, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding CreatedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowCreated, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 												<TextBlock Grid.Column="{Binding LastOpenedOrder, Source={StaticResource DetailColumnOrderState}, Mode=OneWay}" Width="{Binding LastOpened, Source={StaticResource DetailColumnWidthState}, Mode=OneWay}" Text="{Binding LastOpenedText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Visibility="{Binding ShowLastOpened, Source={StaticResource DetailColumnVisibilityState}, Converter={StaticResource BooleanToVisibilityConverter}}" />

@@ -12,6 +12,8 @@ public sealed partial class MainPage
 		ViewModel.RefreshLanguage();
 		UpdateSidebarSelection();
 		LiveLocalization.Refresh(this);
+		LiveLocalization.Refresh(PrimaryBackgroundContextFlyout);
+		LiveLocalization.Refresh(SecondaryBackgroundContextFlyout);
 		MoreSelectionSubItem.Text = GetResource("MoreSelectionSubItem/Text");
 		MoreArchiveSubItem.Text = GetResource("MoreArchiveSubItem/Text");
 		LocalizeContextMenuSubItems();

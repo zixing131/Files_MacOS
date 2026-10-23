@@ -171,6 +171,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		FileTransferHistoryService = new(FileTransferService, FileRenameService);
 		FileTrashHistoryService = new(WorkspaceService, FileTransferHistoryService);
 		InitializeComponent();
+		PrimaryBackgroundContextFlyout = PrimaryBackgroundContextFlyoutDefinition;
+		SecondaryBackgroundContextFlyout = SecondaryBackgroundContextFlyoutDefinition;
+		// 菜单统一由命中判断显示，避免父级自动菜单在卡片菜单关闭后再次弹出。
+		PrimaryPaneBorder.ContextFlyout = null;
+		SecondaryPaneBorder.ContextFlyout = null;
 		DataContext = ViewModel;
 		HookTabsForSelectionRestore();
 		Tabs.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Tabs_PointerPressed), handledEventsToo: true);
@@ -486,7 +491,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		catch (Exception ex)
 		{
-			Console.Error.WriteLine($"FILES_MACOS_PERF_ERROR type={ex.GetType().Name} message={ex.Message}");
+			Console.Error.WriteLine($"FILES_MACOS_PERF_ERROR type={ex.GetType().Name} message={ex.Message} stack={ex.StackTrace}");
 		}
 	}
 
@@ -2267,6 +2272,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
 	{
+		contextMenuRequestId++;
 		if (Environment.GetEnvironmentVariable("FILES_MACOS_POINTER_DIAGNOSTICS") == "1") Console.WriteLine($"[pointer] {e.GetCurrentPoint(this).Position} source={e.OriginalSource?.GetType().Name}");
 		switch (e.GetCurrentPoint(this).Properties.PointerUpdateKind)
 		{
@@ -3010,6 +3016,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		e.Handled = true;
 	}
 
+	private readonly MenuFlyout PrimaryBackgroundContextFlyout;
+	private readonly MenuFlyout SecondaryBackgroundContextFlyout;
+	private int contextMenuRequestId;
+
 	private void ShowComputerContextMenu(FrameworkElement card, RightTappedRoutedEventArgs e)
 	{
 		SidebarLocation location = card.DataContext switch
@@ -3018,6 +3028,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ComputerFolder folder => new(folder.Name, folder.Path, folder.Glyph),
 			_ => throw new InvalidOperationException(),
 		};
+		e.Handled = true;
+		contextMenuRequestId++;
+		PrimaryBackgroundContextFlyout.Hide();
+		SecondaryBackgroundContextFlyout.Hide();
 		var menu = new MenuFlyout();
 		AddSidebarMenuItem(menu, "ContextOpenItem/Text", "Open", location);
 		AddSidebarMenuItem(menu, "ContextOpenInNewTabItem/Text", "OpenInNewTab", location);
@@ -3035,16 +3049,22 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			Text = GetResource(resourceKey),
 			Tag = (action, location),
 		};
-		item.Click += SidebarMenuAction_Click;
+		item.Click += async (sender, _) => await SidebarMenuActionAsync(flyout, sender);
 		flyout.Items.Add(item);
 	}
 
-	private async void SidebarMenuAction_Click(object sender, RoutedEventArgs e)
+	private async Task SidebarMenuActionAsync(MenuFlyout flyout, object sender)
 	{
 		if (sender is not MenuFlyoutItem { Tag: (string action, SidebarLocation location) })
 		{
 			return;
 		}
+
+		// 先关闭弹层再导航；切换页面时不让旧菜单继续占据输入焦点。
+		contextMenuRequestId++;
+		flyout.Hide();
+		PrimaryBackgroundContextFlyout.Hide();
+		SecondaryBackgroundContextFlyout.Hide();
 
 		try
 		{
@@ -5812,6 +5832,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			list.SelectedItem = item;
 		}
 		ActivateBrowser(browser, control);
+		contextMenuRequestId++;
 		MenuFlyout flyout = CreateItemContextFlyout();
 		PrepareItemContextFlyout(flyout);
 		var target = (FrameworkElement)sender;
@@ -5916,7 +5937,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		return true;
 	}
 
-	private void ShowBackgroundContextMenu(
+	private async void ShowBackgroundContextMenu(
 		RightTappedRoutedEventArgs e,
 		DirectoryBrowserViewModel? browser,
 		FrameworkElement pane,
@@ -5958,9 +5979,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			listView.SelectedItems.Clear();
 		}
-		PrepareBackgroundContextMenu(flyout, browser);
-		flyout.ShowAt(pane, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = e.GetPosition(pane) });
+		var position = e.GetPosition(pane);
 		e.Handled = true;
+		int requestId = ++contextMenuRequestId;
+		string path = browser.CurrentPath;
+		bool hasClipboardFiles = false;
+		try { hasClipboardFiles = (await FileClipboardService.ReadAsync()).Paths.Count > 0; }
+		catch (IOException) { /* 读取失败时不显示不可用的粘贴命令。 */ }
+		if (requestId != contextMenuRequestId || browser.CurrentPath != path || !ReferenceEquals(browser, Browser)) return;
+		PrepareBackgroundContextMenu(flyout, browser, hasClipboardFiles);
+		flyout.ShowAt(pane, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = position });
 	}
 
 	private static bool HasFileItemAncestor(DependencyObject? source, DependencyObject pane)
@@ -6198,13 +6226,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
-	private void PrimaryBackgroundContextFlyout_Opening(object sender, object e) =>
-		PrepareBackgroundContextMenu(sender, ViewModel.ActiveTab?.Browser);
-
-	private void SecondaryBackgroundContextFlyout_Opening(object sender, object e) =>
-		PrepareBackgroundContextMenu(sender, ViewModel.ActiveTab?.SecondaryBrowser);
-
-	private void PrepareBackgroundContextMenu(object sender, DirectoryBrowserViewModel? browser)
+	private void PrepareBackgroundContextMenu(object sender, DirectoryBrowserViewModel? browser, bool hasClipboardFiles = false)
 	{
 		if (sender is not MenuFlyout flyout || browser is null)
 		{
@@ -6257,7 +6279,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				command.Visibility = action switch
 				{
-					"Paste" or "Terminal" => isTrash || browser.IsComputerPage ? Visibility.Collapsed : Visibility.Visible,
+					"Paste" => hasClipboardFiles && !isTrash && !browser.IsComputerPage ? Visibility.Visible : Visibility.Collapsed,
+					"Terminal" => isTrash || browser.IsComputerPage ? Visibility.Collapsed : Visibility.Visible,
 					"EmptyTrash" => isTrash ? Visibility.Visible : Visibility.Collapsed,
 					_ => Visibility.Visible,
 				};
