@@ -2,6 +2,7 @@ using Files.App.MacOS.Controls;
 using Files.App.MacOS.Models;
 using Files.App.MacOS.Services;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Controls.Primitives;
 
 namespace Files.App.MacOS;
 
@@ -42,6 +43,7 @@ public sealed partial class MainPage
 		PrimaryComputerPage.Height = double.NaN;
 		await browser.NavigateAsync(originalPath);
 		await ReportContextAndTreeDiagnosticsAsync();
+		await ReportRegressionDiagnosticsAsync();
 	}
 	private async Task ReportContextAndTreeDiagnosticsAsync()
 	{
@@ -94,6 +96,122 @@ public sealed partial class MainPage
 		{
 			DetailColumnWidths.Name = originalNameWidth;
 			await browser.NavigateAsync(originalPath);
+			fixture.Delete(recursive: true);
+		}
+	}
+
+	// 使用真实控件布局和临时目录验证复用、视图切换、窄窗格及窗口事务。
+	private async Task ReportRegressionDiagnosticsAsync()
+	{
+		if (Browser is not { } browser || ViewModel.ActiveTab is not { } originalTab) return;
+		var app = (App)Application.Current;
+		string originalPath = browser.CurrentPath;
+		var originalMode = GetViewMode(browser);
+		var placement = app.GetPagePlacement(this);
+		var fixture = Directory.CreateTempSubdirectory("files-regression-");
+		bool views = true, selection = true, hoverReset = true, layout = true, menus = true, dragRollback = false, dragCommit = false, dragMerge = false;
+		MainPage? floating = null;
+		try
+		{
+			await browser.NavigateAsync(ComputerLocation.Path);
+			foreach (var mode in new[] { BrowserViewMode.Grid, BrowserViewMode.Details, BrowserViewMode.Grid })
+			{
+				SetViewMode(browser, mode);
+				UpdateLayout();
+				await Task.Delay(80);
+				var cards = VisualDescendants(PrimaryComputerPage).OfType<ToggleButton>().Where(card => card.DataContext is ComputerFolder or ComputerVolume).ToArray();
+				views &= PrimaryComputerPage.IsGridLayout == (mode == BrowserViewMode.Grid) && cards.Length > 0 && WindowsViewButton.IsEnabled;
+				foreach (var card in cards.Take(3)) card.IsChecked = true;
+				selection &= PrimaryComputerPage.SelectedCardCount == 1;
+				PrimaryComputerPage.ClearSelection();
+				selection &= PrimaryComputerPage.SelectedCardCount == 0 && cards.All(card => card.BorderBrush is SolidColorBrush brush && brush.Color.A == 0);
+				var menu = new MenuFlyout();
+				AddSidebarMenuItem(menu, "ContextOpenItem/Text", "Open", new SidebarLocation("Fixture", fixture.FullName, "★"));
+				ShowManagedContextMenu(menu, PrimaryComputerPage, new(20, 20));
+				await Task.Delay(30);
+				await SidebarMenuActionAsync(menu, menu.Items[0]);
+				menus &= !menu.IsOpen && browser.CurrentPath == fixture.FullName;
+				await browser.NavigateAsync(ComputerLocation.Path);
+			}
+			Directory.CreateDirectory(Path.Combine(fixture.FullName, "Empty"));
+			Directory.CreateDirectory(Path.Combine(fixture.FullName, "Folder"));
+			await browser.NavigateAsync(fixture.FullName);
+			SetViewMode(browser, BrowserViewMode.Grid);
+			for (int iteration = 0; iteration < 4; iteration++)
+			{
+				UpdateLayout();
+				await Task.Delay(60);
+				var containers = VisualDescendants(GridItems).OfType<ItemContainer>().ToArray();
+				hoverReset &= containers.Length > 0;
+				if (containers.FirstOrDefault() is { } container) FileGridContainer_PointerEntered(container, null!);
+				await browser.RefreshAsync();
+				UpdateLayout();
+				await Task.Delay(60);
+				hoverReset &= hoveredGridContainer is null && VisualDescendants(GridItems).OfType<ItemContainer>().All(item => item.Background is SolidColorBrush brush && brush.Color.A == 0);
+				await browser.NavigateAsync(Path.Combine(fixture.FullName, "Empty"));
+				await browser.RefreshAsync();
+				hoverReset &= browser.Items.Count == 0;
+				await browser.GoBackAsync();
+			}
+			await ViewModel.ToggleSplitViewAsync();
+			isPreviewPaneOpen = true;
+			if (placement is not null)
+			foreach (double width in new[] { 640d, 900d, 1100d })
+			{
+				app.ApplyWindowPlacement(this, placement with { Width = width, Height = 600 });
+				await Task.Delay(160);
+				UpdateLayout();
+				ApplySplitLayout();
+				UpdateLayout();
+				layout &= PrimaryPaneBorder.ActualWidth >= MinimumPaneWidth - 4 && SecondaryPaneBorder.ActualWidth >= MinimumPaneWidth - 4;
+				foreach (var mode in new[] { BrowserViewMode.Grid, BrowserViewMode.Details, BrowserViewMode.Columns })
+				{
+					SetViewMode(browser, mode);
+					SetViewMode(originalTab.SecondaryBrowser!, mode);
+					UpdateLayout();
+					foreach (var pane in new[] { PrimaryPaneBorder, SecondaryPaneBorder })
+					{
+						var icons = VisualDescendants(pane).OfType<FileItemIcon>().Where(icon => icon.ActualWidth > 0 && icon.ActualHeight > 0).ToArray();
+						layout &= icons.All(icon => icon.ActualWidth >= 20 && icon.ActualHeight >= 20);
+					}
+				}
+			}
+			isPreviewPaneOpen = currentSettings.IsPreviewPaneOpen;
+			await ViewModel.ToggleSplitViewAsync();
+			if (placement is not null) app.ApplyWindowPlacement(this, placement);
+			await ViewModel.NewTabAsync(fixture.FullName);
+			var transferTab = ViewModel.ActiveTab!;
+			int count = ViewModel.Tabs.Count;
+			if (placement is not null)
+			{
+				floating = app.CreateTabDragWindow(this, transferTab, placement);
+				if (floating is not null)
+				{
+					await floating.InitializationTask;
+					int before = app.CaptureWindowSession(this).AdditionalWindowWorkspaces.Length;
+					app.CloseWindow(floating); floating = null;
+					dragRollback = ViewModel.Tabs.Contains(transferTab) && ViewModel.Tabs.Count == count && app.CaptureWindowSession(this).AdditionalWindowWorkspaces.Length == before;
+				}
+				floating = app.CreateTabDragWindow(this, transferTab, placement);
+				if (floating is not null)
+				{
+					dragCommit = await app.CommitTabDragWindowAsync(this, floating, transferTab) && !ViewModel.Tabs.Contains(transferTab) && floating.ViewModel.Tabs.Count == 1;
+					dragMerge = await app.MoveTabToWindowAsync(floating, this, floating.ViewModel.ActiveTab!, 0) && ViewModel.Tabs.Count == count;
+					floating = null;
+				}
+			}
+			foreach (var tab in ViewModel.Tabs.Where(tab => tab != originalTab).ToArray())
+				if (tab.Browser.CurrentPath == fixture.FullName) ViewModel.CloseTab(tab);
+			Console.WriteLine($"FILES_MACOS_REGRESSION style={currentSettings.VisualStyle} theme={currentSettings.Theme} computer_views={views} computer_selection_clear={selection} recycled_hover_reset={hoverReset} narrow_split_layout={layout} menu_navigation={menus} drag_cancel_transaction={dragRollback} drag_detach_transaction={dragCommit} drag_merge_transaction={dragMerge}");
+		}
+		finally
+		{
+			if (floating is not null) app.CloseWindow(floating);
+			ViewModel.ActiveTab = originalTab;
+			if (originalTab.IsSplitView) await ViewModel.ToggleSplitViewAsync();
+			if (placement is not null) app.ApplyWindowPlacement(this, placement);
+			await browser.NavigateAsync(originalPath);
+			SetViewMode(browser, originalMode);
 			fixture.Delete(recursive: true);
 		}
 	}

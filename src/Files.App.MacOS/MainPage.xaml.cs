@@ -177,6 +177,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		PrimaryPaneBorder.ContextFlyout = null;
 		SecondaryPaneBorder.ContextFlyout = null;
 		DataContext = ViewModel;
+		WorkspaceGrid.SizeChanged += (_, _) => { UpdateSidebarVisuals(); ArrangePreviewPane(); };
 		HookTabsForSelectionRestore();
 		Tabs.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Tabs_PointerPressed), handledEventsToo: true);
 		Tabs.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(Tabs_PointerMoved), handledEventsToo: true);
@@ -2366,6 +2367,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void RefreshButton_Click(object sender, RoutedEventArgs e)
 	{
+		CloseActiveContextMenu();
 		if (Browser is not null)
 		{
 			await Browser.RefreshAsync();
@@ -2804,6 +2806,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void UpdateAddressBar()
 	{
+		if (activeContextMenu is not null && (!ReferenceEquals(contextMenuBrowser, Browser) || contextMenuPath != Browser?.CurrentPath)) CloseActiveContextMenu();
 		if (isEditingAddress || Browser is not DirectoryBrowserViewModel browser)
 		{
 			return;
@@ -3012,13 +3015,32 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			}
 		}
 
-		flyout.ShowAt(element, e.GetPosition(element));
+		ShowManagedContextMenu(flyout, element, e.GetPosition(element));
 		e.Handled = true;
 	}
 
 	private readonly MenuFlyout PrimaryBackgroundContextFlyout;
 	private readonly MenuFlyout SecondaryBackgroundContextFlyout;
 	private int contextMenuRequestId;
+	private MenuFlyout? activeContextMenu;
+	private DirectoryBrowserViewModel? contextMenuBrowser;
+	private string? contextMenuPath;
+	private void CloseActiveContextMenu()
+	{
+		contextMenuRequestId++;
+		activeContextMenu?.Hide();
+		activeContextMenu = null;
+		PrimaryBackgroundContextFlyout.Hide();
+		SecondaryBackgroundContextFlyout.Hide();
+	}
+	private void ShowManagedContextMenu(MenuFlyout menu, FrameworkElement target, Windows.Foundation.Point position)
+	{
+		CloseActiveContextMenu();
+		activeContextMenu = menu;
+		contextMenuBrowser = Browser;
+		contextMenuPath = Browser?.CurrentPath;
+		menu.ShowAt(target, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = position });
+	}
 
 	private void ShowComputerContextMenu(FrameworkElement card, RightTappedRoutedEventArgs e)
 	{
@@ -3038,7 +3060,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		AddSidebarMenuItem(menu, "ContextRevealItem/Text", "Reveal", location);
 		AddSidebarMenuItem(menu, "ContextCopyPathItem/Text", "CopyPath", location);
 		if (location.CanEject) AddSidebarMenuItem(menu, "EjectVolumeButtonText", "Eject", location);
-		menu.ShowAt(card, e.GetPosition(card));
+		ShowManagedContextMenu(menu, card, e.GetPosition(card));
 		e.Handled = true;
 	}
 
@@ -3061,6 +3083,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		// 先关闭弹层再导航；切换页面时不让旧菜单继续占据输入焦点。
+		CloseActiveContextMenu();
 		contextMenuRequestId++;
 		flyout.Hide();
 		PrimaryBackgroundContextFlyout.Hide();
@@ -3200,11 +3223,16 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void UpdateSidebarVisuals()
 	{
-		SidebarColumn.Width = new GridLength(isSidebarOpen ? sidebarWidth : 0);
-		SidebarDividerColumn.Width = new GridLength(isSidebarOpen ? SidebarDividerWidth : 0);
-		SidebarBorder.Visibility = isSidebarOpen ? Visibility.Visible : Visibility.Collapsed;
-		SidebarDivider.Visibility = isSidebarOpen ? Visibility.Visible : Visibility.Collapsed;
-		ToggleSidebarButton.Opacity = isSidebarOpen ? 1 : 0.72;
+		// 只收缩当前布局，不覆盖用户保存的侧栏宽度及展开偏好。
+		double workspaceWidth = WorkspaceGrid.ActualWidth > 0 ? WorkspaceGrid.ActualWidth : 1100;
+		double minimumContent = ViewModel.ActiveTab?.IsSplitView == true ? MinimumPaneWidth * 2 + SplitDividerWidth : MinimumPaneWidth;
+		double available = workspaceWidth - minimumContent - SidebarDividerWidth - 24;
+		bool visible = isSidebarOpen && available >= MinimumSidebarWidth;
+		SidebarColumn.Width = new GridLength(visible ? Math.Min(sidebarWidth, available) : 0);
+		SidebarDividerColumn.Width = new GridLength(visible ? SidebarDividerWidth : 0);
+		SidebarBorder.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+		SidebarDivider.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+		ToggleSidebarButton.Opacity = visible ? 1 : 0.72;
 	}
 
 	private void SidebarDivider_PointerPressed(object sender, PointerRoutedEventArgs e)
@@ -3268,7 +3296,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private void SetSidebarWidth(double requestedWidth, bool persist)
 	{
 		sidebarWidth = Math.Clamp(requestedWidth, MinimumSidebarWidth, MaximumSidebarWidth);
-		SidebarColumn.Width = new GridLength(sidebarWidth);
+		UpdateSidebarVisuals();
+		ArrangePreviewPane();
 		if (persist)
 		{
 			currentSettings = currentSettings with { SidebarWidth = sidebarWidth };
@@ -4650,6 +4679,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 		DirectoryBrowserViewModel targetBrowser = Browser;
+		string destination = targetBrowser.CurrentPath;
+		CloseActiveContextMenu();
 		FileClipboardContent clipboard;
 		try
 		{
@@ -4672,7 +4703,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			clipboard = clipboard with { Mode = FileTransferMode.Move };
 		}
 
-		await TransferItemsAsync(clipboard, clearClipboardAfterMove: true);
+		await TransferItemsAsync(clipboard, clearClipboardAfterMove: true, targetBrowserOverride: targetBrowser, destinationDirectory: destination);
 	}
 
 	private async Task TransferItemsAsync(
@@ -4869,8 +4900,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		CutButton.IsEnabled = isIdle && selectedItems.Count > 0;
 		PasteButton.IsEnabled = isIdle && Browser is { IsComputerPage: false };
 		NewCommandButton.IsEnabled = PasteButton.IsEnabled;
-		SortCommandButton.IsEnabled = PasteButton.IsEnabled;
-		WindowsViewButton.IsEnabled = PasteButton.IsEnabled;
+		SortCommandButton.IsEnabled = isIdle && Browser is not null;
+		WindowsViewButton.IsEnabled = isIdle && Browser is not null;
 		RenameButton.IsEnabled = isIdle && selectedItems.Count > 0;
 		RevealButton.IsEnabled = isIdle && selectedItems.Count is 1;
 		DeleteButton.IsEnabled = isIdle && selectedItems.Count > 0;
@@ -4923,7 +4954,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			if (button.Content is CommandLabel label)
 			{
 				label.IsLabelVisible = windowsStyle
-					? button == NewCommandButton || button == SortCommandButton || button == PreviewPaneButton
+					? width >= 680 && (button == NewCommandButton || button == SortCommandButton || button == PreviewPaneButton)
 					: width >= 1800 || button == NewCommandButton && width >= 540;
 				button.Padding = new Thickness(label.IsLabelVisible ? 10 : 9, 0, label.IsLabelVisible ? 10 : 9, 0);
 			}
@@ -4944,8 +4975,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		MoreShareItem.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
 		MoreDeleteItem.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
 		MoreCompactSeparator.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
-		ViewModeSegment.Visibility = windowsStyle ? Visibility.Collapsed : Visibility.Visible;
-		WindowsViewButton.Visibility = windowsStyle ? Visibility.Visible : Visibility.Collapsed;
+		ViewModeSegment.Visibility = windowsStyle || width < 540 ? Visibility.Collapsed : Visibility.Visible;
+		WindowsViewButton.Visibility = windowsStyle || width < 540 ? Visibility.Visible : Visibility.Collapsed;
 	}
 
 	private void MoreCommandsFlyout_Opening(object sender, object e)
@@ -5002,11 +5033,18 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ScheduleWorkspaceSave();
 	}
 
+	private void ArrangePreviewPane()
+	{
+		double minimumContent = ViewModel.ActiveTab?.IsSplitView == true ? MinimumPaneWidth * 2 + SplitDividerWidth : MinimumPaneWidth;
+		double width = WorkspaceGrid.ActualWidth - SidebarColumn.Width.Value - SidebarDividerColumn.Width.Value;
+		bool visible = isPreviewPaneOpen && (WorkspaceGrid.ActualWidth <= 0 || width >= minimumContent + 344);
+		PreviewPaneBorder.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+		PreviewPaneButton.Opacity = visible ? 1 : 0.72;
+		PaneGrid.Margin = new Thickness(0, 0, visible ? 320 : 0, 0);
+	}
 	private void UpdatePreviewPaneVisuals()
 	{
-		PreviewPaneBorder.Visibility = isPreviewPaneOpen ? Visibility.Visible : Visibility.Collapsed;
-		PaneGrid.Margin = new Thickness(0, 0, isPreviewPaneOpen ? 320 : 0, 0);
-		PreviewPaneButton.Opacity = isPreviewPaneOpen ? 1 : 0.72;
+		ArrangePreviewPane();
 		UpdatePreviewPaneContent();
 	}
 
@@ -5836,9 +5874,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		MenuFlyout flyout = CreateItemContextFlyout();
 		PrepareItemContextFlyout(flyout);
 		var target = (FrameworkElement)sender;
-		flyout.ShowAt(
-			target,
-			new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = e.GetPosition(target) });
+		ShowManagedContextMenu(flyout, target, e.GetPosition(target));
 		e.Handled = true;
 	}
 
@@ -5981,6 +6017,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 		var position = e.GetPosition(pane);
 		e.Handled = true;
+		CloseActiveContextMenu();
 		int requestId = ++contextMenuRequestId;
 		string path = browser.CurrentPath;
 		bool hasClipboardFiles = false;
@@ -5988,7 +6025,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		catch (IOException) { /* 读取失败时不显示不可用的粘贴命令。 */ }
 		if (requestId != contextMenuRequestId || browser.CurrentPath != path || !ReferenceEquals(browser, Browser)) return;
 		PrepareBackgroundContextMenu(flyout, browser, hasClipboardFiles);
-		flyout.ShowAt(pane, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = position });
+		ShowManagedContextMenu(flyout, pane, position);
 	}
 
 	private static bool HasFileItemAncestor(DependencyObject? source, DependencyObject pane)
@@ -6093,6 +6130,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void ContextAction_Click(object sender, RoutedEventArgs e)
 	{
+		CloseActiveContextMenu();
 		if (sender is not MenuFlyoutItem { Tag: string action } || Browser is null)
 		{
 			return;
@@ -6273,7 +6311,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 					"Columns" => browser.IsColumnView,
 					_ => toggle.IsChecked,
 				};
-				toggle.IsEnabled = isIdle;
+				toggle.IsEnabled = isIdle && (!browser.IsComputerPage || option is "Name" or "Size" or "Ascending" or "Descending" or "Grid" or "Details");
 			}
 			else if (item is MenuFlyoutItem { Tag: string action } command)
 			{
@@ -6980,6 +7018,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void NewButton_Click(object sender, RoutedEventArgs e)
 	{
+		CloseActiveContextMenu();
 		if (Browser is { IsComputerPage: true }) return;
 		if (Browser is not DirectoryBrowserViewModel targetBrowser)
 		{
@@ -7795,6 +7834,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void NewTextFileButton_Click(object sender, RoutedEventArgs e)
 	{
+		CloseActiveContextMenu();
 		if (Browser is { IsComputerPage: true }) return;
 		if (Browser is not DirectoryBrowserViewModel targetBrowser)
 		{
@@ -9459,6 +9499,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void SetViewMode(DirectoryBrowserViewModel browser, BrowserViewMode viewMode)
 	{
+		CloseActiveContextMenu();
 		if (GetViewMode(browser) == viewMode)
 		{
 			return;
@@ -9959,6 +10000,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private FrameworkElement GetVisibleItemsControl(DirectoryBrowserViewModel browser)
 	{
 		bool isSecondary = ReferenceEquals(browser, ViewModel.ActiveTab?.SecondaryBrowser);
+		if (browser.IsComputerPage) return isSecondary ? SecondaryComputerPage : PrimaryComputerPage;
 		if (browser.IsColumnView)
 		{
 			return isSecondary ? SecondaryColumnItems : PrimaryColumnItems;
@@ -10124,6 +10166,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void ApplySplitLayout()
 	{
+		UpdateSidebarVisuals();
+		ArrangePreviewPane();
 		BrowserTabViewModel? tab = ViewModel.ActiveTab;
 		if (tab?.IsSplitView is not true)
 		{
@@ -10178,6 +10222,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void SortFieldMenuItem_Click(object sender, RoutedEventArgs e)
 	{
+		CloseActiveContextMenu();
 		if (Browser is null || sender is not ToggleMenuFlyoutItem { Tag: string value } || !Enum.TryParse(value, out FileSortField field))
 		{
 			return;
@@ -10588,6 +10633,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
+		foreach (var option in new[] { SortModifiedItem, SortCreatedItem, SortLastOpenedItem, SortAddedItem, SortKindItem, SortVersionItem, SortCommentsItem, SortTagsItem })
+			option.Visibility = Browser.IsComputerPage ? Visibility.Collapsed : Visibility.Visible;
 		UpdateSortFlyoutChecks(Browser.SortField);
 		SortAscendingItem.IsChecked = Browser.SortDirection is FileSortDirection.Ascending;
 		SortDescendingItem.IsChecked = Browser.SortDirection is FileSortDirection.Descending;
@@ -10609,6 +10656,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void SortDirectionMenuItem_Click(object sender, RoutedEventArgs e)
 	{
+		CloseActiveContextMenu();
 		if (Browser is null || sender is not ToggleMenuFlyoutItem { Tag: string value } || !Enum.TryParse(value, out FileSortDirection direction))
 		{
 			return;

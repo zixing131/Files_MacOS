@@ -12,6 +12,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 {
 	private readonly Dictionary<Window, MainPage> windows = [];
 	private readonly List<Window> windowOrder = [];
+	private readonly HashSet<Window> transientDragWindows = [];
 	private readonly List<Window> activationOrder = [];
 	private readonly Dictionary<Window, string> nativeWindowIdentifiers = [];
 	private readonly Dictionary<Window, nint> nativeWindowHandles = [];
@@ -88,11 +89,12 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	internal Window CreateWindow(
 		bool restoreWorkspace = false,
 		WorkspaceState? initialWorkspace = null,
-		WindowPlacementState? initialPlacement = null)
+		WindowPlacementState? initialPlacement = null, bool transientDrag = false)
 	{
 		var page = new MainPage(restoreWorkspace, initialWorkspace, initialPlacement);
 		var window = new Window { Content = page };
 		windows.Add(window, page);
+		if (transientDrag) transientDragWindows.Add(window);
 		windowOrder.Add(window);
 		lastClosedWorkspace = null;
 		lastClosedWindowPlacement = null;
@@ -179,7 +181,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	internal WindowSessionState CaptureWindowSession(MainPage fallbackPage)
 	{
 		(Window Window, MainPage Page)[] windowPages = windowOrder
-			.Where(windows.ContainsKey)
+			.Where(window => windows.ContainsKey(window) && !transientDragWindows.Contains(window))
 			.Select(window => (window, windows[window]))
 			.ToArray();
 		WorkspaceState[] workspaces = windowPages.Select(static item => item.Page.CaptureWorkspaceState()).ToArray();
@@ -193,7 +195,7 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		int activeWindowIndex = 0;
 		if (activePage is not null)
 		{
-			int pageIndex = windowOrder.FindIndex(window => windows.TryGetValue(window, out MainPage? page) && ReferenceEquals(page, activePage));
+			int pageIndex = Array.FindIndex(windowPages, item => ReferenceEquals(item.Page, activePage));
 			activeWindowIndex = Math.Clamp(pageIndex, 0, workspaces.Length - 1);
 		}
 
@@ -209,6 +211,36 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	{
 		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
 		window?.Close();
+	}
+
+	internal WindowPlacementState? GetPagePlacement(MainPage page)
+	{
+		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
+		return window is null ? null : GetWindowPlacement(window);
+	}
+
+	internal void MoveDragWindow(MainPage page, Windows.Foundation.Point point, double offsetX, double offsetY)
+	{
+		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
+		if (window is not null && nativeWindowIdentifiers.TryGetValue(window, out string? id))
+			MacOSNativeMethods.MoveDragWindow(id, point.X, point.Y, offsetX, offsetY);
+	}
+
+	internal MainPage? CreateTabDragWindow(MainPage source, BrowserTabViewModel tab, WindowPlacementState placement)
+	{
+		if (!source.TryCaptureTabState(tab, out BrowserTabState state)) return null;
+		return windows[CreateWindow(initialWorkspace: new([state]), initialPlacement: placement, transientDrag: true)];
+	}
+
+	internal async Task<bool> CommitTabDragWindowAsync(MainPage source, MainPage floating, BrowserTabViewModel tab)
+	{
+		await floating.InitializationTask;
+		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, floating)).Key;
+		if (window is null || !windows.ContainsValue(source) || !source.DetachTabForTransfer(tab)) return false;
+		transientDragWindows.Remove(window);
+		source.ScheduleSessionSave();
+		floating.ScheduleSessionSave();
+		return true;
 	}
 
 	internal MainPage? FindTabDropTarget(MainPage sourcePage, out Windows.Foundation.Point point)
@@ -330,9 +362,13 @@ public partial class App : Application, IMacOSMenuCommandTarget
 
 		window.Activated -= Window_Activated;
 		window.Closed -= Window_Closed;
-		lastClosedWorkspace = page.CaptureWorkspaceState();
-		lastClosedWindowPlacement = GetWindowPlacement(window);
+		if (!transientDragWindows.Contains(window))
+		{
+			lastClosedWorkspace = page.CaptureWorkspaceState();
+			lastClosedWindowPlacement = GetWindowPlacement(window);
+		}
 		windowOrder.Remove(window);
+		transientDragWindows.Remove(window);
 		activationOrder.Remove(window);
 		nativeWindowIdentifiers.Remove(window);
 		nativeWindowHandles.Remove(window);

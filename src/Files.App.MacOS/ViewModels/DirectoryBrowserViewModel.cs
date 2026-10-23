@@ -137,7 +137,14 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	public string ComputerNetworkChevron => ComputerNetworkExpanded ? "⌄" : "›";
 	public string ComputerFavoritesChevron => ComputerFavoritesExpanded ? "⌄" : "›";
 	private IReadOnlyList<ComputerFolder> computerFavorites = [];
-	public IEnumerable<ComputerFolder> ComputerFavorites => computerFavorites.Where(folder => string.IsNullOrWhiteSpace(SearchText) || folder.Name.Contains(SearchText.Trim(), StringComparison.CurrentCultureIgnoreCase));
+	public IEnumerable<ComputerFolder> ComputerFavorites
+	{
+		get
+		{
+			var filtered = computerFavorites.Where(folder => string.IsNullOrWhiteSpace(SearchText) || folder.Name.Contains(SearchText.Trim(), StringComparison.CurrentCultureIgnoreCase));
+			return SortDirection == FileSortDirection.Descending ? filtered.OrderByDescending(folder => folder.Name, StringComparer.CurrentCultureIgnoreCase) : filtered.OrderBy(folder => folder.Name, StringComparer.CurrentCultureIgnoreCase);
+		}
+	}
 	public void SetComputerFavorites(IEnumerable<ComputerFolder> folders)
 	{
 		computerFavorites = folders.DistinctBy(folder => folder.Path).ToArray();
@@ -148,7 +155,12 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	public IEnumerable<ComputerVolume> NetworkVolumes => FilterVolumes(true);
 	public bool HasNetworkVolumes => NetworkVolumes.Any();
 	public bool HasNoVolumes => !LocalVolumes.Any() && !NetworkVolumes.Any() && !ComputerFavorites.Any();
-	private IEnumerable<ComputerVolume> FilterVolumes(bool network) => volumes.Where(volume => volume.IsNetwork == network && (string.IsNullOrWhiteSpace(SearchText) || volume.Name.Contains(SearchText.Trim(), StringComparison.CurrentCultureIgnoreCase)));
+	private IEnumerable<ComputerVolume> FilterVolumes(bool network)
+	{
+		var filtered = volumes.Where(volume => volume.IsNetwork == network && (string.IsNullOrWhiteSpace(SearchText) || volume.Name.Contains(SearchText.Trim(), StringComparison.CurrentCultureIgnoreCase)));
+		if (SortField == FileSortField.Size) return SortDirection == FileSortDirection.Descending ? filtered.OrderByDescending(volume => volume.TotalBytes) : filtered.OrderBy(volume => volume.TotalBytes);
+		return SortDirection == FileSortDirection.Descending ? filtered.OrderByDescending(volume => volume.Name, StringComparer.CurrentCultureIgnoreCase) : filtered.OrderBy(volume => volume.Name, StringComparer.CurrentCultureIgnoreCase);
+	}
 	private void NotifyVolumesChanged()
 	{
 		OnPropertyChanged(nameof(ComputerFavorites));
@@ -626,6 +638,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	private void ApplyView()
 	{
+		if (IsComputerPage) { NotifyVolumesChanged(); return; }
 		IEnumerable<LocalFileSystemItem> visibleItems = ShowHiddenFiles
 			? sourceItems
 			: sourceItems.Where(static item => !item.IsHidden);

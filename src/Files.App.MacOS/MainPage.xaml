@@ -10,6 +10,18 @@
 	KeyboardAcceleratorPlacementMode="Hidden">
 
 	<Page.Resources>
+		<!-- 容器复用时由代码同步当前状态，不复用 Uno 的悬停动画状态。 -->
+		<Style x:Key="FileGridContainerStyle" TargetType="ItemContainer">
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderBrush" Value="Transparent" />
+			<Setter Property="Template">
+				<Setter.Value><ControlTemplate TargetType="ItemContainer">
+					<Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="3">
+						<ContentPresenter Content="{TemplateBinding Child}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+					</Border>
+				</ControlTemplate></Setter.Value>
+			</Setter>
+		</Style>
 		<models:DetailColumnVisibilityState x:Key="DetailColumnVisibilityState" />
 		<models:DetailColumnWidthState x:Key="DetailColumnWidthState" />
 		<models:DetailColumnOrderState x:Key="DetailColumnOrderState" />
@@ -718,7 +730,7 @@
 							</ItemsView.Layout>
 							<ItemsView.ItemTemplate>
 								<DataTemplate>
-									<ItemContainer Width="{Binding ItemWidth, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding ItemHeight, Source={StaticResource GridItemSizeState}, Mode=OneWay}" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
+									<ItemContainer Style="{StaticResource FileGridContainerStyle}" Loaded="FileGridContainer_Loaded" Unloaded="FileGridContainer_Unloaded" DataContextChanged="FileGridContainer_DataContextChanged" PointerEntered="FileGridContainer_PointerEntered" PointerMoved="FileGridContainer_PointerEntered" PointerExited="FileGridContainer_PointerExited" Width="{Binding ItemWidth, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding ItemHeight, Source={StaticResource GridItemSizeState}, Mode=OneWay}" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
 					<Grid AllowDrop="{Binding IsNavigableDirectory}" CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RowDefinitions="Auto,*" ToolTipService.ToolTip="{Binding Path}">
 										<Grid Width="{Binding IconSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding IconSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" HorizontalAlignment="Center" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
 											<controls:FileItemIcon Item="{Binding}" />
@@ -998,7 +1010,7 @@
 								</ItemsView.Layout>
 								<ItemsView.ItemTemplate>
 									<DataTemplate>
-										<ItemContainer Width="{Binding ItemWidth, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding ItemHeight, Source={StaticResource GridItemSizeState}, Mode=OneWay}" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
+										<ItemContainer Style="{StaticResource FileGridContainerStyle}" Loaded="FileGridContainer_Loaded" Unloaded="FileGridContainer_Unloaded" DataContextChanged="FileGridContainer_DataContextChanged" PointerEntered="FileGridContainer_PointerEntered" PointerMoved="FileGridContainer_PointerEntered" PointerExited="FileGridContainer_PointerExited" Width="{Binding ItemWidth, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding ItemHeight, Source={StaticResource GridItemSizeState}, Mode=OneWay}" AutomationProperties.Name="{Binding AccessibilityName}" RightTapped="Item_RightTapped">
 						<Grid AllowDrop="{Binding IsNavigableDirectory}" CanDrag="True" Background="Transparent" DragStarting="GridItem_DragStarting" DragOver="FolderItem_DragOver" Drop="FolderItem_Drop" PointerPressed="Item_PointerPressed" RowDefinitions="Auto,*" ToolTipService.ToolTip="{Binding Path}">
 											<Grid Width="{Binding IconSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" Height="{Binding IconSize, Source={StaticResource GridItemSizeState}, Mode=OneWay}" HorizontalAlignment="Center" DataContextChanged="ThumbnailItem_DataContextChanged" Loaded="ThumbnailItem_Loaded">
 											<controls:FileItemIcon Item="{Binding}" />

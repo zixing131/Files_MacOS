@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Files.App.MacOS.Models;
 using Files.App.MacOS.ViewModels;
 using Microsoft.UI.Xaml.Input;
@@ -15,6 +16,10 @@ public sealed partial class ComputerPageView : UserControl
 		SizeChanged += (_, _) => { PageScroller.Height = ActualHeight; PageScroller.Width = ActualWidth; };
 		Loaded += (_, _) => { PageScroller.Height = ActualHeight; PageScroller.Width = ActualWidth; };
 		AddHandler(UIElement.PointerWheelChangedEvent, new PointerEventHandler(Page_Wheel), true);
+		AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
+		DataContextChanged += (_, _) => AttachBrowser();
+		Loaded += (_, _) => AttachBrowser();
+		Unloaded += (_, _) => { if (observedBrowser is not null) observedBrowser.PropertyChanged -= Browser_Changed; observedBrowser = null; ClearSelection(); };
 	}
 
 	internal double ScrollOffset => PageScroller.VerticalOffset;
@@ -49,12 +54,66 @@ public sealed partial class ComputerPageView : UserControl
 		PageScroller.ChangeView(null, Math.Clamp(offset, 0, PageScroller.ScrollableHeight), null, true);
 	}
 
-	private Microsoft.UI.Xaml.Controls.Primitives.ToggleButton? selectedCard;
+	private DirectoryBrowserViewModel? observedBrowser;
+	private ToggleButton? selectedCard;
+	private ToggleButton? hoveredCard;
+	private bool? gridMode;
+	internal int SelectedCardCount => VisibleCards(this).Count(card => card.IsChecked == true);
+	internal bool IsGridLayout => gridMode == true;
+	private void AttachBrowser()
+	{
+		if (observedBrowser is not null) observedBrowser.PropertyChanged -= Browser_Changed;
+		observedBrowser = DataContext as DirectoryBrowserViewModel;
+		if (observedBrowser is not null) observedBrowser.PropertyChanged += Browser_Changed;
+		ClearSelection();
+		UpdateViewMode();
+	}
+	private void Browser_Changed(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is nameof(DirectoryBrowserViewModel.IsGridView) or nameof(DirectoryBrowserViewModel.IsColumnView)) UpdateViewMode();
+		if (e.PropertyName is nameof(DirectoryBrowserViewModel.CurrentPath) or nameof(DirectoryBrowserViewModel.ComputerFavorites) or nameof(DirectoryBrowserViewModel.LocalVolumes)) ClearSelection();
+	}
+	private void UpdateViewMode()
+	{
+		bool grid = observedBrowser?.IsGridView == true && observedBrowser?.IsColumnView != true;
+		if (gridMode == grid) return;
+		ClearSelection();
+		gridMode = grid;
+		FavoriteCards.ItemTemplate = (DataTemplate)Resources[grid ? "FavoriteTemplate" : "FavoriteDetailsTemplate"];
+		DeviceCards.ItemTemplate = NetworkCards.ItemTemplate = (DataTemplate)Resources[grid ? "VolumeTemplate" : "VolumeDetailsTemplate"];
+		foreach (var items in new[] { FavoriteCards, DeviceCards, NetworkCards }) items.ItemsPanel = (ItemsPanelTemplate)Resources[grid ? "VolumesPanel" : "DetailsPanel"];
+	}
+	internal void ClearSelection()
+	{
+		if (selectedCard is { } previous) { previous.IsChecked = false; UpdateCardVisual(previous); }
+		selectedCard = null;
+		hoveredCard = null;
+		foreach (var card in VisibleCards(this)) { card.IsChecked = false; UpdateCardVisual(card); }
+	}
+	private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
+	{
+		if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+		for (DependencyObject? node = e.OriginalSource as DependencyObject; node is not null && node != this; node = VisualTreeHelper.GetParent(node))
+			if (node is ButtonBase or ScrollBar) return;
+		ClearSelection();
+	}
+	// 状态直接由当前选中项和悬停项决定，避免不同视觉状态组写入同一背景后残留。
+	private void UpdateCardVisual(ToggleButton card)
+	{
+		card.Background = card.IsChecked == true || ReferenceEquals(card, hoveredCard) ? (Brush)Application.Current.Resources[card.IsChecked == true ? "FilesAccentSubtleBrush" : "FilesSubtleBrush"] : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+		card.BorderBrush = card.IsChecked == true ? (Brush)Application.Current.Resources["FilesAccentBrush"] : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+	}
+	private void Card_Click(object sender, RoutedEventArgs e) { if (sender is ToggleButton card) card.IsChecked = true; }
+	private void Card_Loaded(object sender, RoutedEventArgs e) { if (sender is ToggleButton card) UpdateCardVisual(card); }
+	private void Card_PointerEntered(object sender, PointerRoutedEventArgs e) { if (sender is ToggleButton card) { var old = hoveredCard; hoveredCard = card; if (old is not null) UpdateCardVisual(old); UpdateCardVisual(card); } }
+	private void Card_PointerExited(object sender, PointerRoutedEventArgs e) { if (sender is ToggleButton card) { if (hoveredCard == card) hoveredCard = null; UpdateCardVisual(card); } }
+	private void Card_Unchecked(object sender, RoutedEventArgs e) { if (sender is ToggleButton card) { if (selectedCard == card) selectedCard = null; UpdateCardVisual(card); } }
 	private void Card_Checked(object sender, RoutedEventArgs e)
 	{
-		if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton card) return;
+		if (sender is not ToggleButton card) return;
 		if (selectedCard is not null && selectedCard != card) selectedCard.IsChecked = false;
 		selectedCard = card;
+		UpdateCardVisual(card);
 	}
 
 	private void ToggleGroup_Click(object sender, RoutedEventArgs e)
@@ -97,7 +156,7 @@ public sealed partial class ComputerPageView : UserControl
 		}
 		var cards = VisibleCards(this).ToArray();
 		int index = Array.IndexOf(cards, card);
-		int columns = Math.Max(1, (int)Math.Floor((PageScroller.ViewportWidth - 24) / 300));
+		int columns = gridMode != true ? 1 : Math.Max(1, (int)Math.Floor((PageScroller.ViewportWidth - 24) / 300));
 		int next = e.Key switch
 		{
 			VirtualKey.Left => index - 1, VirtualKey.Right => index + 1,

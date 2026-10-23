@@ -854,6 +854,47 @@ __attribute__((visibility("default"))) void files_macos_pointer_position(double 
 	if (y) *y = point.y;
 }
 
+// 拖动在源 NSWindow 失去指针捕获后仍读取真实鼠标状态，不申请全局输入监听权限。
+static id filesTabEscapeMonitor;
+static id filesTabDeactivationObserver;
+static atomic_bool filesTabDragCanceled;
+__attribute__((visibility("default"))) void files_macos_begin_tab_tracking(void)
+{
+	atomic_store(&filesTabDragCanceled, false);
+	files_run_on_main_async(^{
+		if (filesTabEscapeMonitor) [NSEvent removeMonitor:filesTabEscapeMonitor];
+		if (filesTabDeactivationObserver) [NSNotificationCenter.defaultCenter removeObserver:filesTabDeactivationObserver];
+		filesTabDeactivationObserver = [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidResignActiveNotification object:nil queue:nil usingBlock:^(NSNotification *note) { atomic_store(&filesTabDragCanceled, true); }];
+		filesTabEscapeMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
+			if (event.keyCode == 53) { atomic_store(&filesTabDragCanceled, true); return nil; }
+			return event;
+		}];
+	});
+}
+__attribute__((visibility("default"))) int files_macos_tab_tracking_state(double *x, double *y)
+{
+	files_macos_pointer_position(x, y);
+	return atomic_load(&filesTabDragCanceled) ? -1 : ((NSEvent.pressedMouseButtons & 1) ? 1 : 0);
+}
+__attribute__((visibility("default"))) void files_macos_end_tab_tracking(void)
+{
+	files_run_on_main_async(^{
+		if (filesTabEscapeMonitor) [NSEvent removeMonitor:filesTabEscapeMonitor];
+		filesTabEscapeMonitor = nil;
+		if (filesTabDeactivationObserver) [NSNotificationCenter.defaultCenter removeObserver:filesTabDeactivationObserver];
+		filesTabDeactivationObserver = nil;
+	});
+}
+__attribute__((visibility("default"))) void files_macos_move_drag_window(const char *identifier, double x, double y, double offsetX, double offsetY)
+{
+	if (!identifier || !isfinite(x) || !isfinite(y)) return;
+	NSString *value = [NSString stringWithUTF8String:identifier];
+	files_run_on_main_async(^{
+		NSWindow *window = files_window_with_identifier(value);
+		if (window) [window setFrameOrigin:NSMakePoint(x - offsetX, y - window.frame.size.height + offsetY)];
+	});
+}
+
 __attribute__((visibility("default"))) void *files_macos_tab_drop_target(const char *sourceIdentifier, double *x, double *y)
 {
 	__block NSWindow *target = nil;

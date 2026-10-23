@@ -1,4 +1,7 @@
 using Files.App.MacOS.ViewModels;
+using Files.App.MacOS.Models;
+using Files.App.MacOS.Interop;
+using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
@@ -8,11 +11,19 @@ namespace Files.App.MacOS;
 
 public sealed partial class MainPage
 {
+	private static MainPage? activeTabDragOwner;
 	private BrowserTabViewModel? pointerDragTab;
 	private TabViewItem? pointerDragContainer;
 	private Pointer? tabDragPointer;
+	private DispatcherQueueTimer? tabDragTimer;
 	private Point tabDragOrigin;
+	private Point tabDragScreenOrigin;
+	private WindowPlacementState? tabDragOriginalPlacement;
+	private MainPage? floatingTabPage;
+	private Transform? originalTabTransform;
+	private double floatingTabOffsetX;
 	private bool tabDragStarted;
+	private bool isCommittingTabDrag;
 	private int tabDropIndex = -1;
 	private MainPage? externalTabDropPage;
 	internal bool CanTransferTabs => IsInitialized && fileTransferCancellation is null && !isHistoryOperationRunning && !isConnectingServer;
@@ -38,70 +49,118 @@ public sealed partial class MainPage
 
 	private void BeginTabPointerDrag(TabViewItem container, BrowserTabViewModel tab, PointerRoutedEventArgs e)
 	{
-		if (fileTransferCancellation is not null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+		if (isCommittingTabDrag || !CanTransferTabs || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || pointerDragTab is not null) return;
 		for (DependencyObject? source = e.OriginalSource as DependencyObject; source is not null && source != container; source = VisualTreeHelper.GetParent(source))
-		{
 			if (source is Button) return;
-		}
-		CancelTabPointerDrag();
+		activeTabDragOwner?.CancelTabPointerDrag();
+		var app = (App)Application.Current;
+		tabDragOriginalPlacement = app.GetPagePlacement(this);
+		if (tabDragOriginalPlacement is null) return;
 		ViewModel.ActiveTab = tab;
-		if (!Tabs.CapturePointer(e.Pointer)) return;
 		pointerDragTab = tab;
 		pointerDragContainer = container;
+		originalTabTransform = container.RenderTransform;
 		tabDragPointer = e.Pointer;
 		tabDragOrigin = e.GetCurrentPoint(RootLayout).Position;
-		Tabs.Focus(FocusState.Programmatic);
+		floatingTabOffsetX = ViewModel.Tabs.Count == 1 ? tabDragOrigin.X : 76 + e.GetCurrentPoint(container).Position.X;
+		MacOSNativeMethods.GetPointerPosition(out double x, out double y);
+		tabDragScreenOrigin = new(x, y);
+		activeTabDragOwner = this;
+		MacOSNativeMethods.BeginTabTracking();
+		tabDragTimer ??= DispatcherQueue.CreateTimer();
+		tabDragTimer.Interval = TimeSpan.FromMilliseconds(16);
+		tabDragTimer.Tick -= TabDragTimer_Tick;
+		tabDragTimer.Tick += TabDragTimer_Tick;
+		tabDragTimer.Start();
+		Tabs.CapturePointer(e.Pointer);
 		e.Handled = true;
 	}
 
-	private void Tabs_PointerMoved(object sender, PointerRoutedEventArgs e)
+	// 捕获仅负责本窗口路由，跨窗口生命周期由原生鼠标状态驱动。
+	private void Tabs_PointerMoved(object sender, PointerRoutedEventArgs e) { if (pointerDragTab is not null) e.Handled = true; }
+	private void Tabs_PointerReleased(object sender, PointerRoutedEventArgs e) { if (pointerDragTab is not null) e.Handled = true; }
+	private void Tabs_PointerCanceled(object sender, PointerRoutedEventArgs e) { if (tabDragTimer?.IsRunning != true) CancelTabPointerDrag(); }
+
+	private async void TabDragTimer_Tick(DispatcherQueueTimer sender, object args)
 	{
-		if (pointerDragTab is null || tabDragPointer?.PointerId != e.Pointer.PointerId) return;
-		if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+		if (pointerDragTab is null || tabDragOriginalPlacement is null) return;
+		int state = MacOSNativeMethods.GetTabTrackingState(out double x, out double y);
+		Point screen = new(x, y);
+		if (state < 0) { CancelTabPointerDrag(); return; }
+		if (!tabDragStarted)
+		{
+			if (state == 0) { CancelTabPointerDrag(); return; }
+			if (Math.Abs(x - tabDragScreenOrigin.X) < 6 && Math.Abs(y - tabDragScreenOrigin.Y) < 6) return;
+			tabDragStarted = true;
+			pointerDragContainer!.Opacity = 0.55;
+			CloseActiveContextMenu();
+		}
+		try
+		{
+			UpdateNativeTabDrag(screen);
+			if (state == 0) await FinishNativeTabDragAsync(screen);
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
 		{
 			CancelTabPointerDrag();
-			return;
+			await ShowErrorAsync(GetResource("MoveTabToNewWindowErrorMessage"));
 		}
-		Point point = e.GetCurrentPoint(RootLayout).Position;
-		if (!tabDragStarted && Math.Abs(point.X - tabDragOrigin.X) < 6 && Math.Abs(point.Y - tabDragOrigin.Y) < 6) return;
-		tabDragStarted = true;
-		pointerDragContainer!.Opacity = 0.55;
-		UpdateDragDestination(point);
-		e.Handled = true;
 	}
 
-	private void UpdateDragDestination(Point point)
+	private void UpdateNativeTabDrag(Point screen)
 	{
+		var app = (App)Application.Current;
+		var placement = tabDragOriginalPlacement!;
+		Point local = new(screen.X - placement.X, placement.Y + placement.Height - screen.Y);
 		if (externalTabDropPage is not null) externalTabDropPage.TabInsertionMarker.Visibility = Visibility.Collapsed;
 		externalTabDropPage = null;
-		UpdateTabDropTarget(point);
-		if (tabDropIndex >= 0) return;
-		var candidate = ((App)Application.Current).FindTabDropTarget(this, out Point targetPoint);
+		tabDropIndex = -1;
+		TabInsertionMarker.Visibility = Visibility.Collapsed;
+		if (floatingTabPage is null && local.Y >= -12 && local.Y <= TitleBarBackground.ActualHeight + 18 && local.X >= 60 && local.X <= RootLayout.ActualWidth)
+		{
+			UpdateTabDropTarget(new(local.X, Math.Clamp(local.Y, 0, TitleBarBackground.ActualHeight)));
+			pointerDragContainer!.RenderTransform = new TranslateTransform { X = screen.X - tabDragScreenOrigin.X };
+			ScrollTabStripDuringDrag(local.X);
+			return;
+		}
+		if (floatingTabPage is null)
+		{
+			pointerDragContainer!.RenderTransform = originalTabTransform;
+			floatingTabPage = ViewModel.Tabs.Count == 1 ? this : app.CreateTabDragWindow(this, pointerDragTab!,
+				placement with { X = screen.X - floatingTabOffsetX, Y = screen.Y - placement.Height + tabDragOrigin.Y, IsMaximized = false });
+			if (floatingTabPage is null) return;
+		}
+		app.MoveDragWindow(floatingTabPage, screen, floatingTabOffsetX, tabDragOrigin.Y);
+		var candidate = app.FindTabDropTarget(floatingTabPage, out Point targetPoint);
 		if (candidate is null || !candidate.CanTransferTabs) return;
 		candidate.UpdateTabDropTarget(targetPoint);
+		candidate.ScrollTabStripDuringDrag(targetPoint.X);
 		if (candidate.tabDropIndex >= 0) externalTabDropPage = candidate;
+	}
+
+	private void ScrollTabStripDuringDrag(double x)
+	{
+		var scroller = VisualDescendants(Tabs).OfType<ScrollViewer>().FirstOrDefault(view => VisualDescendants(view).OfType<TabViewItem>().Any());
+		if (scroller is null || scroller.ScrollableWidth <= 0) return;
+		double step = x < 108 ? -14 : x > RootLayout.ActualWidth - 58 ? 14 : 0;
+		if (step != 0) scroller.ChangeView(Math.Clamp(scroller.HorizontalOffset + step, 0, scroller.ScrollableWidth), null, null, true);
 	}
 
 	private void UpdateTabDropTarget(Point point)
 	{
 		tabDropIndex = -1;
 		TabInsertionMarker.Visibility = Visibility.Collapsed;
-		// 同窗口重排与跨窗口合并共用落点算法，插入线始终对应真实标签位置。
 		if (point.Y < 0 || point.Y > TitleBarBackground.ActualHeight || point.X < 76 || point.X > RootLayout.ActualWidth) return;
-		TabViewItem[] containers = VisualDescendants(Tabs).OfType<TabViewItem>()
+		var containers = VisualDescendants(Tabs).OfType<TabViewItem>()
 			.Where(item => item.Tag is BrowserTabViewModel model && ViewModel.Tabs.Contains(model))
 			.OrderBy(item => item.TransformToVisual(RootLayout).TransformPoint(default).X).ToArray();
 		int slot = 0;
 		double markerX = 76;
-		foreach (TabViewItem item in containers)
+		foreach (var item in containers)
 		{
-			Point origin = item.TransformToVisual(RootLayout).TransformPoint(default);
 			if (ReferenceEquals(item.Tag, pointerDragTab)) continue;
-			if (point.X < origin.X + item.ActualWidth / 2)
-			{
-				markerX = origin.X;
-				break;
-			}
+			Point origin = item.TransformToVisual(RootLayout).TransformPoint(default);
+			if (point.X < origin.X + item.ActualWidth / 2) { markerX = origin.X; break; }
 			slot++;
 			markerX = origin.X + item.ActualWidth;
 		}
@@ -110,58 +169,66 @@ public sealed partial class MainPage
 		TabInsertionMarker.Visibility = Visibility.Visible;
 	}
 
-	private async void Tabs_PointerReleased(object sender, PointerRoutedEventArgs e)
+	private async Task FinishNativeTabDragAsync(Point releasePoint)
 	{
-		if (pointerDragTab is not { } tab || tabDragPointer?.PointerId != e.Pointer.PointerId) return;
-		Point point = e.GetCurrentPoint(RootLayout).Position;
-		bool detach = tabDragStarted && (point.X < 0 || point.X > RootLayout.ActualWidth || point.Y < 0 || point.Y > TitleBarBackground.ActualHeight + 24);
-		if (tabDragStarted) UpdateDragDestination(point);
-		MainPage? destination = externalTabDropPage;
-		int target = tabDragStarted ? destination?.tabDropIndex ?? tabDropIndex : -1;
-		CancelTabPointerDrag();
-		e.Handled = true;
+		var tab = pointerDragTab!;
+		var floating = floatingTabPage;
+		var targetPage = externalTabDropPage;
+		int index = targetPage?.tabDropIndex ?? tabDropIndex;
+		double offsetX = floatingTabOffsetX, offsetY = tabDragOrigin.Y;
+		isCommittingTabDrag = true;
+		ResetTabDragState();
+		var app = (App)Application.Current;
+		bool committed = false;
 		try
 		{
-			var app = (App)Application.Current;
-			if (destination is not null && target >= 0)
+			if (targetPage is not null && !ReferenceEquals(targetPage, this))
+				committed = await app.MoveTabToWindowAsync(this, targetPage, tab, index);
+			else if (index >= 0) { ViewModel.MoveTab(tab, index); committed = true; }
+			else if (floating is not null && !ReferenceEquals(floating, this))
 			{
-				if (!await app.MoveTabToWindowAsync(this, destination, tab, target))
-					await ShowErrorAsync(GetResource("MoveTabToNewWindowErrorMessage"));
+				committed = await app.CommitTabDragWindowAsync(this, floating, tab);
+				if (committed) { app.MoveDragWindow(floating, releasePoint, offsetX, offsetY); floating = null; }
 			}
-			else if (target >= 0) ViewModel.MoveTab(tab, target);
-			else if (detach && CanTransferTabs)
-			{
-				if (ViewModel.Tabs.Count == 1) app.PositionWindowAtPointer(this);
-				else if (!await app.MoveTabToNewWindowAsync(this, tab, positionAtPointer: true))
-					await ShowErrorAsync(GetResource("MoveTabToNewWindowErrorMessage"));
-			}
+			else committed = true;
+			if (!committed) await ShowErrorAsync(GetResource("MoveTabToNewWindowErrorMessage"));
 		}
-		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+		finally
 		{
-			await ShowErrorAsync(GetResource("MoveTabToNewWindowErrorMessage"));
+			if (floating is not null && !ReferenceEquals(floating, this)) app.CloseWindow(floating);
+			isCommittingTabDrag = false;
+			ScheduleSessionSave();
 		}
 	}
 
-	private void Tabs_PointerCanceled(object sender, PointerRoutedEventArgs e) => CancelTabPointerDrag();
-
 	private void Tabs_KeyDown(object sender, KeyRoutedEventArgs e)
 	{
-		if (e.Key == VirtualKey.Escape && pointerDragTab is not null)
-		{
-			CancelTabPointerDrag();
-			e.Handled = true;
-		}
+		if (e.Key == VirtualKey.Escape && activeTabDragOwner is { } owner) { owner.CancelTabPointerDrag(); e.Handled = true; }
 	}
 
 	private void CancelTabPointerDrag()
 	{
+		var floating = floatingTabPage;
+		var placement = tabDragOriginalPlacement;
+		ResetTabDragState();
+		var app = (App)Application.Current;
+		if (floating is not null && !ReferenceEquals(floating, this)) app.CloseWindow(floating);
+		else if (ReferenceEquals(floating, this) && placement is not null) app.ApplyWindowPlacement(this, placement);
+	}
+
+	private void ResetTabDragState()
+	{
+		tabDragTimer?.Stop();
+		if (ReferenceEquals(activeTabDragOwner, this)) { activeTabDragOwner = null; MacOSNativeMethods.EndTabTracking(); }
 		if (externalTabDropPage is not null) externalTabDropPage.TabInsertionMarker.Visibility = Visibility.Collapsed;
 		externalTabDropPage = null;
 		Pointer? pointer = tabDragPointer;
 		tabDragPointer = null;
 		pointerDragTab = null;
-		if (pointerDragContainer is not null) pointerDragContainer.Opacity = 1;
+		if (pointerDragContainer is not null) { pointerDragContainer.Opacity = 1; pointerDragContainer.RenderTransform = originalTabTransform; }
 		pointerDragContainer = null;
+		floatingTabPage = null;
+		tabDragOriginalPlacement = null;
 		tabDragStarted = false;
 		tabDropIndex = -1;
 		TabInsertionMarker.Visibility = Visibility.Collapsed;
