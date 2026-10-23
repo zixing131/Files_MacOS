@@ -18,7 +18,8 @@ public sealed record FilePropertiesSummary(
 	uint? GroupId,
 	string? AccessControlList,
 	bool? IsHidden,
-	bool? IsLocked);
+	bool? IsLocked,
+	FileDetails? Details = null);
 
 public sealed record FilePropertyUpdate(
 	UnixFileMode UnixMode,

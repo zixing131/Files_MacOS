@@ -62,6 +62,18 @@ public sealed class MacOSWorkspaceService : IMacOSWorkspaceService
 		}, cancellationToken);
 	}
 
+	public Task SetDefaultApplicationAsync(string path, string applicationPath, bool allOfType, CancellationToken cancellationToken = default)
+	{
+		return Task.Run(() =>
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			nint error = MacOSNativeMethods.SetDefaultApplication(path, applicationPath, allOfType ? 1 : 0);
+			if (error == 0) return;
+			try { throw new IOException(Marshal.PtrToStringUTF8(error)); }
+			finally { MacOSNativeMethods.Free(error); }
+		}, cancellationToken);
+	}
+
 	public Task<string?> PickApplicationAsync(CancellationToken cancellationToken = default)
 	{
 		return Task.Run(() =>

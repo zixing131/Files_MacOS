@@ -647,4 +647,25 @@
   <data name="SettingsSidebarCategory" xml:space="preserve"><value>侧边栏</value></data>
   <data name="SettingsContextMenuCategory" xml:space="preserve"><value>右键菜单</value></data>
   <data name="SettingsAccessCategory" xml:space="preserve"><value>文件访问</value></data>
+  <data name="PropertyKindLabel" xml:space="preserve"><value>种类</value></data>
+  <data name="PropertyVersionLabel" xml:space="preserve"><value>版本</value></data>
+  <data name="PropertyBuildLabel" xml:space="preserve"><value>构建版本</value></data>
+  <data name="PropertyCopyrightLabel" xml:space="preserve"><value>版权</value></data>
+  <data name="PropertyExactSizeFormat" xml:space="preserve"><value>{0}（{1} 字节）</value></data>
+  <data name="PropertyMoreInformationSection" xml:space="preserve"><value>更多信息</value></data>
+  <data name="PropertyContentTypeLabel" xml:space="preserve"><value>内容类型</value></data>
+  <data name="PropertyDimensionsLabel" xml:space="preserve"><value>尺寸（像素）</value></data>
+  <data name="PropertyDurationLabel" xml:space="preserve"><value>时长</value></data>
+  <data name="PropertyCapturedLabel" xml:space="preserve"><value>拍摄时间</value></data>
+  <data name="PropertyLastOpenedLabel" xml:space="preserve"><value>上次打开</value></data>
+  <data name="PropertyAuthorsLabel" xml:space="preserve"><value>作者</value></data>
+  <data name="PropertySourceLabel" xml:space="preserve"><value>来源</value></data>
+  <data name="PropertyCommentsLabel" xml:space="preserve"><value>注释</value></data>
+  <data name="PropertyOpenWithSection" xml:space="preserve"><value>打开方式</value></data>
+  <data name="PropertyChooseAppPlaceholder" xml:space="preserve"><value>选择应用程序</value></data>
+  <data name="PropertyOpenWithThisFile" xml:space="preserve"><value>仅用于此文件</value></data>
+  <data name="PropertyOpenWithAllFiles" xml:space="preserve"><value>更改所有同类文件</value></data>
+  <data name="PropertyOpenWithSaveHelp" xml:space="preserve"><value>点击“保存”后，此文件将默认使用所选应用打开。</value></data>
+  <data name="PropertyOpenWithAllHelp" xml:space="preserve"><value>保存后将更改所有同类文件的系统默认打开方式，在 Finder 中同样生效。</value></data>
+  <data name="PropertyAdvancedPermissionsSection" xml:space="preserve"><value>所有权与访问规则</value></data>
 </root>

@@ -10,6 +10,8 @@ public interface IMacOSWorkspaceService
 
 	Task OpenWithAsync(string path, string applicationPath, CancellationToken cancellationToken = default);
 
+	Task SetDefaultApplicationAsync(string path, string applicationPath, bool allOfType, CancellationToken cancellationToken = default);
+
 	Task<string?> PickApplicationAsync(CancellationToken cancellationToken = default);
 
 	Task RevealAsync(string path, CancellationToken cancellationToken = default);

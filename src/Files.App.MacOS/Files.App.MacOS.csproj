@@ -20,9 +20,9 @@
 
     <ApplicationTitle>Files</ApplicationTitle>
     <ApplicationId>io.filescommunity.files.macos</ApplicationId>
-    <Version>0.1.23</Version>
-    <ApplicationDisplayVersion>0.1.23</ApplicationDisplayVersion>
-    <ApplicationVersion>10123</ApplicationVersion>
+    <Version>0.1.24</Version>
+    <ApplicationDisplayVersion>0.1.24</ApplicationDisplayVersion>
+    <ApplicationVersion>10124</ApplicationVersion>
     <ApplicationPublisher>Files Community</ApplicationPublisher>
     <Description>Files for macOS technical preview.</Description>
     <UnoPlatformDefaultSymbolsFontFamily>Symbols</UnoPlatformDefaultSymbolsFontFamily>
@@ -51,7 +51,7 @@
     Outputs="$(MacOSBridgeOutput)">
     <Error Condition="'$(MacOSBridgeArch)' == ''" Text="Unsupported macOS runtime identifier: $(RuntimeIdentifier)" />
     <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(MacOSBridgeOutput)'))" />
-    <Exec Command="xcrun clang -arch $(MacOSBridgeArch) -mmacosx-version-min=13.0 -dynamiclib -fobjc-arc -fblocks -framework AppKit -framework CoreServices -framework CoreText -framework Foundation -framework NetFS -framework QuickLook -framework QuickLookUI -framework QuickLookThumbnailing -framework UniformTypeIdentifiers &quot;$(MacOSBridgeSource)&quot; -o &quot;$(MacOSBridgeOutput)&quot;" />
+    <Exec Command="xcrun clang -arch $(MacOSBridgeArch) -mmacosx-version-min=13.0 -dynamiclib -fobjc-arc -fblocks -framework AppKit -framework CoreServices -framework CoreText -framework ImageIO -framework AVFoundation -framework CoreMedia -framework Foundation -framework NetFS -framework QuickLook -framework QuickLookUI -framework QuickLookThumbnailing -framework UniformTypeIdentifiers &quot;$(MacOSBridgeSource)&quot; -o &quot;$(MacOSBridgeOutput)&quot;" />
   </Target>
 
   <Target

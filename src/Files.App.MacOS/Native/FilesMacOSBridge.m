@@ -1,6 +1,8 @@
 #import <AppKit/AppKit.h>
 #import <CoreServices/CoreServices.h>
 #import <CoreText/CoreText.h>
+#import <ImageIO/ImageIO.h>
+#import <AVFoundation/AVFoundation.h>
 #import <NetFS/NetFS.h>
 #import <QuickLook/QuickLook.h>
 #import <QuickLookUI/QuickLookUI.h>
@@ -2385,6 +2387,144 @@ __attribute__((visibility("default"))) char *files_macos_get_file_sort_metadata(
 			@"Tags": tags ?: @[],
 		};
 		return files_copy_json(result);
+	}
+}
+
+
+// 属性页按需读取文件本身，未被 Spotlight 收录的图片和媒体也能显示信息。
+__attribute__((visibility("default"))) char *files_macos_get_file_details(const char *path)
+{
+	@autoreleasepool
+	{
+		NSURL *url = files_url_from_path(path);
+		if (!url) return NULL;
+		NSMutableDictionary *result = [NSMutableDictionary dictionary];
+		NSString *kind = nil;
+		UTType *type = nil;
+		[url getResourceValue:&kind forKey:NSURLLocalizedTypeDescriptionKey error:nil];
+		[url getResourceValue:&type forKey:NSURLContentTypeKey error:nil];
+		if (kind) result[@"Kind"] = kind;
+		if (type) result[@"ContentType"] = type.identifier;
+		NSBundle *bundle = [NSBundle bundleWithURL:url];
+		NSDictionary *bundleKeys = @{@"Version": @"CFBundleShortVersionString", @"Build": @"CFBundleVersion", @"Copyright": @"NSHumanReadableCopyright"};
+		for (NSString *key in bundleKeys)
+		{
+			id value = [bundle objectForInfoDictionaryKey:bundleKeys[key]];
+			if ([value isKindOfClass:NSString.class]) result[key] = value;
+		}
+		MDItemRef item = MDItemCreate(kCFAllocatorDefault, (__bridge CFStringRef)url.path);
+		if (item)
+		{
+			NSDictionary *keys = @{@"Comments": (__bridge NSString *)kMDItemFinderComment, @"WhereFroms": (__bridge NSString *)kMDItemWhereFroms, @"Authors": (__bridge NSString *)kMDItemAuthors};
+			for (NSString *key in keys)
+			{
+				id value = CFBridgingRelease(MDItemCopyAttribute(item, (__bridge CFStringRef)keys[key]));
+				if ([key isEqualToString:@"Comments"])
+				{
+					if ([value isKindOfClass:NSString.class]) result[key] = value;
+				}
+				else if ([value isKindOfClass:NSArray.class])
+				{
+					NSMutableArray *strings = [NSMutableArray array];
+					for (id entry in value) if ([entry isKindOfClass:NSString.class]) [strings addObject:entry];
+					result[key] = strings;
+				}
+			}
+			id lastUsed = CFBridgingRelease(MDItemCopyAttribute(item, kMDItemLastUsedDate));
+			if ([lastUsed isKindOfClass:NSDate.class]) result[@"LastOpenedUnixSeconds"] = @([lastUsed timeIntervalSince1970]);
+			CFRelease(item);
+		}
+		if (![result[@"WhereFroms"] count])
+		{
+			const char *attribute = "com.apple.metadata:kMDItemWhereFroms";
+			ssize_t length = getxattr(url.fileSystemRepresentation, attribute, NULL, 0, 0, 0);
+			if (length > 0 && length <= 1024 * 1024)
+			{
+				NSMutableData *data = [NSMutableData dataWithLength:(NSUInteger)length];
+				if (getxattr(url.fileSystemRepresentation, attribute, data.mutableBytes, data.length, 0, 0) == length)
+				{
+					id values = [NSPropertyListSerialization propertyListWithData:data options:0 format:nil error:nil];
+					if ([values isKindOfClass:NSArray.class])
+					{
+						NSMutableArray *strings = [NSMutableArray array];
+						for (id value in values) if ([value isKindOfClass:NSString.class]) [strings addObject:value];
+						result[@"WhereFroms"] = strings;
+					}
+				}
+			}
+		}
+		if ([type conformsToType:UTTypeImage])
+		{
+			CGImageSourceRef image = CGImageSourceCreateWithURL((__bridge CFURLRef)url, (__bridge CFDictionaryRef)@{(__bridge NSString *)kCGImageSourceShouldCache: @NO});
+			if (image)
+			{
+				NSDictionary *properties = CFBridgingRelease(CGImageSourceCopyPropertiesAtIndex(image, 0, NULL));
+				NSNumber *width = properties[(__bridge NSString *)kCGImagePropertyPixelWidth];
+				NSNumber *height = properties[(__bridge NSString *)kCGImagePropertyPixelHeight];
+				NSInteger orientation = [properties[(__bridge NSString *)kCGImagePropertyOrientation] integerValue];
+				if (width && height)
+				{
+					result[@"PixelWidth"] = orientation >= 5 && orientation <= 8 ? height : width;
+					result[@"PixelHeight"] = orientation >= 5 && orientation <= 8 ? width : height;
+				}
+				NSDictionary *exif = properties[(__bridge NSString *)kCGImagePropertyExifDictionary];
+				NSString *captured = exif[(__bridge NSString *)kCGImagePropertyExifDateTimeOriginal];
+				if ([captured isKindOfClass:NSString.class]) result[@"CapturedAt"] = captured;
+				CFRelease(image);
+			}
+		}
+		else if ([type conformsToType:UTTypeMovie] || [type conformsToType:UTTypeAudio])
+		{
+			AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:nil];
+			dispatch_semaphore_t loaded = dispatch_semaphore_create(0);
+			[asset loadValuesAsynchronouslyForKeys:@[@"duration", @"tracks"] completionHandler:^{ dispatch_semaphore_signal(loaded); }];
+			if (dispatch_semaphore_wait(loaded, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)) == 0)
+			{
+				if ([asset statusOfValueForKey:@"duration" error:nil] == AVKeyValueStatusLoaded)
+				{
+					double seconds = CMTimeGetSeconds(asset.duration);
+					if (isfinite(seconds) && seconds >= 0) result[@"DurationSeconds"] = @(seconds);
+				}
+				if ([asset statusOfValueForKey:@"tracks" error:nil] == AVKeyValueStatusLoaded)
+				for (AVAssetTrack *track in asset.tracks)
+				{
+					if (![track.mediaType isEqualToString:AVMediaTypeVideo]) continue;
+					CGRect display = CGRectApplyAffineTransform((CGRect){CGPointZero, track.naturalSize}, track.preferredTransform);
+					if (isfinite(display.size.width) && isfinite(display.size.height))
+					{
+						result[@"PixelWidth"] = @(llround(fabs(display.size.width)));
+						result[@"PixelHeight"] = @(llround(fabs(display.size.height)));
+					}
+					break;
+				}
+			}
+			else [asset cancelLoading];
+		}
+		return files_copy_json(result);
+	}
+}
+
+// 仅由后台线程调用；关联变更必须由属性页的显式保存动作触发。
+__attribute__((visibility("default"))) char *files_macos_set_default_application(const char *path, const char *applicationPath, int allOfType)
+{
+	@autoreleasepool
+	{
+		NSURL *url = files_url_from_path(path);
+		NSURL *application = files_url_from_path(applicationPath);
+		if (!url || !application || ![NSFileManager.defaultManager fileExistsAtPath:url.path] ||
+			![NSBundle bundleWithURL:application].bundleIdentifier.length)
+			return strdup("The file or application is not available.");
+		if (NSThread.isMainThread) return strdup("Default application changes must run in the background.");
+		__block NSError *error = nil;
+		dispatch_semaphore_t completed = dispatch_semaphore_create(0);
+		dispatch_async(dispatch_get_main_queue(), ^{
+			void (^completion)(NSError *) = ^(NSError *value) { error = value; dispatch_semaphore_signal(completed); };
+			if (allOfType) [NSWorkspace.sharedWorkspace setDefaultApplicationAtURL:application toOpenContentTypeOfFileAtURL:url completionHandler:completion];
+			else [NSWorkspace.sharedWorkspace setDefaultApplicationAtURL:application toOpenFileAtURL:url completionHandler:completion];
+		});
+		// 等待系统回调后再报告成功，不能超时返回失败后又悄悄更改关联。
+		dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
+		return files_copy_error(error);
 	}
 }
 

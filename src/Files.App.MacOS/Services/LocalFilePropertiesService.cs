@@ -115,7 +115,8 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 			security?.GroupId,
 			security?.Acl,
 			security?.IsHidden,
-			security?.IsLocked);
+			security?.IsLocked,
+			MacOSFileDetailsService.Read(singlePath));
 	}
 
 	private static void CountEntry(string path, PropertyTotals totals, CancellationToken cancellationToken, bool isRoot)

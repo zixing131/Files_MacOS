@@ -647,4 +647,25 @@
   <data name="SettingsSidebarCategory" xml:space="preserve"><value>Sidebar</value></data>
   <data name="SettingsContextMenuCategory" xml:space="preserve"><value>Context menu</value></data>
   <data name="SettingsAccessCategory" xml:space="preserve"><value>File access</value></data>
+  <data name="PropertyKindLabel" xml:space="preserve"><value>Kind</value></data>
+  <data name="PropertyVersionLabel" xml:space="preserve"><value>Version</value></data>
+  <data name="PropertyBuildLabel" xml:space="preserve"><value>Build</value></data>
+  <data name="PropertyCopyrightLabel" xml:space="preserve"><value>Copyright</value></data>
+  <data name="PropertyExactSizeFormat" xml:space="preserve"><value>{0} ({1} bytes)</value></data>
+  <data name="PropertyMoreInformationSection" xml:space="preserve"><value>More information</value></data>
+  <data name="PropertyContentTypeLabel" xml:space="preserve"><value>Content type</value></data>
+  <data name="PropertyDimensionsLabel" xml:space="preserve"><value>Dimensions (px)</value></data>
+  <data name="PropertyDurationLabel" xml:space="preserve"><value>Duration</value></data>
+  <data name="PropertyCapturedLabel" xml:space="preserve"><value>Date taken</value></data>
+  <data name="PropertyLastOpenedLabel" xml:space="preserve"><value>Last opened</value></data>
+  <data name="PropertyAuthorsLabel" xml:space="preserve"><value>Authors</value></data>
+  <data name="PropertySourceLabel" xml:space="preserve"><value>Where from</value></data>
+  <data name="PropertyCommentsLabel" xml:space="preserve"><value>Comments</value></data>
+  <data name="PropertyOpenWithSection" xml:space="preserve"><value>Open with</value></data>
+  <data name="PropertyChooseAppPlaceholder" xml:space="preserve"><value>Choose an application</value></data>
+  <data name="PropertyOpenWithThisFile" xml:space="preserve"><value>Use for this file only</value></data>
+  <data name="PropertyOpenWithAllFiles" xml:space="preserve"><value>Change all files of this type</value></data>
+  <data name="PropertyOpenWithSaveHelp" xml:space="preserve"><value>The selected application will be used for this file after you click Save.</value></data>
+  <data name="PropertyOpenWithAllHelp" xml:space="preserve"><value>Saving changes the system default for all files of this content type, including files opened in Finder.</value></data>
+  <data name="PropertyAdvancedPermissionsSection" xml:space="preserve"><value>Ownership and access rules</value></data>
 </root>
