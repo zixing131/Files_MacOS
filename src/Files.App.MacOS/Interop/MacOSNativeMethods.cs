@@ -83,8 +83,10 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_register_window", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int RegisterWindow(nint windowHandle, string identifier);
 
-	[LibraryImport(LibraryName, EntryPoint = "files_macos_begin_tab_tracking")]
-	internal static partial void BeginTabTracking();
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_begin_tab_tracking", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial void BeginTabTracking(string identifier);
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_follow_tab_window", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial void FollowTabWindow(string identifier, double offsetX, double offsetY);
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_tab_tracking_state")]
 	internal static partial int GetTabTrackingState(out double x, out double y);
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_end_tab_tracking")]

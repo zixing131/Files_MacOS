@@ -858,32 +858,112 @@ __attribute__((visibility("default"))) void files_macos_pointer_position(double 
 static id filesTabEscapeMonitor;
 static id filesTabDeactivationObserver;
 static atomic_bool filesTabDragCanceled;
-__attribute__((visibility("default"))) void files_macos_begin_tab_tracking(void)
+static NSWindow *filesTabSourceWindow;
+static NSWindow *filesTabFloatingWindow;
+static BOOL filesTabSourceWasMovable;
+static BOOL filesTabFloatingWasMovable;
+static NSTimer *filesTabMotionTimer;
+static BOOL filesTabReleased;
+static NSPoint filesTabReleasePoint;
+
+static void files_capture_tab_release(void)
 {
+	if (!filesTabReleased && !(NSEvent.pressedMouseButtons & 1))
+	{
+		filesTabReleased = YES;
+		filesTabReleasePoint = NSEvent.mouseLocation;
+	}
+}
+
+// 标签拖动独占窗口位置；恢复时先停掉跟随，避免松手后迟到的移动覆盖落点。
+static void files_stop_tab_motion(void)
+{
+	[filesTabMotionTimer invalidate];
+	filesTabMotionTimer = nil;
+	if (filesTabFloatingWindow && filesTabFloatingWindow != filesTabSourceWindow)
+		filesTabFloatingWindow.movable = filesTabFloatingWasMovable;
+	if (filesTabSourceWindow) filesTabSourceWindow.movable = filesTabSourceWasMovable;
+	filesTabFloatingWindow = nil;
+	filesTabSourceWindow = nil;
+}
+
+__attribute__((visibility("default"))) void files_macos_begin_tab_tracking(const char *identifier)
+{
+	if (!identifier) return;
+	NSString *value = [NSString stringWithUTF8String:identifier];
 	atomic_store(&filesTabDragCanceled, false);
-	files_run_on_main_async(^{
+	dispatch_block_t begin = ^{
+		files_stop_tab_motion();
+		filesTabReleased = NO;
+		filesTabSourceWindow = files_window_with_identifier(value);
+		filesTabSourceWasMovable = filesTabSourceWindow.isMovable;
+		filesTabSourceWindow.movable = NO;
 		if (filesTabEscapeMonitor) [NSEvent removeMonitor:filesTabEscapeMonitor];
 		if (filesTabDeactivationObserver) [NSNotificationCenter.defaultCenter removeObserver:filesTabDeactivationObserver];
 		filesTabDeactivationObserver = [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationDidResignActiveNotification object:nil queue:nil usingBlock:^(NSNotification *note) { atomic_store(&filesTabDragCanceled, true); }];
-		filesTabEscapeMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
-			if (event.keyCode == 53) { atomic_store(&filesTabDragCanceled, true); return nil; }
+		filesTabEscapeMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:(NSEventMaskKeyDown | NSEventMaskLeftMouseUp) handler:^NSEvent *(NSEvent *event) {
+			if (event.type == NSEventTypeLeftMouseUp)
+			{
+				filesTabReleased = YES;
+				filesTabReleasePoint = event.window ? [event.window convertPointToScreen:event.locationInWindow] : NSEvent.mouseLocation;
+			}
+			if (event.type == NSEventTypeKeyDown && event.keyCode == 53) { atomic_store(&filesTabDragCanceled, true); return nil; }
 			return event;
 		}];
+	};
+	// 必须在此次按下事件结束前关闭标题栏拖动，不能异步排队与 AppKit 抢位置。
+	if (NSThread.isMainThread) begin(); else dispatch_sync(dispatch_get_main_queue(), begin);
+}
+
+__attribute__((visibility("default"))) void files_macos_follow_tab_window(const char *identifier, double offsetX, double offsetY)
+{
+	if (!identifier || !isfinite(offsetX) || !isfinite(offsetY)) return;
+	NSString *value = [NSString stringWithUTF8String:identifier];
+	files_run_on_main_async(^{
+		[filesTabMotionTimer invalidate];
+		filesTabFloatingWindow = files_window_with_identifier(value);
+		if (!filesTabSourceWindow || !filesTabFloatingWindow) return;
+		filesTabFloatingWasMovable = filesTabFloatingWindow.isMovable;
+		filesTabFloatingWindow.movable = NO;
+		// 在 AppKit 主线程读取最新位置，页面加载或布局忙碌时也不会积压旧坐标。
+		filesTabMotionTimer = [NSTimer timerWithTimeInterval:1.0 / 120.0 repeats:YES block:^(NSTimer *timer) {
+			files_capture_tab_release();
+			if (atomic_load(&filesTabDragCanceled) || filesTabReleased) return;
+			NSWindow *window = filesTabFloatingWindow;
+			if (!window.isVisible) return;
+			NSPoint point = NSEvent.mouseLocation;
+			NSPoint origin = NSMakePoint(point.x - offsetX, point.y - window.frame.size.height + offsetY);
+			if (!NSEqualPoints(window.frame.origin, origin)) [window setFrameOrigin:origin];
+		}];
+		[NSRunLoop.mainRunLoop addTimer:filesTabMotionTimer forMode:NSRunLoopCommonModes];
+		[filesTabMotionTimer fire];
 	});
 }
 __attribute__((visibility("default"))) int files_macos_tab_tracking_state(double *x, double *y)
 {
-	files_macos_pointer_position(x, y);
-	return atomic_load(&filesTabDragCanceled) ? -1 : ((NSEvent.pressedMouseButtons & 1) ? 1 : 0);
+	__block NSPoint point;
+	__block int state;
+	dispatch_block_t sample = ^{
+		files_capture_tab_release();
+		// 松手位置只记录一次，不能把松手后移动鼠标的位置当作最终落点。
+		point = filesTabReleased ? filesTabReleasePoint : NSEvent.mouseLocation;
+		state = atomic_load(&filesTabDragCanceled) ? -1 : (filesTabReleased ? 0 : 1);
+	};
+	if (NSThread.isMainThread) sample(); else dispatch_sync(dispatch_get_main_queue(), sample);
+	if (x) *x = point.x;
+	if (y) *y = point.y;
+	return state;
 }
 __attribute__((visibility("default"))) void files_macos_end_tab_tracking(void)
 {
-	files_run_on_main_async(^{
+	dispatch_block_t end = ^{
+		files_stop_tab_motion();
 		if (filesTabEscapeMonitor) [NSEvent removeMonitor:filesTabEscapeMonitor];
 		filesTabEscapeMonitor = nil;
 		if (filesTabDeactivationObserver) [NSNotificationCenter.defaultCenter removeObserver:filesTabDeactivationObserver];
 		filesTabDeactivationObserver = nil;
-	});
+	};
+	if (NSThread.isMainThread) end(); else dispatch_sync(dispatch_get_main_queue(), end);
 }
 __attribute__((visibility("default"))) void files_macos_move_drag_window(const char *identifier, double x, double y, double offsetX, double offsetY)
 {

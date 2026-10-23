@@ -220,6 +220,20 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		return window is null ? null : GetWindowPlacement(window);
 	}
 
+	internal void BeginTabTracking(MainPage page)
+	{
+		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
+		if (window is not null && nativeWindowIdentifiers.TryGetValue(window, out string? id))
+			MacOSNativeMethods.BeginTabTracking(id);
+	}
+
+	internal void FollowTabWindow(MainPage page, double offsetX, double offsetY)
+	{
+		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
+		if (window is not null && nativeWindowIdentifiers.TryGetValue(window, out string? id))
+			MacOSNativeMethods.FollowTabWindow(id, offsetX, offsetY);
+	}
+
 	internal void MoveDragWindow(MainPage page, Windows.Foundation.Point point, double offsetX, double offsetY)
 	{
 		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;

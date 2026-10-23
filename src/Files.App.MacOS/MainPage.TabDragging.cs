@@ -25,6 +25,8 @@ public sealed partial class MainPage
 	private WindowPlacementState? tabDragOriginalPlacement;
 	private MainPage? floatingTabPage;
 	private Transform? originalTabTransform;
+	private readonly TranslateTransform tabDragTranslation = new();
+	private ScrollViewer? tabDragScroller;
 	private double floatingTabOffsetX;
 	private bool tabDragStarted;
 	private bool isCommittingTabDrag;
@@ -71,7 +73,8 @@ public sealed partial class MainPage
 		tabDragScreenOrigin = new(x, y);
 		activeTabDragOwner = this;
 		TraceTabDrag($"begin tab={tab.Header} screen={tabDragScreenOrigin} local={tabDragOrigin}");
-		MacOSNativeMethods.BeginTabTracking();
+		app.BeginTabTracking(this);
+		tabDragTranslation.X = 0;
 		tabDragTimer ??= DispatcherQueue.CreateTimer();
 		tabDragTimer.Interval = TimeSpan.FromMilliseconds(16);
 		tabDragTimer.Tick -= TabDragTimer_Tick;
@@ -97,7 +100,8 @@ public sealed partial class MainPage
 			if (state == 0) { CancelTabPointerDrag(); return; }
 			if (Math.Abs(x - tabDragScreenOrigin.X) < 6 && Math.Abs(y - tabDragScreenOrigin.Y) < 6) return;
 			tabDragStarted = true;
-			TraceTabDrag($"start screen={screen}");
+			TraceTabDrag($"start screen={screen} window={((App)Application.Current).GetPagePlacement(this)}");
+			pointerDragContainer!.RenderTransform = tabDragTranslation;
 			pointerDragContainer!.Opacity = 0.55;
 			CloseActiveContextMenu();
 		}
@@ -118,14 +122,10 @@ public sealed partial class MainPage
 		var app = (App)Application.Current;
 		var placement = tabDragOriginalPlacement!;
 		Point local = new(screen.X - placement.X, placement.Y + placement.Height - screen.Y);
-		if (externalTabDropPage is not null) externalTabDropPage.TabInsertionMarker.Visibility = Visibility.Collapsed;
-		externalTabDropPage = null;
-		tabDropIndex = -1;
-		TabInsertionMarker.Visibility = Visibility.Collapsed;
 		if (floatingTabPage is null && local.Y >= -12 && local.Y <= TitleBarBackground.ActualHeight + 18 && local.X >= 60 && local.X <= RootLayout.ActualWidth)
 		{
 			UpdateTabDropTarget(new(local.X, Math.Clamp(local.Y, 0, TitleBarBackground.ActualHeight)));
-			pointerDragContainer!.RenderTransform = new TranslateTransform { X = screen.X - tabDragScreenOrigin.X };
+			tabDragTranslation.X = screen.X - tabDragScreenOrigin.X;
 			ScrollTabStripDuringDrag(local.X);
 			return;
 		}
@@ -135,10 +135,15 @@ public sealed partial class MainPage
 			floatingTabPage = ViewModel.Tabs.Count == 1 ? this : app.CreateTabDragWindow(this, pointerDragTab!,
 				placement with { X = screen.X - floatingTabOffsetX, Y = screen.Y - placement.Height + tabDragOrigin.Y, IsMaximized = false });
 			if (floatingTabPage is null) return;
+			app.FollowTabWindow(floatingTabPage, floatingTabOffsetX, tabDragOrigin.Y);
 			TraceTabDrag($"floating created sourceTabs={ViewModel.Tabs.Count} screen={screen}");
 		}
-		app.MoveDragWindow(floatingTabPage, screen, floatingTabOffsetX, tabDragOrigin.Y);
+		tabDropIndex = -1;
 		var candidate = app.FindTabDropTarget(floatingTabPage, out Point targetPoint);
+		if (!ReferenceEquals(candidate, this)) TabInsertionMarker.Visibility = Visibility.Collapsed;
+		if (externalTabDropPage is not null && !ReferenceEquals(externalTabDropPage, candidate))
+			externalTabDropPage.TabInsertionMarker.Visibility = Visibility.Collapsed;
+		externalTabDropPage = null;
 		if (candidate is null || !candidate.CanTransferTabs) return;
 		candidate.UpdateTabDropTarget(targetPoint);
 		candidate.ScrollTabStripDuringDrag(targetPoint.X);
@@ -147,7 +152,7 @@ public sealed partial class MainPage
 
 	private void ScrollTabStripDuringDrag(double x)
 	{
-		var scroller = VisualDescendants(Tabs).OfType<ScrollViewer>().FirstOrDefault(view => VisualDescendants(view).OfType<TabViewItem>().Any());
+		var scroller = tabDragScroller ??= VisualDescendants(Tabs).OfType<ScrollViewer>().FirstOrDefault(view => VisualDescendants(view).OfType<TabViewItem>().Any());
 		if (scroller is null || scroller.ScrollableWidth <= 0) return;
 		double step = x < 108 ? -14 : x > RootLayout.ActualWidth - 58 ? 14 : 0;
 		if (step != 0) scroller.ChangeView(Math.Clamp(scroller.HorizontalOffset + step, 0, scroller.ScrollableWidth), null, null, true);
@@ -156,8 +161,11 @@ public sealed partial class MainPage
 	private void UpdateTabDropTarget(Point point)
 	{
 		tabDropIndex = -1;
-		TabInsertionMarker.Visibility = Visibility.Collapsed;
-		if (point.Y < 0 || point.Y > TitleBarBackground.ActualHeight || point.X < 76 || point.X > RootLayout.ActualWidth) return;
+		if (point.Y < 0 || point.Y > TitleBarBackground.ActualHeight || point.X < 76 || point.X > RootLayout.ActualWidth)
+		{
+			TabInsertionMarker.Visibility = Visibility.Collapsed;
+			return;
+		}
 		var containers = VisualDescendants(Tabs).OfType<TabViewItem>()
 			.Where(item => item.Tag is BrowserTabViewModel model && ViewModel.Tabs.Contains(model))
 			.OrderBy(item => item.TransformToVisual(RootLayout).TransformPoint(default).X).ToArray();
@@ -183,7 +191,7 @@ public sealed partial class MainPage
 		var targetPage = externalTabDropPage;
 		int index = targetPage?.tabDropIndex ?? tabDropIndex;
 		double offsetX = floatingTabOffsetX, offsetY = tabDragOrigin.Y;
-		TraceTabDrag($"release screen={releasePoint} index={index} destination={(targetPage is null ? "none" : ReferenceEquals(targetPage, this) ? "source" : "other")} floating={floating is not null}");
+		TraceTabDrag($"release screen={releasePoint} index={index} destination={(targetPage is null ? "none" : ReferenceEquals(targetPage, this) ? "source" : "other")} floating={floating is not null} window={((App)Application.Current).GetPagePlacement(this)}");
 		isCommittingTabDrag = true;
 		ResetTabDragState();
 		var app = (App)Application.Current;
@@ -198,7 +206,11 @@ public sealed partial class MainPage
 				committed = await app.CommitTabDragWindowAsync(this, floating, tab);
 				if (committed) { app.MoveDragWindow(floating, releasePoint, offsetX, offsetY); floating = null; }
 			}
-			else committed = true;
+			else
+			{
+				if (ReferenceEquals(floating, this)) app.MoveDragWindow(this, releasePoint, offsetX, offsetY);
+				committed = true;
+			}
 			if (!committed) await ShowErrorAsync(GetResource("MoveTabToNewWindowErrorMessage"));
 		}
 		finally
@@ -228,6 +240,7 @@ public sealed partial class MainPage
 	private void ResetTabDragState()
 	{
 		tabDragTimer?.Stop();
+		tabDragScroller = null;
 		if (ReferenceEquals(activeTabDragOwner, this)) { activeTabDragOwner = null; MacOSNativeMethods.EndTabTracking(); }
 		if (externalTabDropPage is not null) externalTabDropPage.TabInsertionMarker.Visibility = Visibility.Collapsed;
 		externalTabDropPage = null;
