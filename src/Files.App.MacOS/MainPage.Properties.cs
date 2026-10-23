@@ -26,15 +26,16 @@ public sealed partial class MainPage
 		if (Browser is not DirectoryBrowserViewModel targetBrowser || selectedItems.Count == 0 || fileTransferCancellation is not null) return;
 		// 固定打开属性时的选择，避免异步加载期间切换目录而编辑了另一组文件。
 		LocalFileSystemItem[] items = selectedItems.ToArray();
-		targetBrowser.StatusText = GetResource("CalculatingPropertiesMessage");
+		targetBrowser.StatusText = GetResource("LoadingPropertiesMessage");
 		PropertiesButton.IsEnabled = false;
+		using var propertiesLifetime = new CancellationTokenSource();
 		try
 		{
 			FilePropertiesSummary summary = await FilePropertiesService.GetSummaryAsync(items.Select(item => item.Path).ToArray());
 			LocalFileSystemItem? item = items.Length == 1 ? items[0] : null;
 			IReadOnlyList<OpenWithApplication> applications = item is { IsDirectory: false } && summary.LinkTarget is null
 				? await WorkspaceService.GetOpenWithApplicationsAsync(item.Path) : [];
-			if (item is not null && item.Thumbnail is null)
+			if (item is not null && !item.IsNavigableDirectory && item.Thumbnail is null)
 			{
 				byte[]? png = await WorkspaceService.GetThumbnailPngAsync(item.Path, 96, 96, 2);
 				if (png is not null)
@@ -47,7 +48,7 @@ public sealed partial class MainPage
 					item.Thumbnail = bitmap;
 				}
 			}
-			FrameworkElement content = CreatePropertiesContent(summary, item, applications, out PropertiesEditor editor);
+			FrameworkElement content = CreatePropertiesContent(summary, item, applications, items.Select(entry => entry.Path).ToArray(), propertiesLifetime.Token, out PropertiesEditor editor);
 			bool canEdit = editor.CanEditSecurity || editor.Applications is not null;
 			var dialog = new ContentDialog
 			{
@@ -72,7 +73,10 @@ public sealed partial class MainPage
 			}
 			if (editor.Applications is not null) editor.Applications.SelectionChanged += (_, _) => Validate();
 			if (editor.Scope is not null) editor.Scope.SelectionChanged += (_, _) => Validate();
-			if (await dialog.ShowAsync() != ContentDialogResult.Primary || summary.Path is null) return;
+			ContentDialogResult result;
+			try { result = await dialog.ShowAsync(); }
+			finally { propertiesLifetime.Cancel(); }
+			if (result != ContentDialogResult.Primary || summary.Path is null) return;
 			if (HasPropertySecurityChanges(summary, editor))
 			{
 				// 权限矩阵只编辑 rwx，保留原有的 sticky / setuid / setgid 位。
@@ -89,7 +93,7 @@ public sealed partial class MainPage
 		{
 			await ShowErrorAsync(ex.Message);
 		}
-		finally { targetBrowser.UpdateSelection(items); UpdateCommandStates(); }
+		finally { propertiesLifetime.Cancel(); targetBrowser.UpdateSelection(items); UpdateCommandStates(); }
 	}
 
 	private static bool HasDefaultApplicationChange(PropertiesEditor editor) =>
@@ -104,7 +108,7 @@ public sealed partial class MainPage
 		editor.Acl!.Text.Trim() != (summary.AccessControlList?.Trim() ?? ""));
 
 	private FrameworkElement CreatePropertiesContent(FilePropertiesSummary summary, LocalFileSystemItem? item,
-		IReadOnlyList<OpenWithApplication> applications, out PropertiesEditor editor)
+		IReadOnlyList<OpenWithApplication> applications, IReadOnlyList<string> paths, CancellationToken lifetime, out PropertiesEditor editor)
 	{
 		var fields = editor = new PropertiesEditor();
 		var root = new StackPanel { Spacing = 12, Width = Math.Min(600, Math.Max(280, (XamlRoot?.Size.Width ?? 720) - 112)) };
@@ -114,13 +118,50 @@ public sealed partial class MainPage
 		heading.Children.Add(new FileItemIcon { Item = item, Width = 64, Height = 64, VerticalAlignment = VerticalAlignment.Center });
 		var title = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
 		title.Children.Add(new TextBlock { Text = summary.Name ?? string.Format(GetResource("SelectedItemCountFormat"), summary.RootItemCount), FontSize = 21, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
-		title.Children.Add(new TextBlock { Text = LocalFileSystemItem.FormatSize(summary.TotalSize) + (string.IsNullOrWhiteSpace(summary.Details?.Kind) ? "" : " · " + summary.Details.Kind), TextWrapping = TextWrapping.Wrap, Opacity = 0.7 });
+		string kindSuffix = string.IsNullOrWhiteSpace(summary.Details?.Kind) ? "" : " · " + summary.Details.Kind;
+		var sizeHeading = new TextBlock { Text = (summary.IsSizeCalculated ? LocalFileSystemItem.FormatSize(summary.TotalSize) : GetResource("PropertySizeNotCalculated")) + kindSuffix, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
+		title.Children.Add(sizeHeading);
 		Grid.SetColumn(title, 1); heading.Children.Add(title); root.Children.Add(heading);
 		StackPanel general = AddPropertiesSection(root, "GeneralPropertiesSection", true);
 		AddDetail(general, "PropertyKindLabel", summary.Details?.Kind);
 		AddDetail(general, "PropertyLocationLabel", summary.Path);
-		AddDetail(general, "PropertySizeLabel", string.Format(GetResource("PropertyExactSizeFormat"), LocalFileSystemItem.FormatSize(summary.TotalSize), summary.TotalSize.ToString("N0")));
-		if (item?.IsDirectory != false) AddDetail(general, "PropertyContainsLabel", string.Format(GetResource("PropertyContainsFormat"), summary.FileCount, summary.FolderCount));
+		TextBlock sizeValue = AddDetail(general, "PropertySizeLabel", summary.IsSizeCalculated
+			? string.Format(GetResource("PropertyExactSizeFormat"), LocalFileSystemItem.FormatSize(summary.TotalSize), summary.TotalSize.ToString("N0"))
+			: GetResource("PropertySizeNotCalculated"))!;
+		TextBlock? containsValue = item?.IsDirectory != false || !summary.IsSizeCalculated
+			? AddDetail(general, "PropertyContainsLabel", summary.IsSizeCalculated ? string.Format(GetResource("PropertyContainsFormat"), summary.FileCount, summary.FolderCount) : GetResource("PropertySizeNotCalculated")) : null;
+		if (!summary.IsSizeCalculated)
+		{
+			var calculate = new Button { Content = GetResource("CalculateFolderSizeButton"), HorizontalAlignment = HorizontalAlignment.Left };
+			var status = new TextBlock { Text = GetResource("CalculateFolderSizeHelp"), FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
+			CancellationTokenSource? calculation = null;
+			calculate.Click += async (_, _) =>
+			{
+				if (calculation is not null) { calculation.Cancel(); calculate.IsEnabled = false; return; }
+				using var request = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
+				calculation = request;
+				calculate.Content = GetResource("CancelFolderSizeButton");
+				status.Text = GetResource("CalculatingPropertiesMessage");
+				try
+				{
+					FilePropertiesSize size = await FilePropertiesService.CalculateSizeAsync(paths, request.Token);
+					request.Token.ThrowIfCancellationRequested();
+					string formatted = LocalFileSystemItem.FormatSize(size.TotalSize);
+					sizeHeading.Text = formatted + kindSuffix;
+					sizeValue.Text = string.Format(GetResource("PropertyExactSizeFormat"), formatted, size.TotalSize.ToString("N0"));
+					if (containsValue is not null) containsValue.Text = string.Format(GetResource("PropertyContainsFormat"), size.FileCount, size.FolderCount);
+					status.Text = size.SkippedEntries > 0 ? string.Format(GetResource("FolderSizePartialFormat"), size.SkippedEntries) : GetResource("FolderSizeCompleteMessage");
+				}
+				catch (OperationCanceledException) { if (!lifetime.IsCancellationRequested) status.Text = GetResource("FolderSizeCanceledMessage"); }
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { if (!lifetime.IsCancellationRequested) status.Text = ex.Message; }
+				finally
+				{
+					calculation = null;
+					if (!lifetime.IsCancellationRequested) { calculate.Content = GetResource("CalculateFolderSizeButton"); calculate.IsEnabled = true; }
+				}
+			};
+			general.Children.Add(calculate); general.Children.Add(status);
+		}
 		AddDetail(general, "PropertyCreatedLabel", summary.Created?.ToLocalTime().ToString("g"));
 		AddDetail(general, "PropertyModifiedLabel", summary.Modified?.ToLocalTime().ToString("g"));
 		AddDetail(general, "PropertyVersionLabel", summary.Details?.Version);
@@ -219,14 +260,15 @@ public sealed partial class MainPage
 		return content;
 	}
 
-	private void AddDetail(Panel panel, string labelKey, string? value)
+	private TextBlock? AddDetail(Panel panel, string labelKey, string? value)
 	{
-		if (string.IsNullOrWhiteSpace(value)) return;
+		if (string.IsNullOrWhiteSpace(value)) return null;
 		var row = new Grid { ColumnSpacing = 12 };
 		row.ColumnDefinitions.Add(new() { Width = new(104) });
 		row.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
 		row.Children.Add(new TextBlock { Text = GetResource(labelKey), Opacity = 0.65, TextWrapping = TextWrapping.Wrap, FontSize = 13 });
 		var text = new TextBlock { Text = value, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true, FontSize = 13 };
 		Grid.SetColumn(text, 1); row.Children.Add(text); panel.Children.Add(row);
+		return text;
 	}
 }

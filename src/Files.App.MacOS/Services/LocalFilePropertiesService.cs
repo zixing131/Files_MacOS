@@ -9,6 +9,17 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 		return Task.Run(() => GetSummary(paths, cancellationToken), cancellationToken);
 	}
 
+	public Task<FilePropertiesSize> CalculateSizeAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+	{
+		string[] fullPaths = paths.Select(Path.GetFullPath).Distinct(StringComparer.Ordinal).ToArray();
+		return Task.Run(() =>
+		{
+			var totals = new PropertyTotals();
+			foreach (string path in fullPaths) CountEntry(path, totals, cancellationToken, isRoot: true);
+			return new FilePropertiesSize(totals.TotalSize, totals.FileCount, totals.FolderCount, totals.SkippedEntries);
+		}, cancellationToken);
+	}
+
 	public Task UpdateAsync(
 		string path,
 		FilePropertyUpdate update,
@@ -73,14 +84,28 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 
 		var totals = new PropertyTotals();
 		string[] fullPaths = paths.Select(Path.GetFullPath).Distinct(StringComparer.Ordinal).ToArray();
+		bool isSizeCalculated = true;
+		// 打开属性只读取选中项目本身，目录遍历必须由用户手动触发。
 		foreach (string path in fullPaths)
 		{
-			CountEntry(path, totals, cancellationToken, isRoot: true);
+			cancellationToken.ThrowIfCancellationRequested();
+			bool directory = File.GetAttributes(path).HasFlag(System.IO.FileAttributes.Directory);
+			FileSystemInfo entry = directory ? new DirectoryInfo(path) : new FileInfo(path);
+			if (directory && entry.LinkTarget is null)
+			{
+				totals.FolderCount++;
+				isSizeCalculated = false;
+			}
+			else
+			{
+				totals.FileCount++;
+				if (!directory && entry.LinkTarget is null) totals.TotalSize += ((FileInfo)entry).Length;
+			}
 		}
 
 		if (fullPaths is not [string singlePath])
 		{
-			return new(fullPaths.Length, totals.FileCount, totals.FolderCount, totals.TotalSize, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+			return new(fullPaths.Length, totals.FileCount, totals.FolderCount, totals.TotalSize, null, null, null, null, null, null, null, null, null, null, null, null, null, null, IsSizeCalculated: isSizeCalculated);
 		}
 
 		System.IO.FileAttributes attributes = File.GetAttributes(singlePath);
@@ -116,7 +141,8 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 			security?.Acl,
 			security?.IsHidden,
 			security?.IsLocked,
-			MacOSFileDetailsService.Read(singlePath));
+			MacOSFileDetailsService.Read(singlePath),
+			isSizeCalculated);
 	}
 
 	private static void CountEntry(string path, PropertyTotals totals, CancellationToken cancellationToken, bool isRoot)
@@ -147,11 +173,13 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 				}
 				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 				{
+					totals.SkippedEntries++;
 				}
 			}
 		}
 		catch (Exception ex) when (!isRoot && ex is (IOException or UnauthorizedAccessException))
 		{
+			totals.SkippedEntries++;
 		}
 	}
 
@@ -162,5 +190,7 @@ public sealed class LocalFilePropertiesService : IFilePropertiesService
 		public long FolderCount { get; set; }
 
 		public long TotalSize { get; set; }
+
+		public long SkippedEntries { get; set; }
 	}
 }

@@ -19,7 +19,10 @@ public sealed record FilePropertiesSummary(
 	string? AccessControlList,
 	bool? IsHidden,
 	bool? IsLocked,
-	FileDetails? Details = null);
+	FileDetails? Details = null,
+	bool IsSizeCalculated = true);
+
+public sealed record FilePropertiesSize(long TotalSize, long FileCount, long FolderCount, long SkippedEntries);
 
 public sealed record FilePropertyUpdate(
 	UnixFileMode UnixMode,
@@ -33,6 +36,10 @@ public sealed record FilePropertyUpdate(
 public interface IFilePropertiesService
 {
 	Task<FilePropertiesSummary> GetSummaryAsync(
+		IReadOnlyList<string> paths,
+		CancellationToken cancellationToken = default);
+
+	Task<FilePropertiesSize> CalculateSizeAsync(
 		IReadOnlyList<string> paths,
 		CancellationToken cancellationToken = default);
 

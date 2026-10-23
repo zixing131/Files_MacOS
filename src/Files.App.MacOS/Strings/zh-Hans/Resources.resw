@@ -668,4 +668,12 @@
   <data name="PropertyOpenWithSaveHelp" xml:space="preserve"><value>点击“保存”后，此文件将默认使用所选应用打开。</value></data>
   <data name="PropertyOpenWithAllHelp" xml:space="preserve"><value>保存后将更改所有同类文件的系统默认打开方式，在 Finder 中同样生效。</value></data>
   <data name="PropertyAdvancedPermissionsSection" xml:space="preserve"><value>所有权与访问规则</value></data>
+  <data name="LoadingPropertiesMessage" xml:space="preserve"><value>正在读取属性…</value></data>
+  <data name="PropertySizeNotCalculated" xml:space="preserve"><value>未计算</value></data>
+  <data name="CalculateFolderSizeButton" xml:space="preserve"><value>计算文件夹大小</value></data>
+  <data name="CancelFolderSizeButton" xml:space="preserve"><value>取消计算</value></data>
+  <data name="CalculateFolderSizeHelp" xml:space="preserve"><value>默认不扫描文件夹内容。点击后才统计大小和数量，大型文件夹可能需要一些时间。</value></data>
+  <data name="FolderSizePartialFormat" xml:space="preserve"><value>部分统计：有 {0} 个项目无法读取。</value></data>
+  <data name="FolderSizeCompleteMessage" xml:space="preserve"><value>计算完成。</value></data>
+  <data name="FolderSizeCanceledMessage" xml:space="preserve"><value>已取消计算。</value></data>
 </root>
