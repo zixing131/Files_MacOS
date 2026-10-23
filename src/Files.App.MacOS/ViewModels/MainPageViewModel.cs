@@ -108,7 +108,7 @@ public sealed class MainPageViewModel : ObservableObject
 		tab.StateChanged += Tab_StateChanged;
 		Tabs.Add(tab);
 		ActiveTab = tab;
-		await browser.NavigateAsync(path ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+		await browser.NavigateAsync(path ?? (settings.VisualStyle == AppVisualStyle.Windows11 ? ComputerLocation.Path : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
 		OnWorkspaceChanged();
 	}
 
@@ -152,6 +152,14 @@ public sealed class MainPageViewModel : ObservableObject
 
 		state = CaptureTabState(tab);
 		return true;
+	}
+
+	internal async Task<BrowserTabViewModel> ReceiveTransferredTabAsync(BrowserTabState state, int index)
+	{
+		var tab = await RestoreTabAsync(state, index);
+		ActiveTab = tab;
+		OnWorkspaceChanged();
+		return tab;
 	}
 
 	public bool DetachTabForTransfer(BrowserTabViewModel tab)
@@ -214,7 +222,7 @@ public sealed class MainPageViewModel : ObservableObject
 
 	private DirectoryBrowserViewModel CreateBrowser()
 	{
-		return new DirectoryBrowserViewModel(
+		var browser = new DirectoryBrowserViewModel(
 			new LocalDirectoryService(),
 			new SpotlightFileSearchService(),
 			new MacOSWorkspaceService(),
@@ -223,6 +231,37 @@ public sealed class MainPageViewModel : ObservableObject
 			IsGridView = settings.UseGridViewForNewTabs,
 			ShowHiddenFiles = settings.ShowHiddenFiles,
 		};
+		ConfigureComputerFavorites(browser);
+		return browser;
+	}
+
+	private void ConfigureComputerFavorites(DirectoryBrowserViewModel browser)
+	{
+		var hidden = (settings.HiddenDefaultSidebarLocations ?? []).ToHashSet(StringComparer.Ordinal);
+		browser.SetComputerFavorites(GetDefaultSidebarLocations()
+			.Where(location => location.Id is "Applications" or "Desktop" or "Downloads" or "Documents" or "Pictures" or "Music" or "Movies")
+			.Where(location => !hidden.Contains(location.Id) && Directory.Exists(location.Path))
+			.Select(location => new ComputerFolder(location.Name, location.Path, location.Glyph))
+			.Concat((settings.FavoritePaths ?? []).Where(Directory.Exists).Select(path => new ComputerFolder(GetPathDisplayName(path), path))));
+	}
+
+	internal void RefreshLanguage()
+	{
+		RefreshLocations();
+		foreach (var tab in Tabs)
+		{
+			ConfigureComputerFavorites(tab.Browser);
+			tab.Browser.RefreshLanguage();
+			if (tab.SecondaryBrowser is { } secondary) { ConfigureComputerFavorites(secondary); secondary.RefreshLanguage(); }
+			tab.RefreshLanguage();
+		}
+	}
+
+	public void ApplyVisualStyle(AppVisualStyle style)
+	{
+		// 外观广播不能覆盖新窗口等待恢复的工作区。
+		settings = settings with { VisualStyle = style };
+		RefreshLocations();
 	}
 
 	public void ApplySettings(AppSettings value)
@@ -232,9 +271,11 @@ public sealed class MainPageViewModel : ObservableObject
 		foreach (BrowserTabViewModel tab in Tabs)
 		{
 			tab.Browser.ShowHiddenFiles = value.ShowHiddenFiles;
+			ConfigureComputerFavorites(tab.Browser);
 			if (tab.SecondaryBrowser is not null)
 			{
 				tab.SecondaryBrowser.ShowHiddenFiles = value.ShowHiddenFiles;
+				ConfigureComputerFavorites(tab.SecondaryBrowser);
 			}
 		}
 	}
@@ -447,6 +488,7 @@ public sealed class MainPageViewModel : ObservableObject
 
 	private static string GetRestorablePath(string? path, string? fallback = null)
 	{
+		if (ComputerLocation.IsComputer(path)) return ComputerLocation.Path;
 		try
 		{
 			if (!string.IsNullOrWhiteSpace(path))
@@ -467,6 +509,7 @@ public sealed class MainPageViewModel : ObservableObject
 
 	private string GetPathDisplayName(string path)
 	{
+		if (ComputerLocation.IsComputer(path)) return GetResource("ThisComputerName");
 		try
 		{
 			string fullPath = Path.GetFullPath(path);
@@ -590,30 +633,11 @@ public sealed class MainPageViewModel : ObservableObject
 		}
 
 		var driveLocations = new List<SidebarLocation>();
-		foreach (DriveInfo drive in DriveInfo.GetDrives())
+		foreach (ComputerVolume volume in ComputerVolumeService.GetVolumes(GetResource("SystemVolumeName"), CancellationToken.None, settings.ShowHiddenFiles))
 		{
-			try
-			{
-				string path = drive.RootDirectory.FullName;
-				if (!drive.IsReady || path != "/" && !path.StartsWith("/Volumes/", StringComparison.Ordinal) || !knownPaths.Add(path))
-				{
-					continue;
-				}
-
-				string name = path == "/"
-					? GetResource("SystemVolumeName")
-					: string.IsNullOrWhiteSpace(drive.VolumeLabel) ? Path.GetFileName(Path.TrimEndingDirectorySeparator(path)) : drive.VolumeLabel;
-				bool isNetworkDrive = drive.DriveType is DriveType.Network;
-				driveLocations.Add(new(
-					name,
-					path,
-					isNetworkDrive ? "☁" : "◉",
-					IsNetworkServer: isNetworkDrive,
-					CanEject: !isNetworkDrive && path.StartsWith("/Volumes/", StringComparison.Ordinal)));
-			}
-			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-			{
-			}
+			if (!knownPaths.Add(volume.Path)) continue;
+			driveLocations.Add(new(volume.Name, volume.Path, volume.IsNetwork ? "☁" : "◉",
+				CanEject: !volume.IsNetwork && volume.Path.StartsWith("/Volumes/", StringComparison.Ordinal)));
 		}
 
 		var recentLocations = new List<SidebarLocation>();
@@ -653,6 +677,22 @@ public sealed class MainPageViewModel : ObservableObject
 		AppendSection(locations, "Locations", GetResource("SidebarLibrariesHeading"), finderLocations, collapsedSections);
 		AppendSection(locations, "Network", GetResource("SidebarNetworkHeading"), networkLocations, collapsedSections);
 
+		if (settings.VisualStyle == AppVisualStyle.Windows11)
+		{
+			locations.Clear();
+			bool expanded = !collapsedSections.Contains("Computer");
+			locations.Add(new(GetResource("ThisComputerName"), ComputerLocation.Path, "PC", SectionId: "Computer", IsExpanded: expanded, IsExpandableRoot: true));
+			if (expanded)
+			{
+				var children = new List<SidebarLocation>();
+				children.Add(new(GetResource("WindowsHomeName"), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "⌂"));
+				AppendSection(children, "Favorites", GetResource("SidebarFavoritesHeading"), favoriteLocations, collapsedSections);
+				AppendSection(children, "Locations", GetResource("ComputerDevicesHeading/Text"), driveLocations.Where(location => location.Glyph != "☁").ToList(), collapsedSections);
+				AppendSection(children, "Network", GetResource("SidebarNetworkHeading"), driveLocations.Where(location => location.Glyph == "☁").Concat(networkLocations).ToList(), collapsedSections);
+				if (trashLocation is not null) children.Add(trashLocation);
+				locations.AddRange(children.Select(location => location with { Depth = location.IsHeader || location.SectionId.Length == 0 ? 1 : 2 }));
+			}
+		}
 		Locations.Clear();
 		foreach (SidebarLocation location in locations)
 		{
@@ -686,7 +726,7 @@ public sealed class MainPageViewModel : ObservableObject
 
 	public string[] ToggleSidebarSection(string sectionId)
 	{
-		if (sectionId is not ("Favorites" or "Recent" or "Locations" or "Network"))
+		if (sectionId is not ("Favorites" or "Recent" or "Locations" or "Network" or "Computer"))
 		{
 			return settings.CollapsedSidebarSections ?? [];
 		}
@@ -728,7 +768,7 @@ public sealed class MainPageViewModel : ObservableObject
 
 	private string GetResource(string name)
 	{
-		string? value = resources.GetString(name);
+		string? value = LiveLocalization.GetString(name);
 		return string.IsNullOrWhiteSpace(value) ? name : value;
 	}
 }

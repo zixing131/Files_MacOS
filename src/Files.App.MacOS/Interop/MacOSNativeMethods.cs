@@ -83,6 +83,12 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_register_window", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int RegisterWindow(nint windowHandle, string identifier);
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_tab_drop_target", StringMarshalling = StringMarshalling.Utf8)]
+	internal static partial nint GetTabDropTarget(string sourceIdentifier, out double x, out double y);
+
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_pointer_position")]
+	internal static partial void GetPointerPosition(out double x, out double y);
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_get_window_placement", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial nint GetWindowPlacement(string identifier);
 
@@ -129,6 +135,9 @@ internal static partial class MacOSNativeMethods
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_open_full_disk_access_settings")]
 	internal static partial int OpenFullDiskAccessSettings();
 
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_get_mounted_volumes")]
+	internal static partial nint GetMountedVolumes(int showHidden);
+
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_eject_volume", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial int EjectVolume(string path);
 
@@ -143,6 +152,9 @@ internal static partial class MacOSNativeMethods
 
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_move_to_trash_with_result", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial nint MoveToTrashWithResult(string path);
+
+	[LibraryImport(LibraryName, EntryPoint = "files_macos_empty_trash")]
+	internal static partial nint EmptyTrash();
 
 	[LibraryImport(LibraryName, EntryPoint = "files_macos_restore_from_trash", StringMarshalling = StringMarshalling.Utf8)]
 	internal static partial nint RestoreFromTrash(string path);

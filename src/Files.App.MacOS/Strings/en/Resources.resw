@@ -387,8 +387,6 @@
   </data>
   <data name="LanguageSettingLabel" xml:space="preserve"><value>App language</value></data>
   <data name="LanguageSystemOption" xml:space="preserve"><value>Use system language</value></data>
-  <data name="LanguageRestartTitle" xml:space="preserve"><value>Language changed</value></data>
-  <data name="LanguageRestartMessage" xml:space="preserve"><value>Restart Files to apply the new language throughout the app.</value></data>
   <data name="ShowHiddenFilesSetting" xml:space="preserve">
     <value>Show hidden files</value>
   </data>
@@ -626,4 +624,27 @@
   <data name="ClearSearchAction.Content" xml:space="preserve">
     <value>Clear search</value>
   </data>
+  <data name="EmptyTrashSystemMessage" xml:space="preserve"><value>Permanently delete all items in the system Trash, including items on connected drives? This cannot be undone. Finder will perform the operation; macOS may ask you to allow Files to control Finder.</value></data>
+  <data name="EmptyTrashCanceledMessage" xml:space="preserve"><value>Empty Trash canceled.</value></data>
+  <data name="EmptyTrashProgressLabel.Text" xml:space="preserve"><value>Finder is emptying the Trash…</value></data>
+  <data name="VisualStyleSettingLabel" xml:space="preserve"><value>Appearance</value></data>
+  <data name="VisualStyleSettingDescription" xml:space="preserve"><value>macOS: Finder-style colors and native file icons. Windows 11: This PC, Fluent commands and yellow folders. Light: a clean sidebar and subtle lists. Applies to all windows.</value></data>
+  <data name="WindowsViewButton.Content" xml:space="preserve"><value>View ▾</value></data>
+  <data name="WindowsGridViewItem.Text" xml:space="preserve"><value>Large icons</value></data>
+  <data name="WindowsDetailsViewItem.Text" xml:space="preserve"><value>Details</value></data>
+  <data name="ThisComputerName" xml:space="preserve"><value>This PC</value></data>
+  <data name="WindowsHomeName" xml:space="preserve"><value>Home</value></data>
+  <data name="ComputerDevicesHeading.Text" xml:space="preserve"><value>Devices and drives</value></data>
+  <data name="ComputerNetworkHeading.Text" xml:space="preserve"><value>Network locations</value></data>
+  <data name="VolumeCapacityFormat" xml:space="preserve"><value>{0} free of {1}</value></data>
+  <data name="VolumeCapacityUnavailable" xml:space="preserve"><value>Capacity unavailable</value></data>
+  <data name="SearchComputerPlaceholder" xml:space="preserve"><value>Search This PC</value></data>
+  <data name="ComputerNoVolumes.Text" xml:space="preserve"><value>No drives match your search.</value></data>
+  <data name="ComputerFavoritesHeading.Text" xml:space="preserve"><value>Favorites</value></data>
+  <data name="SettingsGeneralCategory" xml:space="preserve"><value>General</value></data>
+  <data name="SettingsAppearanceCategory" xml:space="preserve"><value>Appearance</value></data>
+  <data name="SettingsDisplayCategory" xml:space="preserve"><value>Display</value></data>
+  <data name="SettingsSidebarCategory" xml:space="preserve"><value>Sidebar</value></data>
+  <data name="SettingsContextMenuCategory" xml:space="preserve"><value>Context menu</value></data>
+  <data name="SettingsAccessCategory" xml:space="preserve"><value>File access</value></data>
 </root>

@@ -208,6 +208,26 @@ public sealed class MacOSWorkspaceService : IMacOSWorkspaceService
 		return ShareCoreAsync(paths, MacOSNativeMethods.ShareFilesViaAirDrop, cancellationToken);
 	}
 
+	// 取消仅在发送 Apple Event 前有效；Finder 开始清空后必须等待真实结果。
+	public Task<bool> EmptyTrashAsync(CancellationToken cancellationToken = default)
+	{
+		return Task.Run(() =>
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			nint pointer = MacOSNativeMethods.EmptyTrash();
+			if (pointer == 0) throw new IOException("Finder did not return a result.");
+			try
+			{
+				using JsonDocument result = JsonDocument.Parse(Marshal.PtrToStringUTF8(pointer)!);
+				if (result.RootElement.GetProperty("canceled").GetBoolean()) return false;
+				if (!result.RootElement.GetProperty("success").GetBoolean())
+					throw new IOException(result.RootElement.GetProperty("error").GetString());
+				return true;
+			}
+			finally { MacOSNativeMethods.Free(pointer); }
+		}, cancellationToken);
+	}
+
 	public Task RestoreFromTrashAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
 	{
 		return Task.Run(() =>

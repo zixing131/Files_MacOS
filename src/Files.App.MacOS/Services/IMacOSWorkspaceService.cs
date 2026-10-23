@@ -24,6 +24,8 @@ public interface IMacOSWorkspaceService
 
 	Task<IReadOnlyList<TrashedItemResult>> MoveToTrashAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
 
+	Task<bool> EmptyTrashAsync(CancellationToken cancellationToken = default);
+
 	Task RestoreFromTrashAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
 
 	Task PreviewAsync(string path, CancellationToken cancellationToken = default);

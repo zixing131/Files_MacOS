@@ -28,6 +28,8 @@ public sealed class CommandLabel : Grid
 		Height = 16,
 	};
 
+	public double IconCanvasSize { set { icon.Width = value; icon.Height = value; } }
+
 	private readonly TextBlock label = new()
 	{
 		VerticalAlignment = VerticalAlignment.Center,
@@ -38,7 +40,7 @@ public sealed class CommandLabel : Grid
 		ColumnSpacing = 7;
 		ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 		ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-		Children.Add(icon);
+		Children.Add(new Viewbox { Width = 16, Height = 16, Child = icon, Stretch = Stretch.Uniform });
 		SetColumn(label, 1);
 		Children.Add(label);
 	}

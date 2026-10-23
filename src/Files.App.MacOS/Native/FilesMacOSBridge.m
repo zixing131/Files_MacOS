@@ -846,6 +846,39 @@ __attribute__((visibility("default"))) int files_macos_register_window(void *win
 	return 1;
 }
 
+// 跨窗口标签拖放使用 AppKit 屏幕坐标，避免 Retina 和多显示器缩放造成落点偏移。
+__attribute__((visibility("default"))) void files_macos_pointer_position(double *x, double *y)
+{
+	NSPoint point = NSEvent.mouseLocation;
+	if (x) *x = point.x;
+	if (y) *y = point.y;
+}
+
+__attribute__((visibility("default"))) void *files_macos_tab_drop_target(const char *sourceIdentifier, double *x, double *y)
+{
+	__block NSWindow *target = nil;
+	__block NSPoint local = NSZeroPoint;
+	NSString *source = sourceIdentifier ? [NSString stringWithUTF8String:sourceIdentifier] : @"";
+	dispatch_block_t locate = ^{
+		NSPoint point = NSEvent.mouseLocation;
+		for (NSWindow *window in NSApp.orderedWindows)
+		{
+			if (!window.isVisible || window.isMiniaturized || [window.identifier isEqualToString:source]) continue;
+			if (!NSPointInRect(point, window.frame)) continue;
+			if ([window.identifier hasPrefix:@"files-window-"])
+			{
+				target = window;
+				local = NSMakePoint(point.x - NSMinX(window.frame), NSMaxY(window.frame) - point.y);
+			}
+			break;
+		}
+	};
+	if ([NSThread isMainThread]) locate(); else dispatch_sync(dispatch_get_main_queue(), locate);
+	if (x) *x = local.x;
+	if (y) *y = local.y;
+	return (__bridge void *)target;
+}
+
 __attribute__((visibility("default"))) char *files_macos_get_window_placement(const char *identifier)
 {
 	if (identifier == NULL)
@@ -1658,6 +1691,33 @@ __attribute__((visibility("default"))) int files_macos_open_full_disk_access_set
 	}
 }
 
+// 使用系统卷元数据，避免把 APFS 辅助卷当作普通磁盘或借用根卷容量。
+__attribute__((visibility("default"))) char *files_macos_get_mounted_volumes(int showHidden)
+{
+	@autoreleasepool
+	{
+		NSArray *keys = @[NSURLVolumeNameKey, NSURLVolumeIsLocalKey, NSURLVolumeTotalCapacityKey, NSURLVolumeAvailableCapacityKey];
+		NSArray<NSURL *> *urls = [[NSFileManager defaultManager] mountedVolumeURLsIncludingResourceValuesForKeys:keys options:showHidden ? 0 : NSVolumeEnumerationSkipHiddenVolumes];
+		NSMutableArray *result = [NSMutableArray array];
+		NSSet *systemNames = [NSSet setWithArray:@[@"Recovery", @"Preboot", @"VM", @"Update"]];
+		for (NSURL *url in urls)
+		{
+			NSString *path = url.path;
+			if (![path isEqualToString:@"/"] && ![[path stringByDeletingLastPathComponent] isEqualToString:@"/Volumes"]) continue;
+			NSDictionary *values = [url resourceValuesForKeys:keys error:nil];
+			NSString *name = values[NSURLVolumeNameKey] ?: url.lastPathComponent;
+			if (!showHidden && ([systemNames containsObject:name] || [name hasPrefix:@"."] || [name hasPrefix:@"com.apple."])) continue;
+			[result addObject:@{
+				@"Name": name, @"Path": path,
+				@"IsNetwork": ([values[NSURLVolumeIsLocalKey] boolValue] ? @NO : @YES),
+				@"TotalBytes": values[NSURLVolumeTotalCapacityKey] ?: [NSNull null],
+				@"AvailableBytes": values[NSURLVolumeAvailableCapacityKey] ?: [NSNull null]
+			}];
+		}
+		return files_copy_json(result);
+	}
+}
+
 __attribute__((visibility("default"))) int files_macos_eject_volume(const char *path)
 {
 	@autoreleasepool
@@ -1821,6 +1881,28 @@ __attribute__((visibility("default"))) char *files_macos_connect_server(const ch
 			@"openedExternally": @NO,
 			@"error": error ?: @"The server couldn't be connected."
 		});
+	}
+}
+
+// 固定脚本交给 Finder 处理所有卷的废纸篓，禁止拼入用户路径或退回递归删除。
+__attribute__((visibility("default"))) char *files_macos_empty_trash(void)
+{
+	@autoreleasepool
+	{
+		NSTask *task = [[NSTask alloc] init];
+		task.executableURL = [NSURL fileURLWithPath:@"/usr/bin/osascript"];
+		task.arguments = @[@"-e", @"try\n tell application id \"com.apple.finder\" to empty trash\n return \"completed\"\non error number -128\n return \"canceled\"\nend try"];
+		NSPipe *pipe = [NSPipe pipe];
+		task.standardOutput = pipe;
+		task.standardError = pipe;
+		NSError *error = nil;
+		if (![task launchAndReturnError:&error])
+			return files_copy_json(@{@"success": @NO, @"canceled": @NO, @"error": error.localizedDescription ?: @"Finder could not be started."});
+		NSData *data = [pipe.fileHandleForReading readDataToEndOfFile];
+		[task waitUntilExit];
+		NSString *output = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] ?: @"";
+		BOOL canceled = task.terminationStatus == 0 && [output isEqualToString:@"canceled"];
+		return files_copy_json(@{@"success": @(task.terminationStatus == 0 && !canceled), @"canceled": @(canceled), @"error": output});
 	}
 }
 

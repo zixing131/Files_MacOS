@@ -85,7 +85,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 		string[] recentServers = NormalizeStrings(settings.RecentServers, 20, StringComparer.OrdinalIgnoreCase);
 		string[] searchHistory = NormalizeStrings(settings.SearchHistory, 20, StringComparer.CurrentCultureIgnoreCase);
 		string[] collapsedSidebarSections = NormalizeStrings(settings.CollapsedSidebarSections, 5, StringComparer.Ordinal)
-			.Where(static section => section is "Favorites" or "Recent" or "Locations" or "Network")
+			.Where(static section => section is "Favorites" or "Recent" or "Locations" or "Network" or "Computer")
 			.ToArray();
 		string[] hiddenDefaultSidebarLocations = NormalizeStrings(settings.HiddenDefaultSidebarLocations, 12, StringComparer.Ordinal)
 			.Where(static id => id is "Home" or "Applications" or "Downloads" or "Documents" or "Desktop" or "Pictures" or "Music" or "Movies" or "Shared" or "ICloud" or "Trash")
@@ -138,6 +138,7 @@ public sealed class JsonAppSettingsService : IAppSettingsService
 		return settings with
 		{
 			Theme = theme,
+			VisualStyle = Enum.IsDefined(settings.VisualStyle) ? settings.VisualStyle : AppVisualStyle.MacOS,
 			Language = language,
 			Terminal = terminal,
 			FavoritePaths = favoritePaths,

@@ -12,8 +12,12 @@ public sealed record SidebarLocation(
 	bool IsHeader = false,
 	string SectionId = "",
 	bool IsExpanded = true,
-	string AccessibilityState = "")
+	string AccessibilityState = "",
+	int Depth = 0,
+	bool IsExpandableRoot = false)
 {
+	public Thickness Indent => new(Depth * 14, 0, 0, 0);
+	public string ExpansionGlyph => IsExpanded ? "⌄" : "›";
 	public string DisplayGlyph => IsHeader ? IsExpanded ? "⌄" : "›" : Glyph;
 	public string AutomationName => IsHeader && !string.IsNullOrWhiteSpace(AccessibilityState)
 		? $"{Name}. {AccessibilityState}"

@@ -19,6 +19,9 @@
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#08000000" />
 					<SolidColorBrush x:Key="FilesAccentBrush" Color="#007AFF" />
 					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#26007AFF" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#26007AFF" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#30007AFF" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#40007AFF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackground" Color="Transparent" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FFFFFFFF" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#0A000000" />
@@ -34,6 +37,9 @@
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#0CFFFFFF" />
 					<SolidColorBrush x:Key="FilesAccentBrush" Color="#0A84FF" />
 					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#330A84FF" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#253D5A" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#304B6B" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#395779" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackground" Color="Transparent" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FF36373C" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#12FFFFFF" />
@@ -49,6 +55,9 @@
 					<SolidColorBrush x:Key="FilesSubtleBrush" Color="#0CFFFFFF" />
 					<SolidColorBrush x:Key="FilesAccentBrush" Color="#0A84FF" />
 					<SolidColorBrush x:Key="FilesAccentSubtleBrush" Color="#330A84FF" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#253D5A" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#304B6B" />
+					<SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#395779" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackground" Color="Transparent" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#FF36373C" />
 					<SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#12FFFFFF" />
@@ -153,7 +162,27 @@
 				<Setter Property="Margin" Value="0,1" />
 				<Setter Property="Padding" Value="0" />
 				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
-				<Setter Property="CornerRadius" Value="8" />
+				<Setter Property="CornerRadius" Value="4" />
+				<Setter Property="UseSystemFocusVisuals" Value="True" />
+				<Setter Property="Template">
+					<Setter.Value>
+						<ControlTemplate TargetType="ListViewItem">
+							<Grid x:Name="SelectionRoot" Background="Transparent" CornerRadius="4">
+								<VisualStateManager.VisualStateGroups>
+									<VisualStateGroup x:Name="CommonStates">
+										<VisualState x:Name="Normal" />
+										<VisualState x:Name="PointerOver"><VisualState.Setters><Setter Target="SelectionRoot.Background" Value="{ThemeResource FilesSubtleBrush}" /></VisualState.Setters></VisualState>
+										<VisualState x:Name="Pressed"><VisualState.Setters><Setter Target="SelectionRoot.Background" Value="{ThemeResource FilesSubtleBrush}" /></VisualState.Setters></VisualState>
+										<VisualState x:Name="Selected"><VisualState.Setters><Setter Target="SelectionRoot.Background" Value="{ThemeResource FilesAccentSubtleBrush}" /></VisualState.Setters></VisualState>
+										<VisualState x:Name="PointerOverSelected"><VisualState.Setters><Setter Target="SelectionRoot.Background" Value="{ThemeResource FilesAccentSubtleBrush}" /></VisualState.Setters></VisualState>
+										<VisualState x:Name="PressedSelected"><VisualState.Setters><Setter Target="SelectionRoot.Background" Value="{ThemeResource FilesAccentSubtleBrush}" /></VisualState.Setters></VisualState>
+									</VisualStateGroup>
+								</VisualStateManager.VisualStateGroups>
+								<ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalAlignment="Stretch" />
+							</Grid>
+						</ControlTemplate>
+					</Setter.Value>
+				</Setter>
 			</Style>
 		</ResourceDictionary>
 	</Application.Resources>

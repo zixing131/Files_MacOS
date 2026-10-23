@@ -387,8 +387,6 @@
   </data>
   <data name="LanguageSettingLabel" xml:space="preserve"><value>应用语言</value></data>
   <data name="LanguageSystemOption" xml:space="preserve"><value>跟随系统语言</value></data>
-  <data name="LanguageRestartTitle" xml:space="preserve"><value>语言已更改</value></data>
-  <data name="LanguageRestartMessage" xml:space="preserve"><value>重新启动 Files 后，新的语言将在整个应用中生效。</value></data>
   <data name="ShowHiddenFilesSetting" xml:space="preserve">
     <value>显示隐藏文件</value>
   </data>
@@ -626,4 +624,27 @@
   <data name="ClearSearchAction.Content" xml:space="preserve">
     <value>清除搜索</value>
   </data>
+  <data name="EmptyTrashSystemMessage" xml:space="preserve"><value>永久删除系统废纸篓中的所有项目，包括已连接磁盘上的项目？此操作无法撤销。操作将交给 Finder 执行，macOS 可能会询问是否允许 Files 控制 Finder。</value></data>
+  <data name="EmptyTrashCanceledMessage" xml:space="preserve"><value>已取消清空废纸篓。</value></data>
+  <data name="EmptyTrashProgressLabel.Text" xml:space="preserve"><value>Finder 正在清空废纸篓…</value></data>
+  <data name="VisualStyleSettingLabel" xml:space="preserve"><value>界面风格</value></data>
+  <data name="VisualStyleSettingDescription" xml:space="preserve"><value>macOS：访达式配色与原生文件图标。Windows 11：此电脑、Fluent 命令与黄色文件夹。Light：简洁侧栏与柔和列表。保存后应用到所有窗口。</value></data>
+  <data name="WindowsViewButton.Content" xml:space="preserve"><value>查看 ▾</value></data>
+  <data name="WindowsGridViewItem.Text" xml:space="preserve"><value>大图标</value></data>
+  <data name="WindowsDetailsViewItem.Text" xml:space="preserve"><value>详细信息</value></data>
+  <data name="ThisComputerName" xml:space="preserve"><value>此电脑</value></data>
+  <data name="WindowsHomeName" xml:space="preserve"><value>主文件夹</value></data>
+  <data name="ComputerDevicesHeading.Text" xml:space="preserve"><value>设备和驱动器</value></data>
+  <data name="ComputerNetworkHeading.Text" xml:space="preserve"><value>网络位置</value></data>
+  <data name="VolumeCapacityFormat" xml:space="preserve"><value>{0} 可用，共 {1}</value></data>
+  <data name="VolumeCapacityUnavailable" xml:space="preserve"><value>容量信息不可用</value></data>
+  <data name="SearchComputerPlaceholder" xml:space="preserve"><value>在 此电脑 中搜索</value></data>
+  <data name="ComputerNoVolumes.Text" xml:space="preserve"><value>没有匹配的驱动器。</value></data>
+  <data name="ComputerFavoritesHeading.Text" xml:space="preserve"><value>收藏夹</value></data>
+  <data name="SettingsGeneralCategory" xml:space="preserve"><value>通用</value></data>
+  <data name="SettingsAppearanceCategory" xml:space="preserve"><value>外观</value></data>
+  <data name="SettingsDisplayCategory" xml:space="preserve"><value>显示</value></data>
+  <data name="SettingsSidebarCategory" xml:space="preserve"><value>侧边栏</value></data>
+  <data name="SettingsContextMenuCategory" xml:space="preserve"><value>右键菜单</value></data>
+  <data name="SettingsAccessCategory" xml:space="preserve"><value>文件访问</value></data>
 </root>

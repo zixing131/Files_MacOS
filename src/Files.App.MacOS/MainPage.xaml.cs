@@ -41,7 +41,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private const long SpringLoadHoverTimeoutMilliseconds = 350;
 	private const string InternalFileDragFormat = "application/x-files-macos-internal-file-drag";
 	private const string HomeBreadcrumbIconData = "M7.07934 1.22258C7.60474 0.797737 8.35525 0.797737 8.88065 1.22258L15.4689 6.55068C16.5623 7.43475 15.9402 9.20232 14.5276 9.20232H14.25V13.75C14.25 14.7165 13.4665 15.5 12.5 15.5H10.5C9.5335 15.5 8.75 14.7165 8.75 13.75V11.25C8.75 10.8358 8.41421 10.5 8 10.5C7.58579 10.5 7.25 10.8358 7.25 11.25V13.75C7.25 14.7165 6.4665 15.5 5.5 15.5H3.5C2.5335 15.5 1.75 14.7165 1.75 13.75V9.20232H1.43239C0.0198307 9.20232 -0.602245 7.43475 0.491105 6.55068L7.07934 1.22258ZM8.25178 2.0001C8.09322 1.87188 7.86677 1.87188 7.70821 2.0001L1.11996 7.3282C0.756928 7.62179 0.963431 8.20232 1.43239 8.20232H2.75V13.75C2.75 14.1642 3.08579 14.5 3.5 14.5H5.5C5.91421 14.5 6.25 14.1642 6.25 13.75V11.25C6.25 10.2835 7.0335 9.5 8 9.5C8.9665 9.5 9.75 10.2835 9.75 11.25V13.75C9.75 14.1642 10.0858 14.5 10.5 14.5H12.5C12.9142 14.5 13.25 14.1642 13.25 13.75V8.20232H14.5276C14.9966 8.20232 15.2031 7.62179 14.84 7.3282L8.25178 2.0001Z";
-	private MainPageViewModel ViewModel { get; } = new();
+	internal MainPageViewModel ViewModel { get; } = new();
 	private IFileOperationService FileOperationService { get; } = new LocalFileOperationService();
 	private FileRenameService FileRenameService { get; } = new();
 	private IFileTransferService FileTransferService { get; } = new LocalFileTransferService();
@@ -173,6 +173,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		InitializeComponent();
 		DataContext = ViewModel;
 		HookTabsForSelectionRestore();
+		Tabs.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Tabs_PointerPressed), handledEventsToo: true);
+		Tabs.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(Tabs_PointerMoved), handledEventsToo: true);
+		Tabs.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(Tabs_PointerReleased), handledEventsToo: true);
+		Tabs.AddHandler(UIElement.PointerCanceledEvent, new PointerEventHandler(Tabs_PointerCanceled), handledEventsToo: true);
+		Tabs.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler(Tabs_PointerCanceled), handledEventsToo: true);
 		AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), handledEventsToo: true);
 		RegisterContentWheelHandler(GridItems);
 		RegisterContentWheelHandler(DetailsItems);
@@ -393,7 +398,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			Workspace = restoresWorkspace ? currentSettings.Workspace : initialWorkspace,
 		});
-		ApplyTheme(currentSettings.Theme);
+		((App)Application.Current).ApplyAppearance(currentSettings);
 		ViewModel.TabRestored += ViewModel_TabRestored;
 		await ViewModel.InitializeAsync();
 		ViewModel.WorkspaceChanged += ViewModel_WorkspaceChanged;
@@ -476,6 +481,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		try
 		{
 			await ReportPerformanceDiagnosticsAsync();
+			await ReportComputerDiagnosticsAsync();
+			await ReportInteractionDiagnosticsAsync();
 		}
 		catch (Exception ex)
 		{
@@ -530,7 +537,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		UpdatePreviewPaneVisuals();
 		bool previewRoundtrip = previewChanged && PreviewPaneBorder.Visibility == (initialPreviewState ? Visibility.Visible : Visibility.Collapsed);
 		UpdateCommandToolbarLayout(2000);
-		bool toolbarWide = MoreCommandsButton.Visibility is Visibility.Collapsed && RevealButton.Visibility is Visibility.Visible && RenameButton.Visibility is Visibility.Visible;
+		bool toolbarWide = currentSettings.VisualStyle == AppVisualStyle.Windows11
+			? MoreCommandsButton.Visibility is Visibility.Visible && WindowsViewButton.Visibility is Visibility.Visible && RenameButton.Visibility is Visibility.Visible
+			: MoreCommandsButton.Visibility is Visibility.Collapsed && RevealButton.Visibility is Visibility.Visible && RenameButton.Visibility is Visibility.Visible;
 		UpdateCommandToolbarLayout(1000);
 		bool toolbarOverflow = MoreCommandsButton.Visibility is Visibility.Visible && RevealButton.Visibility is Visibility.Collapsed && RenameButton.Visibility is Visibility.Visible;
 		UpdateCommandToolbarLayout(600);
@@ -580,14 +589,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			ColumnViewStatusButton,
 			MoreCommandsButton,
 		];
-		bool navigationIcons = navigationIconButtons.All(static button => button.Content is PathIcon { Data: not null }) &&
+		bool navigationIcons = navigationIconButtons.All(static button => button.Content is PathIcon { Data: not null } or Viewbox { Child: PathIcon { Data: not null } }) &&
 			navigationIconButtons.All(static button => !string.IsNullOrWhiteSpace(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(button)));
 		Button[] primaryNavigationButtons = [ToggleSidebarButton, BackButton, ForwardButton, UpButton, RefreshButton];
 		double refreshRight = RefreshButton.TransformToVisual(AddressToolbarGrid).TransformPoint(default).X + RefreshButton.ActualWidth;
 		double addressLeft = AddressBarBorder.TransformToVisual(AddressToolbarGrid).TransformPoint(default).X;
-		bool navigationIconLayout = primaryNavigationButtons.All(static button =>
+		bool navigationIconLayout = primaryNavigationButtons.Where(static button => button.Visibility == Visibility.Visible).All(static button =>
 			button.ActualWidth >= 32 && button.ActualHeight >= 34 &&
-			button.Content is PathIcon { ActualWidth: >= 8, ActualHeight: >= 14 }) &&
+			(button.Content is PathIcon { ActualWidth: >= 8, ActualHeight: >= 14 } or Viewbox { ActualWidth: >= 16, ActualHeight: >= 16, Child: PathIcon { Width: 24, Height: 24 } })) &&
 			addressLeft - refreshRight >= 6;
 		bool tabIconLayout = NewTabButton is { ActualWidth: >= 36, ActualHeight: >= 32, Content: PathIcon { Data: not null, ActualWidth: >= 16, ActualHeight: >= 16 } };
 		string diagnosticHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -812,27 +821,28 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		UpdateSidebarSelection();
 		bool sidebarActiveSync = SidebarList.SelectedItem is SidebarLocation activeLocation &&
 			!activeLocation.IsHeader && IsSameOrDescendantPath(browser.CurrentPath, activeLocation.Path);
+		string diagnosticSection = currentSettings.VisualStyle == AppVisualStyle.Windows11 ? "Favorites" : "Locations";
 		int initialSidebarLocationCount = ViewModel.Locations.Count;
-		SidebarLocation librariesHeader = ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Locations" });
+		SidebarLocation librariesHeader = ViewModel.Locations.First(location => location.IsHeader && location.SectionId == diagnosticSection);
 		bool initialLibrariesExpanded = librariesHeader.IsExpanded;
 		SidebarList.SelectedItem = librariesHeader;
-		bool sidebarKeyboardActivation = ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Locations" }).IsExpanded == initialLibrariesExpanded;
+		bool sidebarKeyboardActivation = ViewModel.Locations.First(location => location.IsHeader && location.SectionId == diagnosticSection).IsExpanded == initialLibrariesExpanded;
 		SidebarList.SelectedItem = null;
 		ToggleSidebarHeader(librariesHeader);
 		bool sidebarSectionChanged = ViewModel.Locations.Count != initialSidebarLocationCount &&
-			ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Locations" }).IsExpanded != initialLibrariesExpanded;
-		SidebarLocation changedLibrariesHeader = ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Locations" });
+			ViewModel.Locations.First(location => location.IsHeader && location.SectionId == diagnosticSection).IsExpanded != initialLibrariesExpanded;
+		SidebarLocation changedLibrariesHeader = ViewModel.Locations.First(location => location.IsHeader && location.SectionId == diagnosticSection);
 		sidebarKeyboardActivation &= sidebarSectionChanged && !string.IsNullOrWhiteSpace(changedLibrariesHeader.AccessibilityState);
 		ToggleSidebarHeader(changedLibrariesHeader);
 		bool sidebarSectionRoundtrip = sidebarSectionChanged && ViewModel.Locations.Count == initialSidebarLocationCount &&
-			ViewModel.Locations.First(static location => location is { IsHeader: true, SectionId: "Locations" }).IsExpanded == initialLibrariesExpanded;
+			ViewModel.Locations.First(location => location.IsHeader && location.SectionId == diagnosticSection).IsExpanded == initialLibrariesExpanded;
 		UpdateSidebarSelection();
 		await Task.Delay(750);
 		App app = (App)Application.Current;
 		MainPage renderedSidebarPage = app.ActivePage ?? this;
 		bool unifiedTitleBar = app.WindowsUseUnifiedTitleBars;
 		bool titleBarLayout = Math.Abs(TitleBarBackground.ActualHeight - 44) < 0.1 &&
-			Tabs.Margin.Left >= 72 && Math.Abs(AddressToolbarGrid.ActualHeight - 48) < 0.1;
+			Tabs.Margin.Left >= 72 && Math.Abs(AddressToolbarGrid.ActualHeight - (currentSettings.VisualStyle == AppVisualStyle.Windows11 ? 52 : 48)) < 0.1;
 		bool sidebarLabels = renderedSidebarPage.ViewModel.Locations.Count > 0 &&
 			renderedSidebarPage.ViewModel.Locations.All(static location => !string.IsNullOrWhiteSpace(location.Name));
 		var sidebarLabelNames = renderedSidebarPage.ViewModel.Locations.Select(static location => location.Name).ToHashSet(StringComparer.CurrentCulture);
@@ -887,6 +897,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		bool closedHistoryBeforeTransfer = ViewModel.CanReopenClosedTab;
 		await ViewModel.NewTabAsync(browser.CurrentPath);
 		bool tabWindowTransfer = false;
+		bool tabWindowMerge = false;
 		if (ViewModel.ActiveTab is BrowserTabViewModel transferTab)
 		{
 			transferTab.Browser.IsGridView = false;
@@ -908,12 +919,15 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				Console.WriteLine($"FILES_MACOS_TAB_TRANSFER invoked={transferInvoked} windows={app.WindowCount}/{transferWindowCount + 1} tabs={ViewModel.Tabs.Count}/{transferSourceTabCount} history={ViewModel.CanReopenClosedTab}/{closedHistoryBeforeTransfer} destination={destinationPage is not null && !ReferenceEquals(destinationPage, this)} expected={expectedTransferredState} actual={destinationPage?.CaptureWorkspaceState().Tabs?.FirstOrDefault()}");
 			}
-			if (destinationPage is not null && !ReferenceEquals(destinationPage, this))
+			if (destinationPage is not null && !ReferenceEquals(destinationPage, this) && destinationPage.ViewModel.ActiveTab is { } detachedTab)
 			{
-				app.CloseWindow(destinationPage);
+				bool merged = await app.MoveTabToWindowAsync(destinationPage, this, detachedTab, 0);
+				tabWindowMerge = merged && app.WindowCount == transferWindowCount && ViewModel.Tabs.Count == transferSourceTabCount + 1 &&
+					ViewModel.TryCaptureTabState(ViewModel.Tabs[0], out var mergedState) && mergedState == expectedTransferredState;
+				if (merged) ViewModel.DetachTabForTransfer(ViewModel.Tabs[0]);
+				else app.CloseWindow(destinationPage);
 				await Task.Delay(250);
 			}
-			tabWindowTransfer &= app.WindowCount == transferWindowCount && ReferenceEquals(app.ActivePage, this);
 		}
 		await ViewModel.NewTabAsync(browser.CurrentPath);
 		BrowserTabViewModel restoreSourceTab = ViewModel.ActiveTab!;
@@ -939,13 +953,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		BrowserTabViewModel switchTab = ViewModel.ActiveTab!;
 		BrowserTabViewModel firstTab = ViewModel.Tabs[0];
 		await Task.Delay(100);
-		bool tabChrome = switchTab.IsActive && !firstTab.IsActive && CountVisibleTabCloseButtons(Tabs) == 1;
+		// 悬停标签也会显示关闭按钮，校验渲染与状态一致，避免真实鼠标位置影响诊断。
+		bool tabChrome = switchTab.IsActive && !firstTab.IsActive && CountVisibleTabCloseButtons(Tabs) == ViewModel.Tabs.Count(tab => tab.ShowCloseButton);
 		firstTab.IsPointerOver = true;
 		await Task.Delay(50);
 		bool tabCloseAlignment = AreVisibleTabCloseButtonsTrailing(Tabs);
 		tabChrome &= firstTab.ShowCloseButton && CountVisibleTabCloseButtons(Tabs) == 2 && tabCloseAlignment;
 		firstTab.IsPointerOver = false;
-		bool tabSwitching = Tabs.CanDragTabs && Tabs.CanReorderTabs &&
+		bool tabSwitching = !Tabs.CanDragTabs && !Tabs.CanReorderTabs &&
 			KeyboardAccelerators.Count(accelerator => accelerator.Key is Windows.System.VirtualKey.Tab &&
 				accelerator.Modifiers.HasFlag(Windows.System.VirtualKeyModifiers.Control)) == 2 &&
 			KeyboardAccelerators.Count(accelerator => accelerator.Key is >= Windows.System.VirtualKey.Number1 and <= Windows.System.VirtualKey.Number9 &&
@@ -990,7 +1005,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			$"breadcrumbs={BreadcrumbPanel.Children.OfType<Button>().Count()} sidebar_sections={ViewModel.Locations.Count(static location => location.IsHeader)} " +
 			$"sidebar_roundtrip={sidebarRoundtrip} sidebar_resize={sidebarResizeRoundtrip} keyboard_resize={keyboardResize} sidebar_active={sidebarActiveSync} sidebar_keyboard={sidebarKeyboardActivation} sidebar_sections_toggle={sidebarSectionRoundtrip} sidebar_labels={sidebarLabels} sidebar_rendered_labels={renderedSidebarLabels} sidebar_icons={sidebarIcons} sidebar_rendered_icons={renderedSidebarIcons} sidebar_eject_buttons={renderedEjectButtons} sidebar_header_spacing={sidebarHeaderSpacing} locale={System.Globalization.CultureInfo.CurrentUICulture.Name} language_override={Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride} home_label={GetResource("SidebarHomeButton/Content")} address_roundtrip={addressRoundtrip} preview_roundtrip={previewRoundtrip} " +
 			$"toolbar_breakpoints={toolbarBreakpoints} toolbar_icons={toolbarIcons} navigation_icons={navigationIcons} navigation_icon_layout={navigationIconLayout} tab_icon_layout={tabIconLayout} breadcrumb_home_icon={breadcrumbHomeIcon} sidebar_footer_icons={sidebarFooterIcons} empty_state_icons={emptyStateIcons} item_fallback_icons={itemFallbackIcons} symbol_font={app.IsSymbolFontAvailable} dynamic_labels={dynamicCommandLabels} item_context_compact={compactItemContextMenu} customized_context_menu={customizedContextMenu} background_context_menu={backgroundContextMenu} item_context_hit_targets={itemContextHitTargets} item_context_targets={itemContextTargets} external_file_drag={externalFileDrag} alias_app_thumbnail={aliasApplicationThumbnail} thumbnail_double_buffer={thumbnailDoubleBuffer} package_semantics={packageSemantics} unified_titlebar={unifiedTitleBar} titlebar_layout={titleBarLayout} empty_folder={browser.IsEmptyFolder} no_results={browser.HasNoSearchResults} " +
-			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} detail_columns={detailColumnCustomization} type_select={typeSelect} permission_matrix={permissionMatrix} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_restore_views={tabRestoreViews} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
+			$"sort_headers={sortHeaderRoundtrip} sort_accessibility={sortAccessibility} view_switch={viewModeRoundtrip} detail_columns={detailColumnCustomization} type_select={typeSelect} permission_matrix={permissionMatrix} accessibility_labels={accessibilityLabels} accessible_items={accessibleFileItems} item_accessibility={itemAccessibility} accessibility_announcements={accessibilityAnnouncements} focus_cycle={keyboardFocusNavigation} accessibility_display={accessibilityDisplay} native_accessibility={(int)nativeAccessibilityOptions} native_menu={nativeMenuInstalled} native_menu_routing={nativeMenuRouting} window_session_restore={windowSessionRestore} window_placement_restore={windowPlacementRestore} restored_windows={initialWindowCount} multi_window={multiWindowRoundtrip} tab_window_transfer={tabWindowTransfer} tab_window_merge={tabWindowMerge} tab_restore_views={tabRestoreViews} tab_switching={tabSwitching} tab_chrome={tabChrome} tab_close_alignment={tabCloseAlignment} multi_window_settings_merge={multiWindowSettingsMerge} command_accelerators={commandAccelerators} permanent_delete={permanentDeleteRoundtrip} metadata_edit={metadataEditRoundtrip} security_properties={securityPropertiesRoundtrip} open_with={openWithRoundtrip} recent_locations={recentLocationsRoundtrip} duplicate={duplicateRoundtrip} new_tab={newTabRoundtrip} tab_labels={tabLabelsRoundtrip} tab_history={tabHistoryRoundtrip} tab_management={tabManagementRoundtrip} symbolic_link={symbolicLinkRoundtrip} " +
 			$"working_set_mb={process.WorkingSet64 / 1024d / 1024:F1} " +
 			$"managed_mb={GC.GetTotalMemory(forceFullCollection: false) / 1024d / 1024:F1}");
 
@@ -1669,6 +1684,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void MainPage_Unloaded(object sender, RoutedEventArgs e)
 	{
+		CancelTabPointerDrag();
 		ViewModel.WorkspaceChanged -= ViewModel_WorkspaceChanged;
 		ViewModel.TabRestored -= ViewModel_TabRestored;
 		if (accessibilityAnnouncementsRegistered)
@@ -1989,6 +2005,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private static string GetPathMenuTitle(string path)
 	{
+		if (ComputerLocation.IsComputer(path)) return ResourceLoader.GetForViewIndependentUse().GetString("ThisComputerName") ?? "This PC";
 		string trimmed = Path.TrimEndingDirectorySeparator(path);
 		string title = Path.GetFileName(trimmed);
 		return string.IsNullOrEmpty(title) ? trimmed : title;
@@ -2250,6 +2267,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
 	{
+		if (Environment.GetEnvironmentVariable("FILES_MACOS_POINTER_DIAGNOSTICS") == "1") Console.WriteLine($"[pointer] {e.GetCurrentPoint(this).Position} source={e.OriginalSource?.GetType().Name}");
 		switch (e.GetCurrentPoint(this).Properties.PointerUpdateKind)
 		{
 			case Microsoft.UI.Input.PointerUpdateKind.XButton1Pressed when Browser is not null:
@@ -2286,6 +2304,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	internal bool HandleNativeScrollWheel(double deltaX, double deltaY, bool hasPreciseDeltas)
 	{
 		BrowserTabViewModel? activeTab = ViewModel.ActiveTab;
+		// 虚拟首页有自己的滚动容器，不能把滚轮交给隐藏的文件列表。
+		if (isPointerOverPrimaryPane && activeTab?.Browser.IsComputerPage == true)
+			return PrimaryComputerPage.ScrollBy(-deltaY * (hasPreciseDeltas ? 1 : 40));
+		if (isPointerOverSecondaryPane && activeTab?.SecondaryBrowser?.IsComputerPage == true)
+			return SecondaryComputerPage.ScrollBy(-deltaY * (hasPreciseDeltas ? 1 : 40));
 		(DirectoryBrowserViewModel? browser, ItemsView? view) = isPointerOverPrimaryPane && activeTab?.Browser is { IsGridView: true } primaryBrowser
 			? (primaryBrowser, GridItems)
 			: isPointerOverSecondaryPane && activeTab?.SecondaryBrowser is { IsGridView: true } secondaryBrowser
@@ -2644,6 +2667,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async Task NavigateFromAddressAsync(DirectoryBrowserViewModel browser, string address)
 	{
+		if (ComputerLocation.IsComputer(address) || string.Equals(address.Trim(), GetResource("ThisComputerName"), StringComparison.CurrentCultureIgnoreCase))
+		{
+			await browser.NavigateAsync(ComputerLocation.Path);
+			EndAddressEdit();
+			return;
+		}
 		string navigationPath = ExpandHomePath(address.Trim());
 		string? revealPath = null;
 		try
@@ -2774,7 +2803,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			return;
 		}
 
-		PathBreadcrumbItem[] items = PathBreadcrumbBuilder.Build(
+		SearchBox.PlaceholderText = GetResource(browser.IsComputerPage ? "SearchComputerPlaceholder" : "SearchBox/PlaceholderText");
+		UpButton.IsEnabled = !browser.IsComputerPage;
+		SearchOptionsButton.Visibility = browser.IsComputerPage ? Visibility.Collapsed : Visibility.Visible;
+		PathBreadcrumbItem[] items = browser.IsComputerPage
+			? [new PathBreadcrumbItem(GetResource("ThisComputerName"), ComputerLocation.Path)]
+			: PathBreadcrumbBuilder.Build(
 			browser.CurrentPath,
 			Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
 			GetResource("SidebarHomeButton/Content"));
@@ -2817,6 +2851,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			AllowDrop = true,
 			Style = (Style)Application.Current.Resources["BreadcrumbButtonStyle"],
 		};
+		if (ComputerLocation.IsComputer(item.Path))
+		{
+			var label = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+			label.Children.Add(new ComputerIcon { Width = 18, Height = 18 });
+			label.Children.Add(new TextBlock { Text = item.Title, VerticalAlignment = VerticalAlignment.Center });
+			button.Content = label;
+			button.AllowDrop = false;
+		}
 		Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, item.Title);
 		ToolTipService.SetToolTip(button, item.Title);
 		button.Click += BreadcrumbButton_Click;
@@ -2874,12 +2916,24 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
-	private void SidebarList_ItemClick(object sender, ItemClickEventArgs e)
+	private async void SidebarList_ItemClick(object sender, ItemClickEventArgs e)
 	{
 		if (e.ClickedItem is SidebarLocation { IsHeader: true } header)
-		{
-			ToggleSidebarHeader(header);
-		}
+			await NavigateSidebarSectionAsync(header);
+	}
+
+	private void SidebarHeaderToggle_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is Button { Tag: SidebarLocation header }) ToggleSidebarHeader(header);
+	}
+
+	private async Task NavigateSidebarSectionAsync(SidebarLocation header)
+	{
+		if (Browser is not { } browser) return;
+		if (currentSettings.VisualStyle != AppVisualStyle.Windows11) return;
+		if (!browser.IsComputerPage) await browser.NavigateAsync(ComputerLocation.Path);
+		var page = ReferenceEquals(browser, ViewModel.ActiveTab?.SecondaryBrowser) ? SecondaryComputerPage : PrimaryComputerPage;
+		page.RevealSection(header.SectionId);
 	}
 
 	private async void EjectVolumeButton_Click(object sender, RoutedEventArgs e)
@@ -2956,6 +3010,24 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		e.Handled = true;
 	}
 
+	private void ShowComputerContextMenu(FrameworkElement card, RightTappedRoutedEventArgs e)
+	{
+		SidebarLocation location = card.DataContext switch
+		{
+			ComputerVolume volume => new(volume.Name, volume.Path, "◉", CanEject: !volume.IsNetwork && volume.Path.StartsWith("/Volumes/", StringComparison.Ordinal)),
+			ComputerFolder folder => new(folder.Name, folder.Path, folder.Glyph),
+			_ => throw new InvalidOperationException(),
+		};
+		var menu = new MenuFlyout();
+		AddSidebarMenuItem(menu, "ContextOpenItem/Text", "Open", location);
+		AddSidebarMenuItem(menu, "ContextOpenInNewTabItem/Text", "OpenInNewTab", location);
+		AddSidebarMenuItem(menu, "ContextRevealItem/Text", "Reveal", location);
+		AddSidebarMenuItem(menu, "ContextCopyPathItem/Text", "CopyPath", location);
+		if (location.CanEject) AddSidebarMenuItem(menu, "EjectVolumeButtonText", "Eject", location);
+		menu.ShowAt(card, e.GetPosition(card));
+		e.Handled = true;
+	}
+
 	private void AddSidebarMenuItem(MenuFlyout flyout, string resourceKey, string action, SidebarLocation location)
 	{
 		var item = new MenuFlyoutItem
@@ -3015,38 +3087,25 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
-	private async Task EmptyTrashLocationAsync()
+	private Task EmptyTrashLocationAsync() => EmptyTrashCoreAsync();
+
+	private void ComputerRootToggle_Click(object sender, RoutedEventArgs e)
 	{
-		if (Browser is DirectoryBrowserViewModel browser && IsTrashPath(browser.CurrentPath) && browser.Items.Count > 0)
-		{
-			await EmptyTrashCoreAsync(browser.Items.Select(static item => item.Path).ToArray());
-			return;
-		}
-
-		string trashPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Trash");
-		string[] entries;
-		try
-		{
-			entries = Directory.GetFileSystemEntries(trashPath);
-		}
-		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-		{
-			await ShowErrorAsync(string.IsNullOrWhiteSpace(ex.Message) ? GetResource("EmptyTrashErrorMessage") : ex.Message);
-			return;
-		}
-		if (entries.Length is 0)
-		{
-			return;
-		}
-
-		await EmptyTrashCoreAsync(entries);
+		if (sender is Button { Tag: SidebarLocation root }) ToggleSidebarHeader(root);
 	}
 
-	private void SidebarList_KeyDown(object sender, KeyRoutedEventArgs e)
+	private async void SidebarList_KeyDown(object sender, KeyRoutedEventArgs e)
 	{
+		if (SidebarList.SelectedItem is SidebarLocation { IsExpandableRoot: true } root && e.Key is VirtualKey.Left or VirtualKey.Right)
+		{
+			if (root.IsExpanded != (e.Key == VirtualKey.Right)) ToggleSidebarHeader(root);
+			e.Handled = true;
+			return;
+		}
 		if (e.Key is VirtualKey.Enter or VirtualKey.Space && SidebarList.SelectedItem is SidebarLocation { IsHeader: true } header)
 		{
-			ToggleSidebarHeader(header);
+			if (e.Key == VirtualKey.Enter) await NavigateSidebarSectionAsync(header);
+			else ToggleSidebarHeader(header);
 			e.Handled = true;
 		}
 	}
@@ -3077,7 +3136,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 		SidebarLocation? location = ViewModel.Locations
 			.Where(static item => !item.IsHeader && !item.IsNetworkServer && !string.IsNullOrEmpty(item.Path))
-			.Where(item => IsSameOrDescendantPath(browser.CurrentPath, item.Path))
+			.Where(item => browser.IsComputerPage || ComputerLocation.IsComputer(item.Path)
+				? string.Equals(browser.CurrentPath, item.Path, StringComparison.Ordinal)
+				: IsSameOrDescendantPath(browser.CurrentPath, item.Path))
 			.OrderByDescending(static item => item.Path.Length)
 			.FirstOrDefault();
 		isUpdatingSidebarSelection = true;
@@ -3702,7 +3763,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		DirectoryBrowserViewModel? browser = pane is { Tag: "Secondary" }
 			? ViewModel.ActiveTab?.SecondaryBrowser
 			: ViewModel.ActiveTab?.Browser;
-		if (browser is null)
+		if (browser is null || browser.IsComputerPage)
 		{
 			return;
 		}
@@ -3726,7 +3787,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (targetKind is 2)
 		{
 			// ⌘/⇧ 修饰键沿用单项切换与范围选择逻辑，不在此处介入
-			if (preservesSelection || pressedItem is null)
+			if (isRightPress || preservesSelection || pressedItem is null)
 			{
 				return;
 			}
@@ -3741,7 +3802,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				return;
 			}
 
-			// 按在未选中项上（或右键按在任意项上）直接开始框选，而不是拖动该文件
+			// 右键保留原始命中目标；只有左键按在未选中项时才开始框选。
 			Windows.Foundation.Point itemStartPoint = ClampToMarqueeControl(pointerPoint, control, layer);
 			BeginMarqueeSelection(
 				control,
@@ -4563,6 +4624,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async Task PasteAsync(bool forceMove = false)
 	{
+		if (Browser is { IsComputerPage: true }) return;
 		if (Browser is null || fileTransferCancellation is not null)
 		{
 			return;
@@ -4608,6 +4670,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 
 		string targetDirectory = destinationDirectory ?? targetBrowser.CurrentPath;
+		if (ComputerLocation.IsComputer(targetDirectory)) return;
 		FileConflictResolution conflictResolution = forcedConflictResolution ?? FileConflictResolution.KeepBoth;
 		if (forcedConflictResolution is null && HasDestinationConflicts(clipboard.Paths, targetDirectory, clipboard.Mode))
 		{
@@ -4784,7 +4847,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		RedoButton.IsEnabled = isIdle && redoHistory.Count > 0;
 		CopyButton.IsEnabled = isIdle && selectedItems.Count > 0;
 		CutButton.IsEnabled = isIdle && selectedItems.Count > 0;
-		PasteButton.IsEnabled = isIdle;
+		PasteButton.IsEnabled = isIdle && Browser is { IsComputerPage: false };
+		NewCommandButton.IsEnabled = PasteButton.IsEnabled;
+		SortCommandButton.IsEnabled = PasteButton.IsEnabled;
+		WindowsViewButton.IsEnabled = PasteButton.IsEnabled;
 		RenameButton.IsEnabled = isIdle && selectedItems.Count > 0;
 		RevealButton.IsEnabled = isIdle && selectedItems.Count is 1;
 		DeleteButton.IsEnabled = isIdle && selectedItems.Count > 0;
@@ -4799,7 +4865,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ClearRecentButton.IsEnabled = isIdle;
 		SplitViewButton.IsEnabled = isIdle;
 		PreviewPaneButton.IsEnabled = isIdle;
-		TerminalButton.IsEnabled = isIdle;
+		TerminalButton.IsEnabled = isIdle && Browser is { IsComputerPage: false };
 		FileOperationProgressBar.Visibility = isFileOperationRunning ? Visibility.Visible : Visibility.Collapsed;
 		CancelOperationButton.Visibility = isFileOperationRunning ? Visibility.Visible : Visibility.Collapsed;
 		if (!isFileOperationRunning)
@@ -4826,7 +4892,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 	private void UpdateCommandToolbarLayout(double width)
 	{
 		// Keep navigation and view controls in place; secondary actions remain in More.
-		bool useOverflow = width < 1100;
+		bool windowsStyle = currentSettings.VisualStyle == AppVisualStyle.Windows11;
+		bool useOverflow = windowsStyle || width < 1100;
 		bool compact = width < 680;
 		foreach (Button button in new[] { UndoButton, RedoButton, NewCommandButton, CutButton, CopyButton,
 			PasteButton, RenameButton, ShareButton, DeleteButton, RevealButton, PropertiesButton,
@@ -4835,7 +4902,9 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			if (button.Content is CommandLabel label)
 			{
-				label.IsLabelVisible = width >= 1800 || button == NewCommandButton && width >= 540;
+				label.IsLabelVisible = windowsStyle
+					? button == NewCommandButton || button == SortCommandButton || button == PreviewPaneButton
+					: width >= 1800 || button == NewCommandButton && width >= 540;
 				button.Padding = new Thickness(label.IsLabelVisible ? 10 : 9, 0, label.IsLabelVisible ? 10 : 9, 0);
 			}
 		}
@@ -4843,7 +4912,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		ShareButton.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
 		DeleteButton.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
 		EditCommandSeparator.Visibility = useOverflow ? Visibility.Collapsed : Visibility.Visible;
-		SecondaryCommandSeparator.Visibility = useOverflow ? Visibility.Collapsed : Visibility.Visible;
+		SecondaryCommandSeparator.Visibility = windowsStyle || !useOverflow ? Visibility.Visible : Visibility.Collapsed;
 		RevealButton.Visibility = useOverflow ? Visibility.Collapsed : Visibility.Visible;
 		PropertiesButton.Visibility = useOverflow ? Visibility.Collapsed : Visibility.Visible;
 		SelectionButton.Visibility = useOverflow ? Visibility.Collapsed : Visibility.Visible;
@@ -4855,6 +4924,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		MoreShareItem.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
 		MoreDeleteItem.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
 		MoreCompactSeparator.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
+		ViewModeSegment.Visibility = windowsStyle ? Visibility.Collapsed : Visibility.Visible;
+		WindowsViewButton.Visibility = windowsStyle ? Visibility.Visible : Visibility.Collapsed;
 	}
 
 	private void MoreCommandsFlyout_Opening(object sender, object e)
@@ -5479,6 +5550,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private void Pane_DragOver(object sender, DragEventArgs e)
 	{
+		if (GetBrowserForPane(sender) is { IsComputerPage: true }) { e.AcceptedOperation = DataPackageOperation.None; e.Handled = true; return; }
 		CancelSpringLoad();
 		if (!e.DataView.Contains(StandardDataFormats.StorageItems) ||
 			fileTransferCancellation is not null ||
@@ -5537,6 +5609,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		DirectoryBrowserViewModel targetBrowser,
 		string destinationDirectory)
 	{
+		if (ComputerLocation.IsComputer(destinationDirectory)) { e.AcceptedOperation = DataPackageOperation.None; e.Handled = true; return; }
 		var deferral = e.GetDeferral();
 		try
 		{
@@ -5850,6 +5923,23 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		MenuFlyout flyout)
 	{
 		DependencyObject? source = e.OriginalSource as DependencyObject;
+		if (!e.Handled)
+		{
+			for (DependencyObject? node = source; node is not null && node != pane; node = VisualTreeHelper.GetParent(node))
+			{
+				if (node is FrameworkElement { DataContext: LocalFileSystemItem } fileElement)
+				{
+					Item_RightTapped(fileElement, e);
+					return;
+				}
+				if (node is FrameworkElement card && card.DataContext is ComputerFolder or ComputerVolume)
+				{
+					if (browser is not null) ActivateBrowser(browser, pane);
+					ShowComputerContextMenu(card, e);
+					return;
+				}
+			}
+		}
 		FrameworkElement detailsHeader = ReferenceEquals(pane, PrimaryPaneBorder)
 			? PrimaryDetailsHeader
 			: SecondaryDetailsHeader;
@@ -6138,7 +6228,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			if (item is MenuFlyoutSubItem { Tag: "New" } newSubItem)
 			{
-				newSubItem.Visibility = isTrash ? Visibility.Collapsed : Visibility.Visible;
+				newSubItem.Visibility = isTrash || browser.IsComputerPage ? Visibility.Collapsed : Visibility.Visible;
 			}
 			if (item is ToggleMenuFlyoutItem { Tag: string option } toggle)
 			{
@@ -6167,14 +6257,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			{
 				command.Visibility = action switch
 				{
-					"Paste" => isTrash ? Visibility.Collapsed : Visibility.Visible,
+					"Paste" or "Terminal" => isTrash || browser.IsComputerPage ? Visibility.Collapsed : Visibility.Visible,
 					"EmptyTrash" => isTrash ? Visibility.Visible : Visibility.Collapsed,
 					_ => Visibility.Visible,
 				};
 				command.IsEnabled = action switch
 				{
 					"NewFolder" or "NewTextFile" or "Paste" or "Terminal" or "Refresh" => isIdle,
-					"EmptyTrash" => isIdle && browser.Items.Count > 0,
+					"EmptyTrash" => isIdle && !((App)Application.Current).IsEmptyingTrash,
 					_ => command.IsEnabled,
 				};
 			}
@@ -6234,6 +6324,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void TerminalButton_Click(object sender, RoutedEventArgs e)
 	{
+		if (Browser is { IsComputerPage: true }) return;
 		if (Browser is null)
 		{
 			return;
@@ -6866,6 +6957,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void NewButton_Click(object sender, RoutedEventArgs e)
 	{
+		if (Browser is { IsComputerPage: true }) return;
 		if (Browser is not DirectoryBrowserViewModel targetBrowser)
 		{
 			return;
@@ -7434,70 +7526,57 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		}
 	}
 
-	private async void EmptyTrashButton_Click(object sender, RoutedEventArgs e)
+	private async void EmptyTrashButton_Click(object sender, RoutedEventArgs e) => await EmptyTrashCoreAsync();
+
+	private async Task EmptyTrashCoreAsync()
 	{
-		if (Browser is not DirectoryBrowserViewModel browser || !IsTrashPath(browser.CurrentPath) || browser.Items.Count is 0)
-		{
-			return;
-		}
-
-		await EmptyTrashCoreAsync(browser.Items.Select(static item => item.Path).ToArray());
-	}
-
-	private async Task EmptyTrashCoreAsync(IReadOnlyList<string> paths)
-	{
-		if (paths.Count is 0)
-		{
-			return;
-		}
-
-		// The dialog count should match what the user sees in the Trash view, which hides
-		// dotfiles like .DS_Store; deletion below still removes every entry including hidden ones.
-		int visibleCount = paths.Count(static path => !Path.GetFileName(path).StartsWith('.'));
-		var dialog = new ContentDialog
-		{
-			Title = GetResource("EmptyTrashDialogTitle"),
-			Content = string.Format(GetResource("EmptyTrashDialogMessageFormat"), visibleCount is 0 ? paths.Count : visibleCount),
-			PrimaryButtonText = GetResource("EmptyTrashButtonText"),
-			CloseButtonText = GetResource("CancelButtonText"),
-			DefaultButton = ContentDialogButton.Close,
-			XamlRoot = XamlRoot,
-		};
-		if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
-		{
-			return;
-		}
-
+		App app = (App)Application.Current;
+		if (app.IsEmptyingTrash || fileTransferCancellation is not null) return;
+		app.IsEmptyingTrash = true;
 		try
 		{
-			await FileOperationService.DeletePermanentlyAsync(paths.ToArray());
-			if (Browser is DirectoryBrowserViewModel browser)
+			var dialog = new ContentDialog
 			{
-				browser.StatusText = GetResource("EmptyTrashCompletedMessage");
-			}
+				Title = GetResource("EmptyTrashDialogTitle"),
+				Content = GetResource("EmptyTrashSystemMessage"),
+				PrimaryButtonText = GetResource("EmptyTrashButtonText"),
+				CloseButtonText = GetResource("CancelButtonText"),
+				DefaultButton = ContentDialogButton.Close,
+				XamlRoot = XamlRoot,
+			};
+			if (await dialog.ShowAsync() is not ContentDialogResult.Primary) return;
+			TrashProgressBanner.Visibility = Visibility.Visible;
+			TrashProgressRing.IsActive = true;
+			bool completed = await WorkspaceService.EmptyTrashAsync();
+			await app.RefreshTrashWindowsAsync();
+			if (Browser is { } browser)
+				browser.StatusText = GetResource(completed ? "EmptyTrashCompletedMessage" : "EmptyTrashCanceledMessage");
 		}
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 		{
-			await ShowErrorAsync(string.IsNullOrWhiteSpace(ex.Message) ? GetResource("EmptyTrashErrorMessage") : ex.Message);
+			await app.RefreshTrashWindowsAsync();
+			await ShowErrorAsync(GetResource("EmptyTrashErrorMessage") + "\n\n" + ex.Message);
 		}
 		finally
 		{
-			await RefreshTrashBrowsersAsync();
+			TrashProgressRing.IsActive = false;
+			TrashProgressBanner.Visibility = Visibility.Collapsed;
+			app.IsEmptyingTrash = false;
 		}
 	}
 
-	private async Task RefreshTrashBrowsersAsync()
+	internal async Task RefreshTrashBrowsersAsync()
 	{
-		var refreshes = new List<Task>(2);
-		if (ViewModel.ActiveTab?.Browser is DirectoryBrowserViewModel primary && IsTrashPath(primary.CurrentPath))
+		var browsers = ViewModel.Tabs.ToArray().SelectMany(tab => tab.SecondaryBrowser is { } secondary ? new[] { tab.Browser, secondary } : new[] { tab.Browser });
+		await Task.WhenAll(browsers.Where(browser => IsTrashPath(browser.CurrentPath)).Select(async browser =>
 		{
-			refreshes.Add(primary.RefreshAsync());
-		}
-		if (ViewModel.ActiveTab?.SecondaryBrowser is DirectoryBrowserViewModel secondary && IsTrashPath(secondary.CurrentPath))
-		{
-			refreshes.Add(secondary.RefreshAsync());
-		}
-		await Task.WhenAll(refreshes);
+			try { await browser.RefreshAsync(); }
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
+			{
+				// 刷新失败不覆盖 Finder 已完成或取消的操作结果。
+				Console.Error.WriteLine($"FILES_MACOS_TRASH_REFRESH_ERROR {ex.Message}");
+			}
+		}));
 	}
 
 	// Finder's Cmd-E ejects the selected volume, or the volume of the current folder.
@@ -7693,6 +7772,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void NewTextFileButton_Click(object sender, RoutedEventArgs e)
 	{
+		if (Browser is { IsComputerPage: true }) return;
 		if (Browser is not DirectoryBrowserViewModel targetBrowser)
 		{
 			return;
@@ -7761,6 +7841,12 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private async void SettingsButton_Click(object sender, RoutedEventArgs e)
 	{
+		var stylePicker = new ComboBox
+		{
+			ItemsSource = new[] { "macOS", "Windows 11", "Light" },
+			SelectedIndex = (int)currentSettings.VisualStyle,
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+		};
 		var themePicker = new ComboBox
 		{
 			ItemsSource = new[]
@@ -8031,22 +8117,32 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			contextMenuActions = ContextMenuActionSetting.CreateDefaults().ToList();
 			RenderContextMenuEditor();
 		};
-		double settingsDialogWidth = Math.Clamp((XamlRoot?.Size.Width ?? 800) - 80, 680, 720);
-		var content = new StackPanel
-		{
-			Spacing = 16,
-			Width = Math.Max(616, settingsDialogWidth - 64),
-		};
+		double settingsDialogWidth = Math.Clamp((XamlRoot?.Size.Width ?? 960) - 48, 520, 940);
+		var categories = new SettingsCategoryView { Width = settingsDialogWidth - 64, Height = Math.Clamp((XamlRoot?.Size.Height ?? 720) - 210, 260, 550) };
+		var generalPage = categories.AddCategory(GetResource("SettingsGeneralCategory"));
+		var appearancePage = categories.AddCategory(GetResource("SettingsAppearanceCategory"));
+		var displayPage = categories.AddCategory(GetResource("SettingsDisplayCategory"));
+		var sidebarPage = categories.AddCategory(GetResource("SettingsSidebarCategory"));
+		var menuPage = categories.AddCategory(GetResource("SettingsContextMenuCategory"));
+		var accessPage = categories.AddCategory(GetResource("SettingsAccessCategory"));
+		var content = appearancePage;
+		content.Children.Add(new TextBlock { Text = GetResource("VisualStyleSettingLabel"), FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+		content.Children.Add(stylePicker);
+		content.Children.Add(new TextBlock { Text = GetResource("VisualStyleSettingDescription"), TextWrapping = TextWrapping.Wrap, Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] });
 		content.Children.Add(new TextBlock { Text = GetResource("ThemeSettingLabel") });
 		content.Children.Add(themePicker);
+		content = generalPage;
 		content.Children.Add(new TextBlock { Text = GetResource("LanguageSettingLabel") });
 		content.Children.Add(languagePicker);
 		content.Children.Add(new TextBlock { Text = GetResource("TerminalSettingLabel") });
 		content.Children.Add(terminalPicker);
+		content = displayPage;
 		content.Children.Add(showHiddenToggle);
 		content.Children.Add(defaultGridToggle);
+		content = generalPage;
 		content.Children.Add(reverseTabScrollToggle);
 		content.Children.Add(confirmMoveToTrashToggle);
+		content = menuPage;
 		content.Children.Add(new TextBlock { Text = GetResource("ContextMenuCustomizationSettingLabel") });
 		content.Children.Add(new TextBlock
 		{
@@ -8064,6 +8160,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			IsChecked = !hiddenSidebarLocations.Contains(location.Id),
 			Tag = location.Id,
 		}).ToArray();
+		content = sidebarPage;
 		content.Children.Add(new TextBlock { Text = GetResource("SidebarLocationsSettingLabel") });
 		var defaultLocationList = new StackPanel { Spacing = 4 };
 		foreach (CheckBox locationToggle in defaultLocationToggles)
@@ -8112,6 +8209,8 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		content.Children.Add(new TextBlock { Text = GetResource("CustomSidebarLocationsSettingLabel") });
 		content.Children.Add(customLocationList);
 		content.Children.Add(addLocationButton);
+		content = accessPage;
+		content.Children.Add(new TextBlock { Text = GetResource("FolderAccessSettingDescription"), TextWrapping = TextWrapping.Wrap });
 		FolderAccessGrant[] existingGrants = currentSettings.AccessGrants ?? [];
 		CheckBox[] grantToggles = existingGrants.Select(grant => new CheckBox
 		{
@@ -8147,22 +8246,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			});
 		}
 
-		var settingsScrollViewer = new ScrollViewer
-		{
-			MaxHeight = 560,
-			HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-			HorizontalScrollMode = ScrollMode.Disabled,
-			VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-			VerticalScrollMode = ScrollMode.Enabled,
-			Content = content,
-		};
-		RegisterContentWheelHandler(settingsScrollViewer);
+		categories.FinishLayout();
+		RegisterContentWheelHandler(categories.ScrollContainer);
 		var dialog = new ContentDialog
 		{
 			Width = settingsDialogWidth,
 			MinWidth = settingsDialogWidth,
 			Title = GetResource("SettingsDialogTitle"),
-			Content = settingsScrollViewer,
+			Content = categories,
 			PrimaryButtonText = GetResource("SaveButtonText"),
 			CloseButtonText = GetResource("CancelButtonText"),
 			DefaultButton = ContentDialogButton.Primary,
@@ -8183,6 +8274,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		var newSettings = currentSettings with
 		{
 			Theme = (AppThemePreference)Math.Clamp(themePicker.SelectedIndex, 0, 2),
+			VisualStyle = (AppVisualStyle)Math.Clamp(stylePicker.SelectedIndex, 0, 2),
 			Language = (AppLanguagePreference)Math.Clamp(languagePicker.SelectedIndex, 0, 2),
 			Terminal = (TerminalPreference)Math.Clamp(terminalPicker.SelectedIndex, 0, 5),
 			ShowHiddenFiles = showHiddenToggle.IsOn,
@@ -8218,18 +8310,10 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 				AccessGrantService.Revoke(revokedGrant.Path);
 			}
 			ViewModel.ApplySettings(newSettings);
-			ApplyTheme(newSettings.Theme);
+			((App)Application.Current).ApplyAppearance(newSettings);
 			if (newSettings.Language != previousLanguage)
 			{
-				AppLanguageManager.Apply(newSettings.Language);
-				var restartDialog = new ContentDialog
-				{
-					Title = GetResource("LanguageRestartTitle"),
-					Content = GetResource("LanguageRestartMessage"),
-					CloseButtonText = GetResource("CloseButtonText"),
-					XamlRoot = XamlRoot,
-				};
-				await restartDialog.ShowAsync();
+				((App)Application.Current).ApplyLanguage(newSettings.Language);
 			}
 		}
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -8905,11 +8989,14 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		{
 			e.Handled = true;
 			ShowTabPathFlyout(tabItem, browser, e.GetCurrentPoint(tabItem).Position);
+			return;
 		}
+		BeginTabPointerDrag(tabItem, tab, e);
 	}
 
 	private void ShowTabPathFlyout(FrameworkElement target, DirectoryBrowserViewModel browser, Windows.Foundation.Point position)
 	{
+		if (browser.IsComputerPage) return;
 		var flyout = new MenuFlyout();
 		string? path = Path.TrimEndingDirectorySeparator(browser.CurrentPath);
 		while (!string.IsNullOrEmpty(path))
@@ -9112,26 +9199,6 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		if (fileTransferCancellation is null && args.Item is BrowserTabViewModel tab)
 		{
 			ViewModel.CloseTab(tab);
-		}
-	}
-
-	private void Tabs_TabDragCompleted(TabView sender, TabViewTabDragCompletedEventArgs args)
-	{
-		if (args.Item is BrowserTabViewModel tab)
-		{
-			int targetIndex = sender.TabItems.IndexOf(tab);
-			if (targetIndex >= 0)
-			{
-				ViewModel.MoveTab(tab, targetIndex);
-			}
-		}
-	}
-
-	private async void Tabs_TabDroppedOutside(TabView sender, TabViewTabDroppedOutsideEventArgs args)
-	{
-		if (args.Item is BrowserTabViewModel tab && ViewModel.Tabs.Count > 1)
-		{
-			await MoveTabToNewWindowAsync(tab);
 		}
 	}
 
@@ -9731,6 +9798,11 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 			: ViewModel.ActiveTab?.Browser;
 		if (browser is not null)
 		{
+			if (browser.IsComputerPage)
+			{
+				ActivateBrowser(browser, ReferenceEquals(browser, ViewModel.ActiveTab?.SecondaryBrowser) ? SecondaryComputerPage : PrimaryComputerPage);
+				return;
+			}
 			FrameworkElement control = GetVisibleItemsControl(browser);
 			ActivateBrowser(browser, control);
 			control.Focus(FocusState.Pointer);
@@ -10775,6 +10847,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 		return latest with
 		{
 			Theme = requested.Theme != baseline.Theme ? requested.Theme : latest.Theme,
+			VisualStyle = requested.VisualStyle != baseline.VisualStyle ? requested.VisualStyle : latest.VisualStyle,
 			ShowHiddenFiles = requested.ShowHiddenFiles != baseline.ShowHiddenFiles ? requested.ShowHiddenFiles : latest.ShowHiddenFiles,
 			UseGridViewForNewTabs = requested.UseGridViewForNewTabs != baseline.UseGridViewForNewTabs ? requested.UseGridViewForNewTabs : latest.UseGridViewForNewTabs,
 			ReverseTabScrollDirection = requested.ReverseTabScrollDirection != baseline.ReverseTabScrollDirection ? requested.ReverseTabScrollDirection : latest.ReverseTabScrollDirection,
@@ -10821,7 +10894,7 @@ public sealed partial class MainPage : Page, IMacOSMenuCommandTarget
 
 	private string GetResource(string name)
 	{
-		string? value = resourceLoader.GetString(name);
+		string? value = LiveLocalization.GetString(name);
 		return string.IsNullOrWhiteSpace(value) ? name : value;
 	}
 

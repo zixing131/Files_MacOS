@@ -160,6 +160,8 @@ public sealed class BrowserTabViewModel : ObservableObject, IDisposable
 		return true;
 	}
 
+	internal void RefreshLanguage() => Header = pathDisplayNameResolver(Browser.CurrentPath);
+
 	private void Browser_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 	{
 		if (ReferenceEquals(sender, Browser) && e.PropertyName is nameof(DirectoryBrowserViewModel.CurrentPath))

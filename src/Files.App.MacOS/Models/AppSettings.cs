@@ -1,5 +1,12 @@
 namespace Files.App.MacOS.Models;
 
+public enum AppVisualStyle
+{
+	MacOS,
+	Windows11,
+	Light,
+}
+
 public enum AppThemePreference
 {
 	System,
@@ -93,9 +100,10 @@ public sealed record AppSettings(
 	ContextMenuActionSetting[]? ContextMenuActions = null,
 	int GridIconSizeLevel = 1,
 	bool ShowStatusBar = true,
-	int SchemaVersion = AppSettings.CurrentSchemaVersion)
+	int SchemaVersion = AppSettings.CurrentSchemaVersion,
+	AppVisualStyle VisualStyle = AppVisualStyle.MacOS)
 {
-	public const int CurrentSchemaVersion = 18;
+	public const int CurrentSchemaVersion = 19;
 }
 
 public sealed record DetailColumnWidthSetting(string Column, double Width);

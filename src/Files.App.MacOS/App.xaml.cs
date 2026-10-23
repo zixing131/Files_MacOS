@@ -37,6 +37,13 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		RefreshSystemAccentColor();
 	}
 
+	internal bool IsEmptyingTrash { get; set; }
+
+	internal async Task RefreshTrashWindowsAsync()
+	{
+		await Task.WhenAll(windows.Values.ToArray().Select(page => page.RefreshTrashBrowsersAsync()));
+	}
+
 	internal bool IsSymbolFontAvailable { get; }
 
 	protected Window? MainWindow { get; private set; }
@@ -204,14 +211,66 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		window?.Close();
 	}
 
-	internal async Task<bool> MoveTabToNewWindowAsync(MainPage sourcePage, BrowserTabViewModel tab)
+	internal MainPage? FindTabDropTarget(MainPage sourcePage, out Windows.Foundation.Point point)
+	{
+		point = default;
+		Window? sourceWindow = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, sourcePage)).Key;
+		if (sourceWindow is null || !nativeWindowIdentifiers.TryGetValue(sourceWindow, out string? identifier)) return null;
+		nint handle = MacOSNativeMethods.GetTabDropTarget(identifier, out double x, out double y);
+		point = new(x, y);
+		Window? targetWindow = nativeWindowHandles.FirstOrDefault(pair => pair.Value == handle && handle != 0).Key;
+		return targetWindow is not null && windows.TryGetValue(targetWindow, out MainPage? page) ? page : null;
+	}
+
+	internal async Task<bool> MoveTabToWindowAsync(MainPage source, MainPage destination, BrowserTabViewModel tab, int index)
+	{
+		if (ReferenceEquals(source, destination) || !windows.ContainsValue(destination) ||
+			!source.CanTransferTabs || !destination.CanTransferTabs || !source.TryCaptureTabState(tab, out BrowserTabState state)) return false;
+		// 目标完整恢复后才移除源标签；恢复失败时原窗口保持原样。
+		var received = await destination.ViewModel.ReceiveTransferredTabAsync(state, index);
+		if (!windows.ContainsValue(source) || !windows.ContainsValue(destination) || !source.ViewModel.Tabs.Contains(tab))
+		{
+			destination.ViewModel.DetachTabForTransfer(received);
+			return false;
+		}
+		if (source.ViewModel.Tabs.Count == 1) CloseWindow(source);
+		else if (!source.DetachTabForTransfer(tab))
+		{
+			destination.ViewModel.DetachTabForTransfer(received);
+			return false;
+		}
+		else source.ScheduleSessionSave();
+		destination.ScheduleSessionSave();
+		windows.First(pair => ReferenceEquals(pair.Value, destination)).Key.Activate();
+		return true;
+	}
+
+	internal void PositionWindowAtPointer(MainPage page)
+	{
+		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
+		if (window is null || GetWindowPlacement(window) is not { } placement) return;
+		MacOSNativeMethods.GetPointerPosition(out double x, out double y);
+		ApplyWindowPlacement(page, placement with { X = x - 150, Y = y - placement.Height + 20, IsMaximized = false });
+	}
+
+	internal async Task<bool> MoveTabToNewWindowAsync(MainPage sourcePage, BrowserTabViewModel tab, bool positionAtPointer = false)
 	{
 		if (!sourcePage.TryCaptureTabState(tab, out BrowserTabState state))
 		{
 			return false;
 		}
 
-		Window window = CreateWindow(initialWorkspace: new([state]));
+		WindowPlacementState? dropPlacement = null;
+		if (positionAtPointer)
+		{
+			Window? sourceWindow = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, sourcePage)).Key;
+			if (sourceWindow is not null && GetWindowPlacement(sourceWindow) is { } placement)
+			{
+				MacOSNativeMethods.GetPointerPosition(out double x, out double y);
+				dropPlacement = placement with { X = x - 150, Y = y - placement.Height + 20, IsMaximized = false };
+			}
+		}
+		Window window = CreateWindow(initialWorkspace: new([state]), initialPlacement: dropPlacement);
 		MainPage destinationPage = windows[window];
 		try
 		{
@@ -331,8 +390,31 @@ public partial class App : Application, IMacOSMenuCommandTarget
 		}
 	}
 
+	internal void ApplyLanguage(AppLanguagePreference preference)
+	{
+		AppLanguageManager.Apply(preference);
+		foreach (MainPage page in windows.Values.ToArray()) page.RefreshLanguage(preference);
+		if (activePage is { } active)
+		{
+			mainMenuService.Install(this, Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride == "zh-Hans", active.DispatcherQueue);
+			mainMenuService.UpdateValidationSnapshot(this);
+		}
+	}
+
+	internal void ApplyAppearance(AppSettings settings)
+	{
+		AppearanceService.Apply(settings.VisualStyle);
+		if (settings.VisualStyle == AppVisualStyle.MacOS)
+		{
+			systemAccentColorArgb = 0;
+			RefreshSystemAccentColor();
+		}
+		foreach (MainPage page in windows.Values.ToArray()) page.ApplyAppearance(settings.Theme, settings.VisualStyle);
+	}
+
 	private void RefreshSystemAccentColor()
 	{
+		if (AppearanceService.CurrentStyle != AppVisualStyle.MacOS) return;
 		uint argb = MacOSNativeMethods.GetAccentColorArgb();
 		if (argb is 0 || argb == systemAccentColorArgb)
 		{

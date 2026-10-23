@@ -93,6 +93,10 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	public event EventHandler<ItemsReplacedEventArgs>? ItemsReplaced;
 
 	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(IsComputerPage))]
+	[NotifyPropertyChangedFor(nameof(ShowGridView))]
+	[NotifyPropertyChangedFor(nameof(ShowDetailsView))]
+	[NotifyPropertyChangedFor(nameof(ShowColumnView))]
 	public partial string CurrentPath { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
 	[ObservableProperty]
@@ -113,11 +117,46 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 	[NotifyPropertyChangedFor(nameof(ShowColumnView))]
 	public partial bool IsColumnView { get; set; }
 
-	public bool ShowGridView => IsGridView && !IsColumnView;
+	public bool IsComputerPage => ComputerLocation.IsComputer(CurrentPath);
+	public bool ShowGridView => !IsComputerPage && IsGridView && !IsColumnView;
 
-	public bool ShowDetailsView => !IsGridView && !IsColumnView;
+	public bool ShowDetailsView => !IsComputerPage && !IsGridView && !IsColumnView;
 
-	public bool ShowColumnView => IsColumnView;
+	public bool ShowColumnView => !IsComputerPage && IsColumnView;
+
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(ComputerDevicesChevron))]
+	public partial bool ComputerDevicesExpanded { get; set; } = true;
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(ComputerNetworkChevron))]
+	public partial bool ComputerNetworkExpanded { get; set; } = true;
+	[ObservableProperty]
+	[NotifyPropertyChangedFor(nameof(ComputerFavoritesChevron))]
+	public partial bool ComputerFavoritesExpanded { get; set; } = true;
+	public string ComputerDevicesChevron => ComputerDevicesExpanded ? "⌄" : "›";
+	public string ComputerNetworkChevron => ComputerNetworkExpanded ? "⌄" : "›";
+	public string ComputerFavoritesChevron => ComputerFavoritesExpanded ? "⌄" : "›";
+	private IReadOnlyList<ComputerFolder> computerFavorites = [];
+	public IEnumerable<ComputerFolder> ComputerFavorites => computerFavorites.Where(folder => string.IsNullOrWhiteSpace(SearchText) || folder.Name.Contains(SearchText.Trim(), StringComparison.CurrentCultureIgnoreCase));
+	public void SetComputerFavorites(IEnumerable<ComputerFolder> folders)
+	{
+		computerFavorites = folders.DistinctBy(folder => folder.Path).ToArray();
+		OnPropertyChanged(nameof(ComputerFavorites));
+	}
+	private IReadOnlyList<ComputerVolume> volumes = [];
+	public IEnumerable<ComputerVolume> LocalVolumes => FilterVolumes(false);
+	public IEnumerable<ComputerVolume> NetworkVolumes => FilterVolumes(true);
+	public bool HasNetworkVolumes => NetworkVolumes.Any();
+	public bool HasNoVolumes => !LocalVolumes.Any() && !NetworkVolumes.Any() && !ComputerFavorites.Any();
+	private IEnumerable<ComputerVolume> FilterVolumes(bool network) => volumes.Where(volume => volume.IsNetwork == network && (string.IsNullOrWhiteSpace(SearchText) || volume.Name.Contains(SearchText.Trim(), StringComparison.CurrentCultureIgnoreCase)));
+	private void NotifyVolumesChanged()
+	{
+		OnPropertyChanged(nameof(ComputerFavorites));
+		OnPropertyChanged(nameof(LocalVolumes));
+		OnPropertyChanged(nameof(NetworkVolumes));
+		OnPropertyChanged(nameof(HasNetworkVolumes));
+		OnPropertyChanged(nameof(HasNoVolumes));
+	}
 
 	[ObservableProperty]
 	public partial bool IsFileOperationRunning { get; set; }
@@ -146,9 +185,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	public IReadOnlyList<string> ForwardHistory => forwardStack.ToArray();
 
-	public bool IsEmptyFolder => DirectoryEmptyState.IsEmptyFolder(IsLoading, Items.Count, SearchText);
+	public bool IsEmptyFolder => !IsComputerPage && DirectoryEmptyState.IsEmptyFolder(IsLoading, Items.Count, SearchText);
 
-	public bool HasNoSearchResults => DirectoryEmptyState.HasNoSearchResults(IsLoading, Items.Count, SearchText);
+	public bool HasNoSearchResults => !IsComputerPage && DirectoryEmptyState.HasNoSearchResults(IsLoading, Items.Count, SearchText);
 
 	public Task NavigateHomeAsync()
 	{
@@ -171,7 +210,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 		string fullPath;
 		try
 		{
-			fullPath = Path.GetFullPath(path.Trim());
+			fullPath = ComputerLocation.IsComputer(path) ? ComputerLocation.Path : Path.GetFullPath(path.Trim());
 		}
 		catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
 		{
@@ -179,7 +218,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			return;
 		}
 
-		if (!Directory.Exists(fullPath) && !IsUserTrashPath(fullPath))
+		if (!ComputerLocation.IsComputer(fullPath) && !Directory.Exists(fullPath) && !IsUserTrashPath(fullPath))
 		{
 			StatusText = string.Format(GetResource("FolderNotFoundFormat"), fullPath);
 			return;
@@ -203,7 +242,10 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 		try
 		{
-			IReadOnlyList<LocalFileSystemItem> items = await directoryService.GetItemsAsync(fullPath, cancellation.Token);
+			bool computer = ComputerLocation.IsComputer(fullPath);
+			IReadOnlyList<ComputerVolume> loadedVolumes = computer
+				? await Task.Run(() => ComputerVolumeService.GetVolumes(GetResource("SystemVolumeName"), cancellation.Token, ShowHiddenFiles), cancellation.Token) : [];
+			IReadOnlyList<LocalFileSystemItem> items = computer ? [] : await directoryService.GetItemsAsync(fullPath, cancellation.Token);
 			if (isDisposed || cancellation.IsCancellationRequested)
 			{
 				return;
@@ -216,7 +258,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 			expansionCancellation?.Dispose();
 			expansionCancellation = null;
 			// Set the path before rebuilding Items so tree pruning sees the new root.
+			volumes = loadedVolumes;
 			CurrentPath = fullPath;
+			NotifyVolumesChanged();
 			StartThumbnailLoading();
 			ReplaceItems(items);
 			StartMetadataEnrichment(Items);
@@ -229,9 +273,9 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 				OnPropertyChanged(nameof(CanGoForward));
 			}
 
-			directoryChangeMonitor.Watch(fullPath);
+			directoryChangeMonitor.Watch(computer ? "/Volumes" : fullPath);
 			SearchText = string.Empty;
-			itemCountStatus = string.Format(GetResource("ItemCountFormat"), topLevelItemCount);
+			itemCountStatus = string.Format(GetResource("ItemCountFormat"), computer ? volumes.Count + ComputerFavorites.Count() : topLevelItemCount);
 			StatusText = itemCountStatus;
 		}
 		catch (OperationCanceledException)
@@ -322,8 +366,17 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	public Task GoUpAsync()
 	{
+		if (IsComputerPage) return Task.CompletedTask;
 		var parent = Directory.GetParent(CurrentPath);
 		return parent is null ? Task.CompletedTask : NavigateAsync(parent.FullName);
+	}
+
+	internal void RefreshLanguage()
+	{
+		itemCountStatus = string.Format(GetResource("ItemCountFormat"), IsComputerPage ? LocalVolumes.Count() + NetworkVolumes.Count() + ComputerFavorites.Count() : topLevelItemCount);
+		if (!IsLoading) UpdateSelection(Items.Where(item => rememberedSelectedPaths.Contains(item.Path, StringComparer.Ordinal)).ToArray());
+		else StatusText = GetResource(isShowingSearchResults ? "SearchingStatus" : "LoadingStatus");
+		NotifyVolumesChanged();
 	}
 
 	public Task RefreshAsync()
@@ -357,6 +410,13 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	public async Task SearchAsync(string query)
 	{
+		if (IsComputerPage)
+		{
+			SearchText = query;
+			NotifyVolumesChanged();
+			StatusText = string.Format(GetResource("ItemCountFormat"), LocalVolumes.Count() + NetworkVolumes.Count() + ComputerFavorites.Count());
+			return;
+		}
 		if (isDisposed)
 		{
 			return;
@@ -698,6 +758,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	partial void OnShowHiddenFilesChanged(bool value)
 	{
+		if (IsComputerPage) { _ = RefreshAsync(); return; }
 		ApplyView();
 		UpdateEmptyState();
 		itemCountStatus = string.Format(GetResource("ItemCountFormat"), topLevelItemCount);
@@ -711,6 +772,7 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	partial void OnSearchTextChanged(string value)
 	{
+		if (IsComputerPage) NotifyVolumesChanged();
 		UpdateEmptyState();
 	}
 
@@ -1020,6 +1082,6 @@ public sealed partial class DirectoryBrowserViewModel : ObservableObject, IDispo
 
 	private string GetResource(string name)
 	{
-		return resources.GetString(name) ?? name;
+		return LiveLocalization.GetString(name) ?? name;
 	}
 }
