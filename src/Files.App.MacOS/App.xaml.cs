@@ -168,7 +168,8 @@ public partial class App : Application, IMacOSMenuCommandTarget
 	internal void ApplyWindowPlacement(MainPage page, WindowPlacementState? placement)
 	{
 		Window? window = windows.FirstOrDefault(pair => ReferenceEquals(pair.Value, page)).Key;
-		if (window is null)
+		// 浮动窗口的位置由拖拽独占，异步加载不能再写回创建时的位置。
+		if (window is null || transientDragWindows.Contains(window))
 		{
 			return;
 		}

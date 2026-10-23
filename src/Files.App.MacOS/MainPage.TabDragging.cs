@@ -12,6 +12,10 @@ namespace Files.App.MacOS;
 public sealed partial class MainPage
 {
 	private static MainPage? activeTabDragOwner;
+	private static void TraceTabDrag(string message)
+	{
+		if (Environment.GetEnvironmentVariable("FILES_MACOS_POINTER_DIAGNOSTICS") == "1") Console.WriteLine($"[tab-drag] {message}");
+	}
 	private BrowserTabViewModel? pointerDragTab;
 	private TabViewItem? pointerDragContainer;
 	private Pointer? tabDragPointer;
@@ -66,6 +70,7 @@ public sealed partial class MainPage
 		MacOSNativeMethods.GetPointerPosition(out double x, out double y);
 		tabDragScreenOrigin = new(x, y);
 		activeTabDragOwner = this;
+		TraceTabDrag($"begin tab={tab.Header} screen={tabDragScreenOrigin} local={tabDragOrigin}");
 		MacOSNativeMethods.BeginTabTracking();
 		tabDragTimer ??= DispatcherQueue.CreateTimer();
 		tabDragTimer.Interval = TimeSpan.FromMilliseconds(16);
@@ -92,6 +97,7 @@ public sealed partial class MainPage
 			if (state == 0) { CancelTabPointerDrag(); return; }
 			if (Math.Abs(x - tabDragScreenOrigin.X) < 6 && Math.Abs(y - tabDragScreenOrigin.Y) < 6) return;
 			tabDragStarted = true;
+			TraceTabDrag($"start screen={screen}");
 			pointerDragContainer!.Opacity = 0.55;
 			CloseActiveContextMenu();
 		}
@@ -129,6 +135,7 @@ public sealed partial class MainPage
 			floatingTabPage = ViewModel.Tabs.Count == 1 ? this : app.CreateTabDragWindow(this, pointerDragTab!,
 				placement with { X = screen.X - floatingTabOffsetX, Y = screen.Y - placement.Height + tabDragOrigin.Y, IsMaximized = false });
 			if (floatingTabPage is null) return;
+			TraceTabDrag($"floating created sourceTabs={ViewModel.Tabs.Count} screen={screen}");
 		}
 		app.MoveDragWindow(floatingTabPage, screen, floatingTabOffsetX, tabDragOrigin.Y);
 		var candidate = app.FindTabDropTarget(floatingTabPage, out Point targetPoint);
@@ -176,6 +183,7 @@ public sealed partial class MainPage
 		var targetPage = externalTabDropPage;
 		int index = targetPage?.tabDropIndex ?? tabDropIndex;
 		double offsetX = floatingTabOffsetX, offsetY = tabDragOrigin.Y;
+		TraceTabDrag($"release screen={releasePoint} index={index} destination={(targetPage is null ? "none" : ReferenceEquals(targetPage, this) ? "source" : "other")} floating={floating is not null}");
 		isCommittingTabDrag = true;
 		ResetTabDragState();
 		var app = (App)Application.Current;
@@ -208,6 +216,7 @@ public sealed partial class MainPage
 
 	private void CancelTabPointerDrag()
 	{
+		if (pointerDragTab is not null) TraceTabDrag($"cancel started={tabDragStarted} floating={floatingTabPage is not null}");
 		var floating = floatingTabPage;
 		var placement = tabDragOriginalPlacement;
 		ResetTabDragState();

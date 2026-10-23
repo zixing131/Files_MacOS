@@ -109,7 +109,7 @@ public sealed partial class MainPage
 		var originalMode = GetViewMode(browser);
 		var placement = app.GetPagePlacement(this);
 		var fixture = Directory.CreateTempSubdirectory("files-regression-");
-		bool views = true, selection = true, hoverReset = true, layout = true, menus = true, dragRollback = false, dragCommit = false, dragMerge = false;
+		bool views = true, selection = true, hoverReset = true, layout = true, menus = true, dragRollback = false, dragCommit = false, dragMerge = false, dragPositionStable = false;
 		MainPage? floating = null;
 		try
 		{
@@ -187,7 +187,14 @@ public sealed partial class MainPage
 				floating = app.CreateTabDragWindow(this, transferTab, placement);
 				if (floating is not null)
 				{
+					double expectedX = placement.X + 80, expectedY = placement.Y + 40;
+					app.MoveDragWindow(floating, new(expectedX + 100, expectedY + placement.Height - 24), 100, 24);
 					await floating.InitializationTask;
+					// 模拟拖动中异步设置恢复晚到，必须保留刚刚跟随到的位置。
+					app.ApplyWindowPlacement(floating, placement);
+					await Task.Delay(80);
+					var moved = app.GetPagePlacement(floating);
+					dragPositionStable = moved is not null && Math.Abs(moved.X - expectedX) < 3 && Math.Abs(moved.Y - expectedY) < 3;
 					int before = app.CaptureWindowSession(this).AdditionalWindowWorkspaces.Length;
 					app.CloseWindow(floating); floating = null;
 					dragRollback = ViewModel.Tabs.Contains(transferTab) && ViewModel.Tabs.Count == count && app.CaptureWindowSession(this).AdditionalWindowWorkspaces.Length == before;
@@ -202,7 +209,7 @@ public sealed partial class MainPage
 			}
 			foreach (var tab in ViewModel.Tabs.Where(tab => tab != originalTab).ToArray())
 				if (tab.Browser.CurrentPath == fixture.FullName) ViewModel.CloseTab(tab);
-			Console.WriteLine($"FILES_MACOS_REGRESSION style={currentSettings.VisualStyle} theme={currentSettings.Theme} computer_views={views} computer_selection_clear={selection} recycled_hover_reset={hoverReset} narrow_split_layout={layout} menu_navigation={menus} drag_cancel_transaction={dragRollback} drag_detach_transaction={dragCommit} drag_merge_transaction={dragMerge}");
+			Console.WriteLine($"FILES_MACOS_REGRESSION style={currentSettings.VisualStyle} theme={currentSettings.Theme} computer_views={views} computer_selection_clear={selection} recycled_hover_reset={hoverReset} narrow_split_layout={layout} menu_navigation={menus} drag_cancel_transaction={dragRollback} drag_detach_transaction={dragCommit} drag_merge_transaction={dragMerge} drag_initialization_position_stable={dragPositionStable}");
 		}
 		finally
 		{
